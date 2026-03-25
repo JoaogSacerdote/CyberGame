@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "author": "João Gabriel De Souza",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": -89.07,
+      "left": 209.12,
+      "rotate": 270,
+      "attrs": { "builder": "esp-idf" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": 85.8,
+      "left": -208.2,
+      "rotate": 90,
+      "attrs": { "color": "green", "xray": "1" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn3",
+      "top": 140.6,
+      "left": -278.4,
+      "attrs": { "color": "green", "xray": "1" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn4",
+      "top": 140.6,
+      "left": -144,
+      "attrs": { "color": "green", "xray": "1" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn5",
+      "top": 201,
+      "left": -208.2,
+      "rotate": 90,
+      "attrs": { "color": "green", "xray": "1" }
+    },
+    {
+      "type": "wokwi-analog-joystick",
+      "id": "joystick1",
+      "top": -59.3,
+      "left": -222.5,
+      "rotate": 270,
+      "attrs": {}
+    },
+    { "type": "wokwi-neopixel", "id": "rgb1", "top": 226.9, "left": -20.2, "attrs": {} },
+    { "type": "wokwi-neopixel", "id": "rgb2", "top": 226.9, "left": 18.2, "attrs": {} },
+    { "type": "wokwi-neopixel", "id": "rgb3", "top": 226.9, "left": 56.6, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "rgb3:DOUT", "rgb2:DIN", "green", [ "h-9.6", "v-10.5" ] ],
+    [ "rgb2:DOUT", "rgb1:DIN", "green", [ "h-9.6", "v-10.5" ] ],
+    [ "rgb1:VSS", "rgb2:VSS", "black", [ "v8.7", "h37.6" ] ],
+    [ "rgb2:VSS", "rgb3:VSS", "black", [ "v8.7", "h37.6" ] ],
+    [ "rgb1:VDD", "rgb2:VDD", "red", [ "h0", "v-9.6", "h38.4" ] ],
+    [ "rgb3:VDD", "rgb2:VDD", "red", [ "h0", "v-9.6", "h-38.4" ] ],
+    [ "btn3:1.r", "btn1:1.r", "black", [ "v0", "h48.2" ] ],
+    [ "btn1:1.r", "btn4:2.l", "black", [ "v29" ] ],
+    [ "btn4:2.l", "btn5:2.l", "black", [ "h-38.4", "v0.2" ] ],
+    [ "btn5:2.l", "btn3:1.r", "black", [ "v-38.4", "h-0.2" ] ],
+    [ "btn4:2.l", "esp:GND.1", "black", [ "v19.4", "h499.2" ] ],
+    [ "rgb3:VSS", "esp:GND.1", "black", [ "v-0.9", "h277.6" ] ],
+    [ "esp:21", "rgb3:DIN", "green", [ "v-9.6", "h-192", "v240" ] ],
+    [ "joystick1:VERT", "esp:1", "green", [ "h230.4", "v-28.8", "h48" ] ],
+    [ "esp:2", "joystick1:HORZ", "green", [ "v-28.8", "h-86.4", "v19.2" ] ],
+    [ "joystick1:VCC", "esp:3V3.1", "red", [ "h230.4", "v76.8", "h38.4" ] ],
+    [ "joystick1:GND", "esp:GND.2", "black", [ "h211.2", "v-19.2", "h57.6" ] ],
+    [ "btn1:2.l", "esp:15", "green", [ "v-9.6", "h287.8", "v38.4", "h115.2" ] ],
+    [ "btn5:1.l", "esp:16", "green", [ "v-9.6", "h19.2", "v19.2", "h364.8" ] ],
+    [ "btn3:2.r", "esp:17", "green", [ "h9.8", "v-115", "h297.6", "v57.6", "h144" ] ],
+    [ "btn4:1.r", "esp:18", "green", [ "v0", "h9.8", "v28.8", "h316.8" ] ]
+  ],
+  "dependencies": {}
+}
