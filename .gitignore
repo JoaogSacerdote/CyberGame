@@ -7,3 +7,11 @@ build_*/
 *.bin 
 .vscode/ 
 .DS_Store 
+
+# Simulation build artifacts
+simulation/lv_port_pc_eclipse/build/
+simulation/lv_port_pc_eclipse/bin/
+
+# LVGL external library (clone via COMPILAR.bat)
+simulation/lv_port_pc_eclipse/lvgl/
+
