@@ -1,4 +1,7 @@
-/**
+#!/usr/bin/env python3
+"""Writes the new cybersec_game.c v1 Real implementation."""
+
+CODE = r"""/**
  * =============================================================================
  * CyberSec: Network Defender — LVGL PC Simulator  v1 Real
  * =============================================================================
@@ -496,13 +499,6 @@ static void create_hud(void)
  * ============================================================ */
 static void build_room1(void)
 {
-    /* Null out child pointers BEFORE deleting, they are auto-freed with g_room_cont */
-    for (int i = 0; i < MAX_EVENTS; i++) {
-        g_events[i].bubble     = NULL;
-        g_events[i].bubble_lbl = NULL;
-    }
-    g_player_head = NULL;
-    g_player_body = NULL;
     if (g_room_cont) { lv_obj_del(g_room_cont); g_room_cont = NULL; }
 
     g_room_cont = lv_obj_create(lv_scr_act());
@@ -669,13 +665,6 @@ static void build_room1(void)
  * ============================================================ */
 static void build_room2(void)
 {
-    /* Null out child pointers BEFORE deleting, they are auto-freed with g_room_cont */
-    for (int i = 0; i < MAX_EVENTS; i++) {
-        g_events[i].bubble     = NULL;
-        g_events[i].bubble_lbl = NULL;
-    }
-    g_player_head = NULL;
-    g_player_body = NULL;
     if (g_room_cont) { lv_obj_del(g_room_cont); g_room_cont = NULL; }
 
     g_room_cont = lv_obj_create(lv_scr_act());
@@ -1488,3 +1477,10 @@ static const char *ev_icon(EventType t)
         default:          return " ";
     }
 }
+"""
+
+path = r'c:\Users\silva\Downloads\AV3-Cyber\simulation\lv_port_pc_eclipse\cybersec_game.c'
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(CODE)
+
+print(f"Written {len(CODE)} chars, {CODE.count(chr(10))} lines")
