@@ -1,23 +1,34 @@
 /**
  * =============================================================================
- * CyberSec: Network Defender — LVGL PC Simulator  v1 Real
+ * CyberSec: Network Defender — LVGL PC Simulator  v2 Sprites
  * =============================================================================
  *
- * TELAS IMPLEMENTADAS:
- *  - Tela Inicial (CYBERSEC / PRESSIONE A PARA INICIAR)
- *  - Tutorial com NPC (8 passos via dialogo com portrait)
- *  - Sala Principal (Recepcao) - layout pixel-art com moveis
- *  - Sala 2 (Escritorio) - acessivel pela porta lateral
- *  - HUD overlay: relogio, barra de integridade, nome da sala, status
- *  - Eventos flutuantes coloridos (verde=?, amarelo=!, vermelho=X)
- *  - Dialog detalhado de vulnerabilidade com detalhes e barra HP
- *  - Game Over / Vitoria
+ * TELAS:
+ *  - Tela Inicial  : imagem tela_inicial.png
+ *  - Sala 1 (Recepcao): Tela01.png + secretario.png (inferior esq.)
+ *  - Sala 2 (Escritorios): Tela02.png + npc_sala2.png + trabalhador_sala2.png
+ *
+ * SPRITES personagem (48x128, 12x16 por frame):
+ *   Linha  0 = andar para baixo  (4 frames)
+ *   Linha 16 = andar para esquerda
+ *   Linha 32 = andar para direita
+ *   Linha 48 = andar para cima
+ *   ... etc (ate 8 linhas / 128px)
+ *
+ * NPC sprites (384x32): 24 colunas de 16x32 — frame 0 (sentado/parado)
+ *
+ * FLUXO:
+ *  1. Tela inicial -> pressiona A
+ *  2. Sala 1: ir ate a secretaria (inferior esq.) e pressionar A -> tutorial
+ *  3. Jogador vai para Sala 2 pela porta direita
+ *  4. Interagir com trabalhador Carlos (superior direito) -> primeira task
+ *  5. Resolver task (identificar senha fraca) -> jogo principal inicia
  *
  * CONTROLES:
- *  [Setas]    Mover personagem
- *  [A/SPACE]  Confirmar / Resolver tarefa verde ou amarela
- *  [N]        NFC scan (resolver ransomware vermelho)
- *  [R]        Reiniciar
+ *  [Setas]   Mover
+ *  [A/SPACE] Interagir / Confirmar dialogo
+ *  [N]       NFC scan (ransomware)
+ *  [R]       Reiniciar
  * =============================================================================
  */
 
@@ -48,45 +59,87 @@
 /* ============================================================
  *  CONSTANTES
  * ============================================================ */
-#define SCR_W           480
-#define SCR_H           320
-#define HUD_H           30
-#define GAME_Y          HUD_H
-#define GAME_H          (SCR_H - HUD_H)   /* 290 */
+#define SCR_W            480
+#define SCR_H            320
+#define HUD_H            30
+#define GAME_Y           HUD_H
+#define GAME_H           (SCR_H - HUD_H)   /* 290 */
 
-#define PLR_W           12
-#define PLR_H           18
-#define PLR_SPEED       2
-#define MOVE_MS         16
+/* Caminhos das imagens (relativo ao diretorio de execucao bin/) */
+#define IMG_TITLE        "A:img/tela_inicial.png"
+#define IMG_SALA1        "A:img/Tela01.png"
+#define IMG_SALA2        "A:img/Tela02.png"
+#define IMG_PLAYER       "A:img/persoagem.png"
+#define IMG_SECRETARIO   "A:img/secretario.png"
+#define IMG_NPC_SALA2    "A:img/npc_sala2.png"
+#define IMG_TRABALHADOR  "A:img/trabalhador_sala2.png"
 
-/* Relogio: 3 min reais = 10h de expediente */
-#define CLOCK_TICK_MS       500
-#define GAME_TOTAL_TICKS    360
-#define GAME_TOTAL_MINUTES  600
+/* Sprite do personagem: folha 48x128, 3 frames x 4 direcoes (16x32 cada) */
+#define PLR_FRAME_W      16
+#define PLR_FRAME_H      32
+#define PLR_FRAMES       3
+#define PLR_DIR_DOWN     0
+#define PLR_DIR_LEFT     1
+#define PLR_DIR_RIGHT    2
+#define PLR_DIR_UP       3
+
+/* NPC sprites: folha 384x32, cada frame 16x32 */
+#define NPC_FRAME_W      16
+#define NPC_FRAME_H      32
+
+#define PLR_W            PLR_FRAME_W
+#define PLR_H            PLR_FRAME_H
+#define PLR_SPEED        2
+#define MOVE_MS          16
+#define ANIM_MS          150
+
+/* Relogio */
+#define CLOCK_TICK_MS        500
+#define GAME_TOTAL_TICKS     360
+#define GAME_TOTAL_MINUTES   600
 
 /* Eventos */
-#define MAX_EVENTS      4
-#define EVENT_MIN_MS    9000
-#define EVENT_MAX_MS    16000
-#define DRAIN_TICK_MS   2000
-#define INTERACT_RADIUS 50
+#define MAX_EVENTS       4
+#define EVENT_MIN_MS     9000
+#define EVENT_MAX_MS     16000
+#define DRAIN_TICK_MS    2000
+#define INTERACT_RADIUS  55
 
-/* Pontos quentes de eventos — Sala 1 */
+/* Pontos quentes — Sala 1 */
 #define S1_SPOTS 4
 static const int S1_X[S1_SPOTS] = { 68, 185, 320, 405 };
 static const int S1_Y[S1_SPOTS] = { 185, 240, 195, 240 };
 
-/* Pontos quentes de eventos — Sala 2 */
+/* Pontos quentes — Sala 2 */
 #define S2_SPOTS 4
 static const int S2_X[S2_SPOTS] = { 96, 212, 312, 425 };
 static const int S2_Y[S2_SPOTS] = { 156, 196, 172, 216 };
 
+/* Posicao da secretaria na Sala 1 (cadeira inferior esquerda) */
+#define SEC_X   68
+#define SEC_Y   242
+
+/* Posicao do trabalhador na Sala 2 (canto superior direito) */
+#define WORKER_X  400
+#define WORKER_Y   55
+
+/* Raio de interacao com NPCs */
+#define NPC_INTERACT_R   55
+
 /* ============================================================
  *  TIPOS
  * ============================================================ */
-typedef enum { GS_TITLE = 0, GS_TUTORIAL, GS_PLAYING, GS_GAMEOVER } GameState;
-typedef enum { EV_NONE = 0, EV_ROUTINE, EV_ANOMALY, EV_CRITICAL }   EventType;
-typedef enum { ROOM_1 = 0, ROOM_2 = 1 }                              RoomID;
+typedef enum {
+    GS_TITLE = 0,
+    GS_SECRETARIA,
+    GS_WORKER_INTRO,
+    GS_WORKER_TASK,
+    GS_PLAYING,
+    GS_GAMEOVER
+} GameState;
+
+typedef enum { EV_NONE = 0, EV_ROUTINE, EV_ANOMALY, EV_CRITICAL } EventType;
+typedef enum { ROOM_1 = 0, ROOM_2 = 1 }                           RoomID;
 
 typedef struct {
     bool      active;
@@ -106,68 +159,83 @@ typedef struct { bool up, down, left, right; } KeyState;
 /* ============================================================
  *  ESTADO GLOBAL
  * ============================================================ */
-static GameState  g_state         = GS_TITLE;
-static RoomID     g_room          = ROOM_1;
-static bool       g_game_running  = false;
-static int        g_integrity     = 100;
-static int        g_game_hour     = 8;
-static int        g_game_min      = 0;
-static int        g_clock_ticks   = 0;
-static bool       g_nfc_ready     = true;
-static Player     g_plr           = { 240, 190 };
-static KeyState   g_keys          = { false, false, false, false };
+static GameState  g_state            = GS_TITLE;
+static RoomID     g_room             = ROOM_1;
+static bool       g_game_running     = false;
+static int        g_integrity        = 100;
+static int        g_game_hour        = 8;
+static int        g_game_min         = 0;
+static int        g_clock_ticks      = 0;
+static bool       g_nfc_ready        = true;
+static Player     g_plr              = { 60, GAME_Y + 200 };
+static KeyState   g_keys             = { false, false, false, false };
 static GameEvent  g_events[MAX_EVENTS];
-static int        g_tutorial_step = 0;
-static int        g_score         = 0;
+static int        g_sec_step         = 0;
+static int        g_worker_step      = 0;
+static int        g_score            = 0;
+static bool       g_worker_task_done = false;
+static bool       g_secretaria_done  = false;
+static int        g_plr_frame        = 0;
+static int        g_plr_dir          = PLR_DIR_DOWN;
+static bool       g_plr_moving       = false;
+static int        g_task_selected    = 0;
 
 /* ============================================================
  *  OBJETOS LVGL
  * ============================================================ */
-static lv_obj_t  *g_hud_cont      = NULL;
-static lv_obj_t  *g_lbl_time      = NULL;
-static lv_obj_t  *g_bar_hp        = NULL;
-static lv_obj_t  *g_lbl_hp_val    = NULL;
-static lv_obj_t  *g_lbl_status    = NULL;
-static lv_obj_t  *g_lbl_room_name = NULL;
-static lv_obj_t  *g_room_cont     = NULL;
-static lv_obj_t  *g_player_body   = NULL;
-static lv_obj_t  *g_player_head   = NULL;
-static lv_obj_t  *g_dlg_overlay   = NULL;
+static lv_obj_t  *g_hud_cont        = NULL;
+static lv_obj_t  *g_lbl_time        = NULL;
+static lv_obj_t  *g_bar_hp          = NULL;
+static lv_obj_t  *g_lbl_hp_val      = NULL;
+static lv_obj_t  *g_lbl_status      = NULL;
+static lv_obj_t  *g_lbl_room_name   = NULL;
+static lv_obj_t  *g_room_cont       = NULL;
+static lv_obj_t  *g_player_img      = NULL;
+static lv_obj_t  *g_dlg_overlay     = NULL;
 
-static lv_timer_t *g_tmr_move     = NULL;
-static lv_timer_t *g_tmr_clock    = NULL;
-static lv_timer_t *g_tmr_event    = NULL;
-static lv_timer_t *g_tmr_drain    = NULL;
+static lv_timer_t *g_tmr_move       = NULL;
+static lv_timer_t *g_tmr_clock      = NULL;
+static lv_timer_t *g_tmr_event      = NULL;
+static lv_timer_t *g_tmr_drain      = NULL;
+static lv_timer_t *g_tmr_anim       = NULL;
+
+/* Container de clipping do personagem (pai de g_player_img) */
+static lv_obj_t  *g_player_cont     = NULL;
 
 /* ============================================================
- *  DADOS DO TUTORIAL
+ *  DIALOGOS DA SECRETARIA
  * ============================================================ */
-#define TUTORIAL_STEPS 8
-
-typedef struct {
-    uint32_t hair;
-    uint32_t shirt;
-    const char *text;
-} TutLine;
-
-static const TutLine k_tut[TUTORIAL_STEPS] = {
-    { 0x3A2010u, 0x1E3A6Eu,
-      "Bom dia! Voce deve ser o novo\nanalista de ciberseguranca\ncontratado, correto? Bem-vindo\na empresa." },
-    { 0x3A2010u, 0x1E3A6Eu,
-      "Seu trabalho e proteger a rede\nda empresa ate as 18h.\nUse as SETAS para mover." },
-    { 0x3A2010u, 0x1E3A6Eu,
-      "As tarefas VERDES sao de\nprevencao. Sao opcionais e\ntranquilas. Icone: ?" },
-    { 0x3A2010u, 0x1E3A6Eu,
-      "Os alertas AMARELOS sao\nanomalias suspeitas. Resolva\nantes que causem danos. Icone: !" },
-    { 0x3A2010u, 0x1E3A6Eu,
-      "As tarefas VERMELHAS sao\nataques ativos (Ransomware).\nAja imediatamente! Icone: X" },
-    { 0x3A2010u, 0x1E3A6Eu,
-      "Aproxime-se do icone colorido\ne pressione [A] para resolver.\nRansomware exige [N] para NFC." },
-    { 0x3A2010u, 0x1E3A6Eu,
-      "Se um incidente for ignorado,\na integridade da rede cai.\nChegar a ZERO = Game Over!" },
-    { 0x3A2010u, 0x1E3A6Eu,
-      "Depois passe pela porta e\nverifique se ha mais\nocorrencias pelo andar. Boa sorte!" },
+#define SEC_STEPS 7
+static const char *k_sec_dialog[SEC_STEPS] = {
+    "Ola! Voce deve ser o novo analista\nde ciberseguranca. Bem-vindo a\nCyberCorp! Eu sou a Ana.",
+    "Seu objetivo e proteger a rede\nda empresa durante o expediente,\nde 08h ate as 18h.",
+    "Use as SETAS para mover pelo\nandar. Va a sala de escritorios\npela porta na parede direita.",
+    "Fique atento a alertas coloridos:\n  ? VERDE = Tarefa de prevencao\n  ! AMARELO = Anomalia suspeita\n  X VERMELHO = Ransomware ativo!",
+    "Aproxime-se do icone e pressione\n[A] para resolver. Ransomware\nexige [N] para scan NFC.",
+    "Se um incidente for ignorado,\na integridade da rede cai.\nChegar a ZERO = Game Over!",
+    "Agora va a sala de escritorios\ne fale com o tecnico Carlos.\nEle tem uma tarefa pra vc!"
 };
+
+/* ============================================================
+ *  DIALOGO DO TRABALHADOR (intro)
+ * ============================================================ */
+#define WORKER_INTRO_STEPS 3
+static const char *k_worker_intro[WORKER_INTRO_STEPS] = {
+    "Ola! Sou o Carlos, tecnico de TI.\nPercebemos uma senha fraca numa\nestacao de trabalho deste andar.",
+    "A senha encontrada foi: Admin123\nEste tipo de senha e facilmente\nbrutada em segundos por atacantes.",
+    "Sua tarefa: identificar qual das\nsenhas abaixo e considerada\nFRACA e deve ser trocada."
+};
+
+/* ============================================================
+ *  MINI-TASK: senha fraca
+ * ============================================================ */
+#define TASK_OPTIONS 3
+static const char *k_task_opts[TASK_OPTIONS] = {
+    "A) Admin123   <- senha fraca!",
+    "B) xK#9mP!2@q <- senha forte",
+    "C) P@ssw0rd99 <- fraca tambem!"
+};
+/* Opcoes corretas: 0 (A) e 2 (C) */
 
 static const char *k_victims[] = {
     "Joao Silva", "Maria Souza", "Carlos Lima",
@@ -200,6 +268,7 @@ static void create_hud(void);
 static void build_room1(void);
 static void build_room2(void);
 static void create_player(void);
+static void update_player_sprite(void);
 
 static void start_timers(void);
 static void stop_timers(void);
@@ -216,22 +285,21 @@ static void update_player_pos(void);
 static void rebuild_event_bubbles(void);
 static void set_status(const char *msg, lv_color_t c);
 
-static void show_tutorial_step(int step);
+static void show_secretaria_step(int step);
+static void show_worker_intro_step(int step);
+static void show_worker_task(void);
 static void show_event_dialog(int slot);
-static void close_dialog(bool advance_tut);
+static void close_dialog(void);
+
+static bool near_secretaria(void);
+static bool near_worker(void);
 
 static void tmr_move_cb (lv_timer_t *t);
 static void tmr_clock_cb(lv_timer_t *t);
 static void tmr_event_cb(lv_timer_t *t);
 static void tmr_drain_cb(lv_timer_t *t);
+static void tmr_anim_cb (lv_timer_t *t);
 
-static lv_obj_t *mk_rect(lv_obj_t *p, int x, int y, int w, int h, uint32_t col);
-static lv_obj_t *mk_rect_r(lv_obj_t *p, int x, int y, int w, int h,
-                             uint32_t col, int radius);
-static void draw_npc(lv_obj_t *p, int x, int y,
-                     uint32_t hair, uint32_t shirt, bool sitting);
-static void draw_portrait(lv_obj_t *p, int x, int y, int sz,
-                          uint32_t hair, uint32_t shirt);
 static lv_color_t  ev_color(EventType t);
 static const char *ev_label(EventType t);
 static const char *ev_icon (EventType t);
@@ -244,23 +312,31 @@ void cybersec_start(void)
 {
     srand((unsigned int)time(NULL));
 
-    g_state        = GS_TITLE;
-    g_room         = ROOM_1;
-    g_game_running = false;
-    g_integrity    = 100;
-    g_game_hour    = 8;
-    g_game_min     = 0;
-    g_clock_ticks  = 0;
-    g_nfc_ready    = true;
-    g_plr.x        = 240;
-    g_plr.y        = 190;
-    g_score        = 0;
-    g_tutorial_step = 0;
-    g_dlg_overlay  = NULL;
-    g_hud_cont     = NULL;
-    g_room_cont    = NULL;
-    g_player_body  = NULL;
-    g_player_head  = NULL;
+    g_state             = GS_TITLE;
+    g_room              = ROOM_1;
+    g_game_running      = false;
+    g_integrity         = 100;
+    g_game_hour         = 8;
+    g_game_min          = 0;
+    g_clock_ticks       = 0;
+    g_nfc_ready         = true;
+    /* Nasce na porta de entrada no centro superior da Sala 1 */
+    g_plr.x             = SCR_W / 2 - PLR_FRAME_W;
+    g_plr.y             = GAME_Y + 20;
+    g_score             = 0;
+    g_sec_step          = 0;
+    g_worker_step       = 0;
+    g_worker_task_done  = false;
+    g_secretaria_done   = false;
+    g_plr_frame         = 0;
+    g_plr_dir           = PLR_DIR_DOWN;
+    g_plr_moving        = false;
+    g_task_selected     = 0;
+    g_dlg_overlay       = NULL;
+    g_hud_cont          = NULL;
+    g_room_cont         = NULL;
+    g_player_img        = NULL;
+    g_player_cont       = NULL;
     memset(&g_keys,   0, sizeof(g_keys));
     memset(g_events,  0, sizeof(g_events));
 
@@ -280,66 +356,153 @@ void cybersec_sdl_key_event(int32_t sdlk, bool is_down)
 
     if (!is_down) return;
 
-    /* Reiniciar — sempre disponivel */
+    /* Reiniciar — sempre */
     if ((uint32_t)sdlk == SDLK_r || (uint32_t)sdlk == SDLK_R) {
         do_restart();
         return;
     }
 
-    /* Tela inicial */
+    /* --- TELA INICIAL --- */
     if (g_state == GS_TITLE) {
         if ((uint32_t)sdlk == SDLK_a     || (uint32_t)sdlk == SDLK_A ||
             (uint32_t)sdlk == SDLK_SPACE || (uint32_t)sdlk == SDLK_RETURN) {
             lv_obj_clean(lv_scr_act());
-            lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x080F1A), 0);
+            lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x000000), 0);
             create_hud();
             build_room1();
             create_player();
             update_hud();
-            g_state = GS_TUTORIAL;
-            g_tutorial_step = 0;
-            show_tutorial_step(0);
+            set_status("Fale com a secretaria (inferior esq.)", lv_color_hex(0x00FFAA));
+            if (!g_tmr_move) g_tmr_move = lv_timer_create(tmr_move_cb, MOVE_MS, NULL);
+            if (!g_tmr_anim) g_tmr_anim = lv_timer_create(tmr_anim_cb, ANIM_MS, NULL);
+            g_state = GS_SECRETARIA;
         }
         return;
     }
 
-    /* Tutorial */
-    if (g_state == GS_TUTORIAL) {
+    /* --- DIALOGO DA SECRETARIA (aberto) --- */
+    if (g_state == GS_SECRETARIA && g_dlg_overlay != NULL) {
         if ((uint32_t)sdlk == SDLK_a     || (uint32_t)sdlk == SDLK_A ||
             (uint32_t)sdlk == SDLK_SPACE || (uint32_t)sdlk == SDLK_RETURN) {
-            close_dialog(true);
+            close_dialog();
+            g_sec_step++;
+            if (g_sec_step >= SEC_STEPS) {
+                g_secretaria_done = true;
+                set_status("Va a sala 2 e fale com Carlos!", lv_color_hex(0x00FFAA));
+            } else {
+                show_secretaria_step(g_sec_step);
+            }
         }
         return;
     }
 
-    /* Dialog de evento aberto */
-    if (g_dlg_overlay != NULL) {
+    /* --- SECRETARIA: livre (sem dialogo) --- */
+    if (g_state == GS_SECRETARIA && g_dlg_overlay == NULL) {
+        if ((uint32_t)sdlk == SDLK_a     || (uint32_t)sdlk == SDLK_A ||
+            (uint32_t)sdlk == SDLK_SPACE || (uint32_t)sdlk == SDLK_RETURN) {
+            if (!g_secretaria_done && near_secretaria()) {
+                g_sec_step = 0;
+                show_secretaria_step(0);
+            } else if (g_secretaria_done) {
+                set_status("Va a sala 2 (porta na parede direita).", lv_color_hex(0x00FFAA));
+            } else {
+                set_status("Fale com a secretaria (inferior esq.)!", lv_color_hex(0xFFAA00));
+            }
+        }
+        return;
+    }
+
+    /* --- INTRO TRABALHADOR (dialogo aberto) --- */
+    if (g_state == GS_WORKER_INTRO && g_dlg_overlay != NULL) {
+        if ((uint32_t)sdlk == SDLK_a     || (uint32_t)sdlk == SDLK_A ||
+            (uint32_t)sdlk == SDLK_SPACE || (uint32_t)sdlk == SDLK_RETURN) {
+            close_dialog();
+            g_worker_step++;
+            if (g_worker_step >= WORKER_INTRO_STEPS) {
+                g_task_selected = 0;
+                show_worker_task();
+                g_state = GS_WORKER_TASK;
+            } else {
+                show_worker_intro_step(g_worker_step);
+            }
+        }
+        return;
+    }
+
+    /* --- INTRO TRABALHADOR: livre --- */
+    if (g_state == GS_WORKER_INTRO && g_dlg_overlay == NULL) {
+        if ((uint32_t)sdlk == SDLK_a     || (uint32_t)sdlk == SDLK_A ||
+            (uint32_t)sdlk == SDLK_SPACE || (uint32_t)sdlk == SDLK_RETURN) {
+            if (near_worker()) {
+                g_worker_step = 0;
+                show_worker_intro_step(0);
+            } else {
+                set_status("Fale com Carlos (superior direito).", lv_color_hex(0xFFAA00));
+            }
+        }
+        return;
+    }
+
+    /* --- MINI-TASK SENHA --- */
+    if (g_state == GS_WORKER_TASK && g_dlg_overlay != NULL) {
+        if ((uint32_t)sdlk == SDLK_UP) {
+            if (g_task_selected > 0) g_task_selected--;
+            show_worker_task();
+            return;
+        }
+        if ((uint32_t)sdlk == SDLK_DOWN) {
+            if (g_task_selected < TASK_OPTIONS - 1) g_task_selected++;
+            show_worker_task();
+            return;
+        }
+        if ((uint32_t)sdlk == SDLK_a     || (uint32_t)sdlk == SDLK_A ||
+            (uint32_t)sdlk == SDLK_SPACE || (uint32_t)sdlk == SDLK_RETURN) {
+            close_dialog();
+            /* Opcoes 0 (A) e 2 (C) sao fracas — corretas */
+            if (g_task_selected == 0 || g_task_selected == 2) {
+                g_worker_task_done = true;
+                g_score += 20;
+                set_status("Correto! Senha fraca identificada. +20pts", lv_color_hex(0x00FF88));
+                /* Inicia o jogo principal */
+                g_state        = GS_PLAYING;
+                g_game_running = true;
+                start_timers();
+            } else {
+                set_status("Errado! Aquela e uma senha forte. Tente novamente.", lv_color_hex(0xFF4444));
+                g_state       = GS_WORKER_INTRO;
+                g_worker_step = 0;
+            }
+        }
+        return;
+    }
+
+    /* --- DIALOGO DE EVENTO (jogo principal) --- */
+    if (g_dlg_overlay != NULL && g_state == GS_PLAYING) {
         bool is_nfc = ((uint32_t)sdlk == SDLK_n || (uint32_t)sdlk == SDLK_N);
         bool is_act = ((uint32_t)sdlk == SDLK_a || (uint32_t)sdlk == SDLK_A ||
                        (uint32_t)sdlk == SDLK_SPACE || (uint32_t)sdlk == SDLK_RETURN);
-
         if (!is_act && !is_nfc) return;
 
         int slot = nearest_event();
         if (slot >= 0) {
             EventType t = g_events[slot].type;
             if (t == EV_CRITICAL && !is_nfc) {
-                close_dialog(false);
+                close_dialog();
                 set_status("Ransomware! Use [N] para NFC scan.", lv_color_hex(0xFF3333));
             } else if (t == EV_CRITICAL && is_nfc) {
-                close_dialog(false);
+                close_dialog();
                 resolve_event(slot, true);
             } else {
-                close_dialog(false);
+                close_dialog();
                 resolve_event(slot, false);
             }
         } else {
-            close_dialog(false);
+            close_dialog();
         }
         return;
     }
 
-    if (!g_game_running) return;
+    if (g_state != GS_PLAYING) return;
 
     /* Interacao com evento */
     if ((uint32_t)sdlk == SDLK_a || (uint32_t)sdlk == SDLK_A ||
@@ -372,63 +535,28 @@ void cybersec_sdl_key_event(int32_t sdlk, bool is_down)
  * ============================================================ */
 static void create_title_screen(void)
 {
-    /* Fundo — sala escurecida */
-    lv_obj_t *bg = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(bg, SCR_W, SCR_H);
-    lv_obj_set_pos(bg, 0, 0);
-    lv_obj_set_style_bg_color(bg, lv_color_hex(0x0D1A2E), 0);
-    lv_obj_set_style_border_width(bg, 0, 0);
-    lv_obj_set_style_pad_all(bg, 0, 0);
-    lv_obj_clear_flag(bg, LV_OBJ_FLAG_SCROLLABLE);
+    /* Fundo — 963x640 -> 480x320: scale=128 (50%) com pivot no canto sup-esq */
+    lv_obj_t *bg_img = lv_image_create(lv_scr_act());
+    lv_image_set_src(bg_img, IMG_TITLE);
+    lv_image_set_pivot(bg_img, 0, 0);
+    lv_image_set_scale(bg_img, 128);
+    lv_obj_set_pos(bg_img, 0, 0);
 
-    /* Silhueta da sala (elementos escurecidos) */
-    mk_rect(bg, 0,   0,   SCR_W, 75,  0x181E30);  /* parede */
-    mk_rect(bg, 0,   75,  SCR_W, 2,   0x101828);  /* divisor */
-    mk_rect(bg, 0,   77,  SCR_W, SCR_H - 77, 0x141C2C); /* chao */
-
-    mk_rect(bg, 22,  12,  72, 56, 0x201808);  /* prateleira */
-    mk_rect(bg, 162, 10,  28, 54, 0x2A1A08);  /* porta */
-    mk_rect(bg, 222, 12,  70, 42, 0x202030);  /* quadro branco */
-    mk_rect(bg, 104, 95, 250, 112, 0x1A0808); /* tapete borda */
-    mk_rect(bg, 120, 110, 215, 82, 0x200E0E);
-    mk_rect(bg, 152, 124, 148, 55, 0x201808);
-
-    mk_rect(bg, 4,   212, 100, 58, 0x201408); /* mesa esq */
-    mk_rect(bg, 344, 210, 102, 48, 0x201808); /* mesa dir */
-    mk_rect(bg, 310, 238, 88,  44, 0x181828); /* sofa */
-
-    /* Overlay escuro */
+    /* Overlay escuro leve */
     lv_obj_t *ov = lv_obj_create(lv_scr_act());
     lv_obj_set_size(ov, SCR_W, SCR_H);
     lv_obj_set_pos(ov, 0, 0);
     lv_obj_set_style_bg_color(ov, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_bg_opa(ov, LV_OPA_70, 0);
+    lv_obj_set_style_bg_opa(ov, LV_OPA_20, 0);
     lv_obj_set_style_border_width(ov, 0, 0);
     lv_obj_clear_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* === TITULO === */
-    lv_obj_t *lbl_t = lv_label_create(lv_scr_act());
-    lv_label_set_text(lbl_t, "CYBERSEC");
-    lv_obj_set_style_text_color(lbl_t, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_font(lbl_t, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_letter_space(lbl_t, 10, 0);
-    lv_obj_align(lbl_t, LV_ALIGN_CENTER, 0, -28);
-
-    /* Linha azul */
-    lv_obj_t *sep = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(sep, 260, 2);
-    lv_obj_set_style_bg_color(sep, lv_color_hex(0x1A44DD), 0);
-    lv_obj_set_style_border_width(sep, 0, 0);
-    lv_obj_align(sep, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_clear_flag(sep, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* Subtitulo */
-    lv_obj_t *lbl_s = lv_label_create(lv_scr_act());
-    lv_label_set_text(lbl_s, "PRESSIONE A PARA INICIAR");
-    lv_obj_set_style_text_color(lbl_s, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_text_font(lbl_s, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_letter_space(lbl_s, 4, 0);
-    lv_obj_align(lbl_s, LV_ALIGN_CENTER, 0, 26);
+    /* Instrucao */
+    lv_obj_t *lbl = lv_label_create(lv_scr_act());
+    lv_label_set_text(lbl, "Pressione [A] para iniciar");
+    lv_obj_set_style_text_color(lbl, lv_color_hex(0x00FFAA), 0);
+    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
+    lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, 0, -18);
 }
 
 /* ============================================================
@@ -440,10 +568,9 @@ static void create_hud(void)
     lv_obj_set_size(g_hud_cont, SCR_W, HUD_H);
     lv_obj_set_pos(g_hud_cont, 0, 0);
     lv_obj_set_style_bg_color(g_hud_cont, lv_color_hex(0x080F1A), 0);
-    lv_obj_set_style_border_color(g_hud_cont, lv_color_hex(0x00CFAA), 0);
-    lv_obj_set_style_border_width(g_hud_cont, 0, 0);
-    lv_obj_set_style_border_side(g_hud_cont, LV_BORDER_SIDE_BOTTOM, 0);
     lv_obj_set_style_border_width(g_hud_cont, 1, 0);
+    lv_obj_set_style_border_side(g_hud_cont, LV_BORDER_SIDE_BOTTOM, 0);
+    lv_obj_set_style_border_color(g_hud_cont, lv_color_hex(0x00CFAA), 0);
     lv_obj_set_style_pad_all(g_hud_cont, 0, 0);
     lv_obj_clear_flag(g_hud_cont, LV_OBJ_FLAG_SCROLLABLE);
 
@@ -485,7 +612,7 @@ static void create_hud(void)
     lv_label_set_text(g_lbl_status, "SISTEMA OK");
     lv_obj_set_style_text_color(g_lbl_status, lv_color_hex(0x44CC88), 0);
     lv_obj_set_style_text_font(g_lbl_status, &lv_font_montserrat_10, 0);
-    lv_obj_set_width(g_lbl_status, 132);
+    lv_obj_set_width(g_lbl_status, 145);
     lv_label_set_long_mode(g_lbl_status, LV_LABEL_LONG_CLIP);
     lv_obj_set_style_text_align(g_lbl_status, LV_TEXT_ALIGN_RIGHT, 0);
     lv_obj_align(g_lbl_status, LV_ALIGN_RIGHT_MID, -4, 0);
@@ -496,313 +623,136 @@ static void create_hud(void)
  * ============================================================ */
 static void build_room1(void)
 {
-    /* Null out child pointers BEFORE deleting, they are auto-freed with g_room_cont */
     for (int i = 0; i < MAX_EVENTS; i++) {
         g_events[i].bubble     = NULL;
         g_events[i].bubble_lbl = NULL;
     }
-    g_player_head = NULL;
-    g_player_body = NULL;
+    g_player_img  = NULL;
+    g_player_cont = NULL;
     if (g_room_cont) { lv_obj_del(g_room_cont); g_room_cont = NULL; }
 
     g_room_cont = lv_obj_create(lv_scr_act());
     lv_obj_set_size(g_room_cont, SCR_W, GAME_H);
     lv_obj_set_pos(g_room_cont, 0, GAME_Y);
-    lv_obj_set_style_bg_color(g_room_cont, lv_color_hex(0x909090), 0);
+    lv_obj_set_style_bg_color(g_room_cont, lv_color_hex(0x202020), 0);
     lv_obj_set_style_border_width(g_room_cont, 0, 0);
     lv_obj_set_style_pad_all(g_room_cont, 0, 0);
     lv_obj_clear_flag(g_room_cont, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *p = g_room_cont;
+    /* Fundo — 959x635 -> 480x290: scale_x=128, scale_y=117 com pivot (0,0) */
+    lv_obj_t *bg = lv_image_create(g_room_cont);
+    lv_image_set_src(bg, IMG_SALA1);
+    lv_image_set_pivot(bg, 0, 0);
+    lv_image_set_scale_x(bg, 128);
+    lv_image_set_scale_y(bg, 117);
+    lv_obj_set_pos(bg, 0, 0);
 
-    /* == PAREDE TOPO == */
-    mk_rect(p, 0, 0, SCR_W, 72, 0xC0C0C0);
-    mk_rect(p, 0, 72, SCR_W, 2,  0x888888);
+    /* Secretaria — container 32x64 faz clipping, imagem 2x dentro */
+    lv_obj_t *sec_clip = lv_obj_create(g_room_cont);
+    lv_obj_set_size(sec_clip, NPC_FRAME_W * 2, NPC_FRAME_H * 2);
+    lv_obj_set_pos(sec_clip, SEC_X - NPC_FRAME_W, SEC_Y - NPC_FRAME_H * 2);
+    lv_obj_set_style_pad_all(sec_clip, 0, 0);
+    lv_obj_set_style_border_width(sec_clip, 0, 0);
+    lv_obj_set_style_radius(sec_clip, 0, 0);
+    lv_obj_set_style_bg_opa(sec_clip, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(sec_clip, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *sec_spr = lv_image_create(sec_clip);
+    lv_image_set_src(sec_spr, IMG_SECRETARIO);
+    lv_image_set_pivot(sec_spr, 0, 0);
+    lv_image_set_scale(sec_spr, 512);
+    lv_obj_set_pos(sec_spr, 0, 0); /* frame 0 col=0, row=0 */
 
-    /* == CHAO — grid sutil == */
-    mk_rect(p, 0, 74, SCR_W, GAME_H - 74, 0x909090);
-    for (int c = 0; c < SCR_W; c += 32)
-        mk_rect(p, c, 74, 1, GAME_H - 74, 0x7C7C7C);
-    for (int r = 74; r < GAME_H; r += 32)
-        mk_rect(p, 0, r, SCR_W, 1, 0x7C7C7C);
+    /* Indicador [A] acima da secretaria */
+    if (!g_secretaria_done) {
+        lv_obj_t *hint = lv_label_create(g_room_cont);
+        lv_label_set_text(hint, "[A]");
+        lv_obj_set_style_text_color(hint, lv_color_hex(0x00FFAA), 0);
+        lv_obj_set_style_text_font(hint, &lv_font_montserrat_10, 0);
+        lv_obj_set_pos(hint, SEC_X - 8, SEC_Y - NPC_FRAME_H * 2 - 14);
+    }
 
-    /* == MOVEIS PAREDE == */
-
-    /* Planta esquerda */
-    mk_rect(p,  4,  52, 16, 18, 0x4A5A28);
-    mk_rect(p,  6,  42, 12, 12, 0x2A6A20);
-    mk_rect(p,  2,  36,  8,  8, 0x1E5018);
-    mk_rect(p, 12,  34, 10, 10, 0x22581C);
-
-    /* Prateleira */
-    mk_rect(p, 24,  10, 72, 58, 0x6B4A2A);
-    mk_rect(p, 26,  12, 68,  4, 0x8B6A3A);
-    mk_rect(p, 26,  24, 68,  4, 0x8B6A3A);
-    mk_rect(p, 26,  36, 68,  4, 0x8B6A3A);
-    mk_rect(p, 26,  48, 68,  4, 0x8B6A3A);
-    mk_rect(p, 28,  17, 10,  7, 0x3A7A44);
-    mk_rect(p, 42,  15,  8,  9, 0x4A3AA0);
-    mk_rect(p, 54,  16, 14,  8, 0xA04A3A);
-    mk_rect(p, 28,  28,  8,  8, 0x8A8A3A);
-    mk_rect(p, 40,  27,  6,  9, 0x3A8AAA);
-    mk_rect(p, 52,  29, 12,  7, 0x7A3A8A);
-    mk_rect(p, 28,  40, 14,  8, 0x5A7A3A);
-    mk_rect(p, 46,  40, 10,  8, 0xAA5A3A);
-
-    /* Porta */
-    mk_rect(p, 162, 10, 30, 56, 0x5C3B1E);
-    mk_rect(p, 164, 11, 26, 54, 0x8B6032);
-    mk_rect(p, 164, 11, 26,  2, 0x6B4820);
-    mk_rect(p, 175, 20,  3,  3, 0x2A1A08);
-    mk_rect(p, 162, 64, 30,  8, 0x686868);
-
-    /* Quadro branco */
-    mk_rect(p, 224, 12, 72, 44, 0x404050);
-    mk_rect(p, 226, 14, 68, 40, 0xD0D0D8);
-    mk_rect(p, 230, 18, 20,  3, 0x888898);
-    mk_rect(p, 230, 25, 30,  3, 0x888898);
-    mk_rect(p, 230, 32, 24,  3, 0x888898);
-    mk_rect(p, 228, 54, 68,  3, 0x606070);
-
-    /* Quadro foto */
-    mk_rect(p, 306, 12, 38, 34, 0x504040);
-    mk_rect(p, 308, 14, 34, 30, 0x80A860);
-    mk_rect(p, 312, 18, 10,  8, 0xF0CC60);
-
-    /* Rack servidor */
-    mk_rect(p, 370, 10, 18, 60, 0x404050);
-    mk_rect(p, 372, 13, 14,  4, 0x202030);
-    mk_rect(p, 372, 19, 14,  4, 0x202030);
-    mk_rect(p, 372, 25, 14,  4, 0x202030);
-    mk_rect(p, 372, 31, 14,  4, 0x202030);
-    mk_rect(p, 374, 14,  4,  2, 0x00FF44);
-    mk_rect(p, 374, 20,  4,  2, 0x0044FF);
-
-    /* Bebedouro */
-    mk_rect(p, 396, 15, 20, 30, 0x8090A8);
-    mk_rect(p, 398, 11, 16,  8, 0xC0D0E0);
-    mk_rect(p, 400, 13, 12,  6, 0xA8BCCC);
-    mk_rect(p, 400, 44,  8,  6, 0x607080);
-
-    /* Ar condicionado */
-    mk_rect(p, 430,  4, 46, 18, 0xC0C8D0);
-    mk_rect(p, 432,  6, 42, 14, 0xD8E0E8);
-    mk_rect(p, 434,  8, 38,  3, 0xB0B8C0);
-    mk_rect(p, 434, 13, 38,  2, 0xB0B8C0);
-
-    /* == TAPETE CENTRAL == */
-    mk_rect(p, 104,  96, 248, 118, 0x7A2020);
-    mk_rect(p, 118, 110, 218,  90, 0xBB5020);
-    mk_rect(p, 150, 124, 152,  62, 0xC89838);
-    mk_rect(p, 168, 134, 116,  44, 0xD8AA50);
-
-    /* == AREA ESQUERDA — Mesa chefe == */
-    mk_rect(p,   4, 212, 102, 58, 0x8B6A32);
-    mk_rect(p,   4, 212, 102,  4, 0x6B4A20);
-    mk_rect(p,   4, 266, 102,  4, 0x6B4A20);
-    mk_rect(p,  10, 196,  26, 18, 0x202020);
-    mk_rect(p,  12, 198,  22, 14, 0x1A3A6A);
-    mk_rect(p,  15, 201,  16,  8, 0x2A5A9A);
-    mk_rect(p,  22, 214,   6,  2, 0x383838);
-    mk_rect(p,  38, 196,  26, 18, 0x202020);
-    mk_rect(p,  40, 198,  22, 14, 0x1A3A6A);
-    mk_rect(p,  43, 201,  16,  8, 0x2A5A9A);
-    mk_rect(p,  50, 214,   6,  2, 0x383838);
-    mk_rect(p,  12, 220,  50,  8, 0x303038);
-    mk_rect(p,  14, 221,  46,  6, 0x404048);
-    mk_rect_r(p,65, 220,  12, 10, 0x282830, 3);
-    /* Cadeira */
-    mk_rect(p,  42, 248,  34, 20, 0x2A2A38);
-    mk_rect(p,  44, 238,  30, 12, 0x222230);
-    mk_rect(p,  40, 266,   8,  8, 0x1C1C28);
-    mk_rect(p,  68, 266,   8,  8, 0x1C1C28);
-    /* NPC chefe sentado */
-    draw_npc(p, 54, 234, 0x1A1A1A, 0x2A2A3A, true);
-    /* Impressora */
-    mk_rect(p,   4, 240,  28, 22, 0x484858);
-    mk_rect(p,   6, 242,  24,  8, 0x383848);
-    mk_rect(p,   6, 252,  24,  4, 0x585868);
-
-    /* == AREA DIREITA — Recepcao == */
-    mk_rect(p, 346, 214, 100, 46, 0x9A7840);
-    mk_rect(p, 346, 214, 100,  4, 0x7A5820);
-    mk_rect(p, 346, 256, 100,  4, 0x7A5820);
-    /* Globo */
-    mk_rect_r(p, 360, 202, 22, 22, 0x4070CC, 11);
-    mk_rect(p, 366, 196,  10,  8, 0x8090D0);
-    mk_rect(p, 370, 224,   4,  4, 0x604020);
-    /* PC */
-    mk_rect(p, 406, 200,  32, 22, 0x282830);
-    mk_rect(p, 408, 202,  28, 18, 0x1A3060);
-    mk_rect(p, 410, 204,  24, 14, 0x2A4080);
-    mk_rect(p, 418, 222,   8,  2, 0x383840);
-    /* Livro */
-    mk_rect(p, 384, 210,  20, 26, 0xA86430);
-    mk_rect(p, 386, 212,  16, 22, 0xD09050);
-    mk_rect(p, 388, 215,  12,  2, 0x806030);
-    /* Sofa */
-    mk_rect(p, 310, 240,  88, 40, 0x6878A0);
-    mk_rect(p, 310, 240,  88,  8, 0x78889A);
-    mk_rect(p, 310, 240,   8, 40, 0x78889A);
-    mk_rect(p, 390, 240,   8, 40, 0x78889A);
-    mk_rect(p, 318, 268,  72, 12, 0x505A7A);
-    /* NPC recepcao */
-    draw_npc(p, 440, 222, 0x8B5A28, 0x1E4A8E, false);
-    /* Planta dir */
-    mk_rect(p, 452, 248,  18, 24, 0x4A5A28);
-    mk_rect(p, 454, 238,  14, 12, 0x2A6A20);
-    mk_rect(p, 450, 232,  10, 10, 0x1E5018);
-
-    /* == PORTA SALA 2 (parede direita) == */
-    mk_rect(p, 468, 125, 12, 56, 0x787878);
-    mk_rect(p, 470, 127,  8, 52, 0x909090);
-
-    lv_obj_t *arrow = lv_label_create(p);
-    lv_label_set_text(arrow, "► 2");
+    /* Seta sala 2 */
+    lv_obj_t *arrow = lv_label_create(g_room_cont);
+    lv_label_set_text(arrow, "► Sala 2");
     lv_obj_set_style_text_color(arrow, lv_color_hex(0x00FFAA), 0);
     lv_obj_set_style_text_font(arrow, &lv_font_montserrat_10, 0);
-    lv_obj_set_pos(arrow, 456, 148);
+    lv_obj_set_pos(arrow, SCR_W - 60, GAME_H / 2 - 6);
 }
 
 /* ============================================================
- *  SALA 2 — Escritorio
+ *  SALA 2 — Escritorios
  * ============================================================ */
 static void build_room2(void)
 {
-    /* Null out child pointers BEFORE deleting, they are auto-freed with g_room_cont */
     for (int i = 0; i < MAX_EVENTS; i++) {
         g_events[i].bubble     = NULL;
         g_events[i].bubble_lbl = NULL;
     }
-    g_player_head = NULL;
-    g_player_body = NULL;
+    g_player_img  = NULL;
+    g_player_cont = NULL;
     if (g_room_cont) { lv_obj_del(g_room_cont); g_room_cont = NULL; }
 
     g_room_cont = lv_obj_create(lv_scr_act());
     lv_obj_set_size(g_room_cont, SCR_W, GAME_H);
     lv_obj_set_pos(g_room_cont, 0, GAME_Y);
-    lv_obj_set_style_bg_color(g_room_cont, lv_color_hex(0x909090), 0);
+    lv_obj_set_style_bg_color(g_room_cont, lv_color_hex(0x202020), 0);
     lv_obj_set_style_border_width(g_room_cont, 0, 0);
     lv_obj_set_style_pad_all(g_room_cont, 0, 0);
     lv_obj_clear_flag(g_room_cont, LV_OBJ_FLAG_SCROLLABLE);
 
-    lv_obj_t *p = g_room_cont;
+    /* Fundo — 960x635 -> 480x290: scale_x=128, scale_y=117 com pivot (0,0) */
+    lv_obj_t *bg = lv_image_create(g_room_cont);
+    lv_image_set_src(bg, IMG_SALA2);
+    lv_image_set_pivot(bg, 0, 0);
+    lv_image_set_scale_x(bg, 128);
+    lv_image_set_scale_y(bg, 117);
+    lv_obj_set_pos(bg, 0, 0);
 
-    /* Chao */
-    mk_rect(p, 0, 0, SCR_W, GAME_H, 0x909090);
-    for (int c = 0; c < SCR_W; c += 32)
-        mk_rect(p, c, 0, 1, GAME_H, 0x7C7C7C);
-    for (int r = 0; r < GAME_H; r += 32)
-        mk_rect(p, 0, r, SCR_W, 1, 0x7C7C7C);
+    /* NPC generico — container clipping 32x64 */
+    lv_obj_t *npc2_clip = lv_obj_create(g_room_cont);
+    lv_obj_set_size(npc2_clip, NPC_FRAME_W * 2, NPC_FRAME_H * 2);
+    lv_obj_set_pos(npc2_clip, 180, 120);
+    lv_obj_set_style_pad_all(npc2_clip, 0, 0);
+    lv_obj_set_style_border_width(npc2_clip, 0, 0);
+    lv_obj_set_style_radius(npc2_clip, 0, 0);
+    lv_obj_set_style_bg_opa(npc2_clip, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(npc2_clip, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *npc2 = lv_image_create(npc2_clip);
+    lv_image_set_src(npc2, IMG_NPC_SALA2);
+    lv_image_set_pivot(npc2, 0, 0);
+    lv_image_set_scale(npc2, 512);
+    lv_obj_set_pos(npc2, 0, 0);
 
-    /* Parede topo */
-    mk_rect(p, 0, 0, SCR_W, 62, 0xC0C0C0);
-    mk_rect(p, 0, 62, SCR_W, 2,  0x888888);
+    /* Trabalhador Carlos — container clipping 32x64, superior direito */
+    lv_obj_t *wrk_clip = lv_obj_create(g_room_cont);
+    lv_obj_set_size(wrk_clip, NPC_FRAME_W * 2, NPC_FRAME_H * 2);
+    lv_obj_set_pos(wrk_clip, WORKER_X, WORKER_Y);
+    lv_obj_set_style_pad_all(wrk_clip, 0, 0);
+    lv_obj_set_style_border_width(wrk_clip, 0, 0);
+    lv_obj_set_style_radius(wrk_clip, 0, 0);
+    lv_obj_set_style_bg_opa(wrk_clip, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(wrk_clip, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *worker = lv_image_create(wrk_clip);
+    lv_image_set_src(worker, IMG_TRABALHADOR);
+    lv_image_set_pivot(worker, 0, 0);
+    lv_image_set_scale(worker, 512);
+    lv_obj_set_pos(worker, 0, 0);
 
-    /* Parede lateral esq (corredor) */
-    mk_rect(p, 0, 0, 22, GAME_H, 0xB0B0B0);
-    mk_rect(p, 20, 0,  2, GAME_H, 0x808080);
-    mk_rect(p, 0, 100, 22, 80,   0x888888);  /* abertura */
+    /* Indicador [A] acima do trabalhador */
+    if (!g_worker_task_done) {
+        lv_obj_t *hint = lv_label_create(g_room_cont);
+        lv_label_set_text(hint, "[A]");
+        lv_obj_set_style_text_color(hint, lv_color_hex(0xFFAA00), 0);
+        lv_obj_set_style_text_font(hint, &lv_font_montserrat_10, 0);
+        lv_obj_set_pos(hint, WORKER_X + NPC_FRAME_W / 2, WORKER_Y - 14);
+    }
 
-    /* Seta de voltar */
-    lv_obj_t *back = lv_label_create(p);
-    lv_label_set_text(back, "◄ 1");
+    /* Seta de volta */
+    lv_obj_t *back = lv_label_create(g_room_cont);
+    lv_label_set_text(back, "◄ Sala 1");
     lv_obj_set_style_text_color(back, lv_color_hex(0x00FFAA), 0);
     lv_obj_set_style_text_font(back, &lv_font_montserrat_10, 0);
-    lv_obj_set_pos(back, 1, 136);
-
-    /* == FILEIRA 1 DE MESAS (y=72) == */
-    /* Mesa A */
-    mk_rect(p,  60,  72, 88, 52, 0x8B7040);
-    mk_rect(p,  60,  72, 88,  4, 0x6B5020);
-    mk_rect(p,  66,  62, 22, 14, 0x202028);
-    mk_rect(p,  68,  64, 18, 10, 0x1A3060);
-    mk_rect(p,  74,  72,  6,  2, 0x303038);
-    mk_rect(p,  68,  86, 46,  6, 0x383840);
-    mk_rect(p,  72, 114, 28, 16, 0x303040);
-    mk_rect(p,  74, 110, 24,  8, 0x282838);
-    draw_npc(p,  80, 102, 0xA08050, 0x2A6050, true);
-
-    /* Mesa B */
-    mk_rect(p, 172,  72, 88, 52, 0x8B7040);
-    mk_rect(p, 172,  72, 88,  4, 0x6B5020);
-    mk_rect(p, 178,  62, 22, 14, 0x202028);
-    mk_rect(p, 180,  64, 18, 10, 0x1A3060);
-    mk_rect(p, 186,  72,  6,  2, 0x303038);
-    mk_rect(p, 180,  86, 46,  6, 0x383840);
-    mk_rect(p, 184, 114, 28, 16, 0x303040);
-    mk_rect(p, 186, 110, 24,  8, 0x282838);
-    draw_npc(p, 190, 102, 0x3A7040, 0x6A3A80, true);
-
-    /* Mesa C */
-    mk_rect(p, 284,  72, 88, 52, 0x8B7040);
-    mk_rect(p, 284,  72, 88,  4, 0x6B5020);
-    mk_rect(p, 290,  62, 22, 14, 0x202028);
-    mk_rect(p, 292,  64, 18, 10, 0x1A3060);
-    mk_rect(p, 298,  72,  6,  2, 0x303038);
-    mk_rect(p, 292,  86, 46,  6, 0x383840);
-    mk_rect(p, 296, 114, 28, 16, 0x303040);
-    mk_rect(p, 298, 110, 24,  8, 0x282838);
-    draw_npc(p, 302, 102, 0x604030, 0x4A4A80, true);
-
-    /* Mesa D */
-    mk_rect(p, 392,  72, 80, 52, 0x8B7040);
-    mk_rect(p, 392,  72, 80,  4, 0x6B5020);
-    mk_rect(p, 396,  62, 22, 14, 0x202028);
-    mk_rect(p, 398,  64, 18, 10, 0x1A3060);
-    mk_rect(p, 404,  72,  6,  2, 0x303038);
-    mk_rect(p, 398,  86, 40,  6, 0x383840);
-    mk_rect(p, 396, 114, 28, 16, 0x303040);
-    mk_rect(p, 398, 110, 24,  8, 0x282838);
-
-    /* == FILEIRA 2 DE MESAS (y=168) == */
-    /* Mesa E */
-    mk_rect(p,  60, 168, 88, 52, 0x8B7040);
-    mk_rect(p,  60, 168, 88,  4, 0x6B5020);
-    mk_rect(p,  66, 158, 22, 14, 0x202028);
-    mk_rect(p,  68, 160, 18, 10, 0x1A3060);
-    mk_rect(p,  74, 168,  6,  2, 0x303038);
-    mk_rect(p,  68, 182, 46,  6, 0x383840);
-    mk_rect(p,  72, 210, 28, 16, 0x303040);
-    mk_rect(p,  74, 206, 24,  8, 0x282838);
-    draw_npc(p,  80, 198, 0x8A5030, 0x805030, true);
-
-    /* Mesa F */
-    mk_rect(p, 172, 168, 88, 52, 0x8B7040);
-    mk_rect(p, 172, 168, 88,  4, 0x6B5020);
-    mk_rect(p, 178, 158, 22, 14, 0x202028);
-    mk_rect(p, 180, 160, 18, 10, 0x1A3060);
-    mk_rect(p, 186, 168,  6,  2, 0x303038);
-    mk_rect(p, 180, 182, 46,  6, 0x383840);
-    mk_rect(p, 184, 210, 28, 16, 0x303040);
-    mk_rect(p, 186, 206, 24,  8, 0x282838);
-
-    /* Impressoras */
-    mk_rect(p, 282, 170, 36, 24, 0x484858);
-    mk_rect(p, 284, 172, 32,  8, 0x383848);
-    mk_rect(p, 284, 182, 32,  4, 0x585868);
-    mk_rect(p, 332, 170, 36, 24, 0x484858);
-    mk_rect(p, 334, 172, 32,  8, 0x383848);
-    mk_rect(p, 334, 182, 32,  4, 0x585868);
-
-    /* Plantas */
-    mk_rect(p, 440, 168, 18, 24, 0x4A5A28);
-    mk_rect(p, 442, 158, 14, 12, 0x2A6A20);
-    mk_rect(p, 438, 152, 10, 10, 0x1E5018);
-    mk_rect(p, 440, 238, 18, 24, 0x4A5A28);
-    mk_rect(p, 442, 228, 14, 12, 0x2A6A20);
-
-    /* Bebedouro */
-    mk_rect(p, 400, 170, 20, 30, 0x8090A8);
-    mk_rect(p, 402, 166, 16,  8, 0xC0D0E0);
-    mk_rect(p, 402, 198,  8,  6, 0x607080);
-
-    /* NPC no corredor */
-    draw_npc(p, 338, 234, 0x3A7040, 0x1E3A6E, false);
-
-    /* Corredor fundo */
-    mk_rect(p, 22, 270, SCR_W - 22, 20, 0x888888);
-    mk_rect(p, 22, 268, SCR_W - 22,  2, 0x686868);
+    lv_obj_set_pos(back, 2, GAME_H / 2 - 6);
 }
 
 /* ============================================================
@@ -810,34 +760,36 @@ static void build_room2(void)
  * ============================================================ */
 static void create_player(void)
 {
-    g_player_head = lv_obj_create(g_room_cont);
-    lv_obj_set_size(g_player_head, PLR_W, 8);
-    lv_obj_set_style_bg_color(g_player_head, lv_color_hex(0xE8B896), 0);
-    lv_obj_set_style_border_color(g_player_head, lv_color_hex(0xB89060), 0);
-    lv_obj_set_style_border_width(g_player_head, 1, 0);
-    lv_obj_set_style_radius(g_player_head, 3, 0);
-    lv_obj_set_style_pad_all(g_player_head, 0, 0);
-    lv_obj_clear_flag(g_player_head, LV_OBJ_FLAG_SCROLLABLE);
+    /* Container de clipping define posicao e tamanho visivel (24x32 display = 2x de 12x16) */
+    g_player_cont = lv_obj_create(g_room_cont);
+    lv_obj_set_size(g_player_cont, PLR_FRAME_W * 2, PLR_FRAME_H * 2);
+    lv_obj_set_style_pad_all(g_player_cont, 0, 0);
+    lv_obj_set_style_border_width(g_player_cont, 0, 0);
+    lv_obj_set_style_radius(g_player_cont, 0, 0);
+    lv_obj_set_style_bg_opa(g_player_cont, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(g_player_cont, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Cabelo marrom */
-    lv_obj_t *hair = lv_obj_create(g_player_head);
-    lv_obj_set_size(hair, PLR_W - 2, 4);
-    lv_obj_set_pos(hair, 1, 0);
-    lv_obj_set_style_bg_color(hair, lv_color_hex(0x8B5020), 0);
-    lv_obj_set_style_border_width(hair, 0, 0);
-    lv_obj_set_style_radius(hair, 2, 0);
-    lv_obj_set_style_pad_all(hair, 0, 0);
-    lv_obj_clear_flag(hair, LV_OBJ_FLAG_SCROLLABLE);
-
-    g_player_body = lv_obj_create(g_room_cont);
-    lv_obj_set_size(g_player_body, PLR_W, 10);
-    lv_obj_set_style_bg_color(g_player_body, lv_color_hex(0x1E4A9E), 0);
-    lv_obj_set_style_border_width(g_player_body, 0, 0);
-    lv_obj_set_style_radius(g_player_body, 1, 0);
-    lv_obj_set_style_pad_all(g_player_body, 0, 0);
-    lv_obj_clear_flag(g_player_body, LV_OBJ_FLAG_SCROLLABLE);
-
+    /* Imagem do sprite sheet dentro do container */
+    g_player_img = lv_image_create(g_player_cont);
+    lv_image_set_src(g_player_img, IMG_PLAYER);
+    lv_image_set_pivot(g_player_img, 0, 0);
+    lv_image_set_scale(g_player_img, 512); /* 2x */
+    g_plr_frame = 0;
+    g_plr_dir   = PLR_DIR_DOWN;
+    update_player_sprite();
     update_player_pos();
+}
+
+static void update_player_sprite(void)
+{
+    if (!g_player_img) return;
+    /* Mover a imagem dentro do container para selecionar o frame correto.
+     * Cada frame tem PLR_FRAME_W*2 px (display 2x). Offset negativo = move imagem para a esquerda. */
+    int disp_fw = PLR_FRAME_W * 2;   /* largura de 1 frame em display pixels (24) */
+    int disp_fh = PLR_FRAME_H * 2;   /* altura  de 1 frame em display pixels (32) */
+    lv_obj_set_pos(g_player_img,
+                   -(g_plr_frame * disp_fw),
+                   -(g_plr_dir   * disp_fh));
 }
 
 /* ============================================================
@@ -845,10 +797,9 @@ static void create_player(void)
  * ============================================================ */
 static void start_timers(void)
 {
-    if (!g_tmr_move)  g_tmr_move  = lv_timer_create(tmr_move_cb,  MOVE_MS,        NULL);
-    if (!g_tmr_clock) g_tmr_clock = lv_timer_create(tmr_clock_cb, CLOCK_TICK_MS,  NULL);
-    if (!g_tmr_event) g_tmr_event = lv_timer_create(tmr_event_cb, EVENT_MIN_MS,   NULL);
-    if (!g_tmr_drain) g_tmr_drain = lv_timer_create(tmr_drain_cb, DRAIN_TICK_MS,  NULL);
+    if (!g_tmr_clock) g_tmr_clock = lv_timer_create(tmr_clock_cb, CLOCK_TICK_MS, NULL);
+    if (!g_tmr_event) g_tmr_event = lv_timer_create(tmr_event_cb, EVENT_MIN_MS,  NULL);
+    if (!g_tmr_drain) g_tmr_drain = lv_timer_create(tmr_drain_cb, DRAIN_TICK_MS, NULL);
 }
 
 static void stop_timers(void)
@@ -857,38 +808,55 @@ static void stop_timers(void)
     if (g_tmr_clock) { lv_timer_del(g_tmr_clock); g_tmr_clock = NULL; }
     if (g_tmr_event) { lv_timer_del(g_tmr_event); g_tmr_event = NULL; }
     if (g_tmr_drain) { lv_timer_del(g_tmr_drain); g_tmr_drain = NULL; }
+    if (g_tmr_anim)  { lv_timer_del(g_tmr_anim);  g_tmr_anim  = NULL; }
+}
+
+static void tmr_anim_cb(lv_timer_t *t)
+{
+    (void)t;
+    if (!g_player_img) return;
+    if (g_plr_moving) {
+        g_plr_frame = (g_plr_frame + 1) % PLR_FRAMES;
+    } else {
+        g_plr_frame = 0;
+    }
+    update_player_sprite();
 }
 
 static void tmr_move_cb(lv_timer_t *t)
 {
     (void)t;
-    if (!g_game_running || g_dlg_overlay) return;
+    if (g_dlg_overlay) return;
 
-    /* Transicao sala 1 -> sala 2 */
-    if (g_room == ROOM_1 &&
-        g_plr.x >= SCR_W - PLR_W - 14 &&
-        g_plr.y > GAME_Y + 118 && g_plr.y < GAME_Y + 186) {
-        switch_room(ROOM_2);
-        return;
+    bool moving = g_keys.up || g_keys.down || g_keys.left || g_keys.right;
+    g_plr_moving = moving;
+
+    /* Transicoes de sala — so apos a secretaria ter sido consultada */
+    if (g_secretaria_done || g_state == GS_PLAYING) {
+        if (g_room == ROOM_1 &&
+            g_plr.x >= SCR_W - PLR_W * 2 - 10 &&
+            g_plr.y > GAME_Y + 100 && g_plr.y < GAME_Y + 220) {
+            switch_room(ROOM_2);
+            return;
+        }
+        if (g_room == ROOM_2 &&
+            g_plr.x <= 14 &&
+            g_plr.y > GAME_Y + 80 && g_plr.y < GAME_Y + 210) {
+            switch_room(ROOM_1);
+            return;
+        }
     }
-    /* Transicao sala 2 -> sala 1 */
-    if (g_room == ROOM_2 &&
-        g_plr.x <= 26 &&
-        g_plr.y > GAME_Y + 96 && g_plr.y < GAME_Y + 185) {
-        switch_room(ROOM_1);
-        return;
-    }
 
-    if (g_keys.up)    g_plr.y -= PLR_SPEED;
-    if (g_keys.down)  g_plr.y += PLR_SPEED;
-    if (g_keys.left)  g_plr.x -= PLR_SPEED;
-    if (g_keys.right) g_plr.x += PLR_SPEED;
+    if (g_keys.up)    { g_plr.y -= PLR_SPEED; g_plr_dir = PLR_DIR_UP;    }
+    if (g_keys.down)  { g_plr.y += PLR_SPEED; g_plr_dir = PLR_DIR_DOWN;  }
+    if (g_keys.left)  { g_plr.x -= PLR_SPEED; g_plr_dir = PLR_DIR_LEFT;  }
+    if (g_keys.right) { g_plr.x += PLR_SPEED; g_plr_dir = PLR_DIR_RIGHT; }
 
-    int min_x = (g_room == ROOM_2) ? 24 : 0;
+    int min_x = (g_room == ROOM_2) ? 16 : 0;
     if (g_plr.x < min_x)           g_plr.x = min_x;
-    if (g_plr.x > SCR_W - PLR_W)   g_plr.x = SCR_W - PLR_W;
+    if (g_plr.x > SCR_W - PLR_W * 2)  g_plr.x = SCR_W - PLR_W * 2;
     if (g_plr.y < GAME_Y + 2)      g_plr.y = GAME_Y + 2;
-    if (g_plr.y > SCR_H - PLR_H)   g_plr.y = SCR_H - PLR_H;
+    if (g_plr.y > SCR_H - PLR_H * 2)  g_plr.y = SCR_H - PLR_H * 2;
 
     update_player_pos();
 }
@@ -897,28 +865,23 @@ static void tmr_clock_cb(lv_timer_t *t)
 {
     (void)t;
     if (!g_game_running) return;
-
     g_clock_ticks++;
     int total_min = (g_clock_ticks * GAME_TOTAL_MINUTES) / GAME_TOTAL_TICKS;
     g_game_hour   = 8  + (total_min / 60);
     g_game_min    = total_min % 60;
     update_hud();
-
     if (g_game_hour >= 18) do_game_over(true);
 }
 
 static void tmr_event_cb(lv_timer_t *t)
 {
     if (!g_game_running || g_dlg_overlay) return;
-
     int slot = -1;
     for (int i = 0; i < MAX_EVENTS; i++) {
         if (!g_events[i].active) { slot = i; break; }
     }
     if (slot < 0) return;
-
     spawn_event_slot(slot);
-
     uint32_t next = (uint32_t)(EVENT_MIN_MS + rand() % (EVENT_MAX_MS - EVENT_MIN_MS));
     lv_timer_set_period(t, next);
 }
@@ -927,7 +890,6 @@ static void tmr_drain_cb(lv_timer_t *t)
 {
     (void)t;
     if (!g_game_running) return;
-
     for (int i = 0; i < MAX_EVENTS; i++) {
         if (!g_events[i].active) continue;
         int d = (g_events[i].type == EV_ROUTINE) ? 1 :
@@ -935,33 +897,55 @@ static void tmr_drain_cb(lv_timer_t *t)
         g_events[i].hp -= d;
         if (g_events[i].hp < 0) g_events[i].hp = 0;
     }
-
     recalc_integrity();
     update_hud();
-
     if (g_integrity <= 0) do_game_over(false);
 }
 
 /* ============================================================
  *  LOGICA DE JOGO
  * ============================================================ */
+static bool near_secretaria(void)
+{
+    int ex = SEC_X;
+    int ey = SEC_Y + GAME_Y;
+    int dx = g_plr.x + PLR_W - ex;
+    int dy = g_plr.y + PLR_H - ey;
+    return (dx * dx + dy * dy) < (NPC_INTERACT_R * NPC_INTERACT_R);
+}
+
+static bool near_worker(void)
+{
+    int ex = WORKER_X + NPC_FRAME_W;
+    int ey = WORKER_Y + NPC_FRAME_H + GAME_Y;
+    int dx = g_plr.x + PLR_W - ex;
+    int dy = g_plr.y + PLR_H - ey;
+    return (dx * dx + dy * dy) < (NPC_INTERACT_R * NPC_INTERACT_R);
+}
+
 static void switch_room(RoomID room)
 {
     g_room = room;
     memset(&g_keys, 0, sizeof(g_keys));
+    g_plr_moving = false;
 
     if (room == ROOM_1) {
-        g_plr.x = SCR_W - PLR_W - 22;
-        g_plr.y = GAME_Y + 152;
+        g_plr.x = SCR_W - PLR_W * 2 - 16;
+        g_plr.y = GAME_Y + 150;
         build_room1();
         lv_label_set_text(g_lbl_room_name, "Recepcao");
         set_status("Sala Principal.", lv_color_hex(0x44CC88));
     } else {
-        g_plr.x = 30;
-        g_plr.y = GAME_Y + 152;
+        g_plr.x = 18;
+        g_plr.y = GAME_Y + 150;
         build_room2();
-        lv_label_set_text(g_lbl_room_name, "Escritorio");
-        set_status("Escritorio - Andar 2.", lv_color_hex(0x44CC88));
+        lv_label_set_text(g_lbl_room_name, "Escritorios");
+        if (!g_worker_task_done && g_state == GS_SECRETARIA) {
+            g_state = GS_WORKER_INTRO;
+            set_status("Fale com Carlos (superior direito).", lv_color_hex(0xFFAA00));
+        } else {
+            set_status("Escritorios - Andar 2.", lv_color_hex(0x44CC88));
+        }
     }
 
     create_player();
@@ -992,7 +976,7 @@ static void spawn_event_slot(int slot)
     char buf[72];
     snprintf(buf, sizeof(buf), "ALERTA [%s] em %s!",
              ev_label(ev->type),
-             (ev->room == ROOM_1) ? "Recepcao" : "Escritorio");
+             (ev->room == ROOM_1) ? "Recepcao" : "Escritorios");
     set_status(buf, ev_color(ev->type));
 
     if (ev->type == EV_CRITICAL)
@@ -1002,19 +986,16 @@ static void spawn_event_slot(int slot)
 static void resolve_event(int slot, bool nfc)
 {
     if (!g_events[slot].active) return;
-
     if (g_events[slot].bubble) {
         lv_obj_del(g_events[slot].bubble);
-        g_events[slot].bubble    = NULL;
+        g_events[slot].bubble     = NULL;
         g_events[slot].bubble_lbl = NULL;
     }
     g_events[slot].active = false;
     g_events[slot].type   = EV_NONE;
-
     g_score += nfc ? 30 : 15;
     recalc_integrity();
     update_hud();
-
     char buf[72];
     snprintf(buf, sizeof(buf), "Resolvido! +%d pts  Integridade: %d%%",
              nfc ? 30 : 15, g_integrity);
@@ -1025,17 +1006,14 @@ static void resolve_event(int slot, bool nfc)
 static int nearest_event(void)
 {
     int best = -1, best_d = INTERACT_RADIUS * INTERACT_RADIUS;
-
     for (int i = 0; i < MAX_EVENTS; i++) {
         if (!g_events[i].active || g_events[i].room != g_room) continue;
-
         const int *xs = (g_room == ROOM_1) ? S1_X : S2_X;
         const int *ys = (g_room == ROOM_1) ? S1_Y : S2_Y;
         int ex = xs[g_events[i].spot];
         int ey = ys[g_events[i].spot] + GAME_Y;
-
-        int dx = g_plr.x + PLR_W / 2 - ex;
-        int dy = g_plr.y + PLR_H / 2 - ey;
+        int dx = g_plr.x + PLR_W - ex;
+        int dy = g_plr.y + PLR_H - ey;
         int d2 = dx * dx + dy * dy;
         if (d2 < best_d) { best_d = d2; best = i; }
     }
@@ -1110,12 +1088,12 @@ static void do_game_over(bool victory)
     lv_obj_set_style_text_font(ttl, &lv_font_montserrat_14, 0);
     lv_obj_align(ttl, LV_ALIGN_TOP_MID, 0, 0);
 
-    lv_obj_t *sep = lv_obj_create(box);
-    lv_obj_set_size(sep, 290, 1);
-    lv_obj_set_style_bg_color(sep, lv_color_hex(0x1E3A50), 0);
-    lv_obj_set_style_border_width(sep, 0, 0);
-    lv_obj_align(sep, LV_ALIGN_TOP_MID, 0, 22);
-    lv_obj_clear_flag(sep, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *sep2 = lv_obj_create(box);
+    lv_obj_set_size(sep2, 290, 1);
+    lv_obj_set_style_bg_color(sep2, lv_color_hex(0x1E3A50), 0);
+    lv_obj_set_style_border_width(sep2, 0, 0);
+    lv_obj_align(sep2, LV_ALIGN_TOP_MID, 0, 22);
+    lv_obj_clear_flag(sep2, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *m = lv_label_create(box);
     lv_label_set_text(m, msg);
@@ -1136,22 +1114,13 @@ static void do_restart(void)
 /* ============================================================
  *  DIALOGOS
  * ============================================================ */
-static void show_tutorial_step(int step)
-{
-    if (step >= TUTORIAL_STEPS) {
-        if (g_dlg_overlay) { lv_obj_del(g_dlg_overlay); g_dlg_overlay = NULL; }
-        g_state        = GS_PLAYING;
-        g_game_running = true;
-        start_timers();
-        set_status("Boa sorte, Analista!", lv_color_hex(0x00FFAA));
-        return;
-    }
 
+/* Cria caixa de dialogo com portrait NPC (sprite sheet lateral) */
+static void create_npc_dialog(const char *sprite_src, const char *text,
+                               int step, int total)
+{
     if (g_dlg_overlay) { lv_obj_del(g_dlg_overlay); g_dlg_overlay = NULL; }
 
-    const TutLine *line = &k_tut[step];
-
-    /* Overlay semi-transparente */
     g_dlg_overlay = lv_obj_create(lv_scr_act());
     lv_obj_set_size(g_dlg_overlay, SCR_W, SCR_H);
     lv_obj_set_pos(g_dlg_overlay, 0, 0);
@@ -1160,10 +1129,9 @@ static void show_tutorial_step(int step)
     lv_obj_set_style_border_width(g_dlg_overlay, 0, 0);
     lv_obj_clear_flag(g_dlg_overlay, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Caixa de dialogo inferior */
     lv_obj_t *box = lv_obj_create(g_dlg_overlay);
-    lv_obj_set_size(box, SCR_W - 10, 140);
-    lv_obj_set_pos(box, 5, SCR_H - 148);
+    lv_obj_set_size(box, SCR_W - 10, 132);
+    lv_obj_set_pos(box, 5, SCR_H - 140);
     lv_obj_set_style_bg_color(box, lv_color_hex(0x030608), 0);
     lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(box, lv_color_hex(0x1E3050), 0);
@@ -1172,36 +1140,120 @@ static void show_tutorial_step(int step)
     lv_obj_set_style_pad_all(box, 0, 0);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Frame do portrait */
+    /* Frame de portrait */
     lv_obj_t *pframe = lv_obj_create(box);
-    lv_obj_set_size(pframe, 78, 124);
+    lv_obj_set_size(pframe, 72, 116);
     lv_obj_set_pos(pframe, 6, 8);
-    lv_obj_set_style_bg_color(pframe, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(pframe, lv_color_hex(0x080C18), 0);
     lv_obj_set_style_border_color(pframe, lv_color_hex(0x1E3050), 0);
-    lv_obj_set_style_border_width(pframe, 2, 0);
+    lv_obj_set_style_border_width(pframe, 1, 0);
     lv_obj_set_style_radius(pframe, 2, 0);
     lv_obj_set_style_pad_all(pframe, 0, 0);
     lv_obj_clear_flag(pframe, LV_OBJ_FLAG_SCROLLABLE);
 
-    draw_portrait(pframe, 8, 6, 62, line->hair, line->shirt);
+    /* Sprite NPC no portrait — container clipping 72x116, imagem 4.5x dentro */
+    lv_obj_t *npc_port_clip = lv_obj_create(pframe);
+    lv_obj_set_size(npc_port_clip, 72, 116);
+    lv_obj_set_pos(npc_port_clip, 0, 0);
+    lv_obj_set_style_pad_all(npc_port_clip, 0, 0);
+    lv_obj_set_style_border_width(npc_port_clip, 0, 0);
+    lv_obj_set_style_radius(npc_port_clip, 0, 0);
+    lv_obj_set_style_bg_opa(npc_port_clip, LV_OPA_TRANSP, 0);
+    lv_obj_clear_flag(npc_port_clip, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_t *npc_portrait = lv_image_create(npc_port_clip);
+    lv_image_set_src(npc_portrait, sprite_src);
+    lv_image_set_pivot(npc_portrait, 0, 0);
+    lv_image_set_scale(npc_portrait, 1152); /* 4.5x: 16px->72, 32px->144 */
+    lv_obj_set_pos(npc_portrait, 0, 0);
 
-    /* Texto */
+    /* Texto do dialogo */
     lv_obj_t *txt = lv_label_create(box);
-    lv_label_set_text(txt, line->text);
+    lv_label_set_text(txt, text);
     lv_obj_set_style_text_color(txt, lv_color_hex(0xDDEEFF), 0);
     lv_obj_set_style_text_font(txt, &lv_font_montserrat_14, 0);
-    lv_obj_set_size(txt, SCR_W - 115, 104);
-    lv_obj_set_pos(txt, 90, 8);
+    lv_obj_set_size(txt, SCR_W - 110, 98);
+    lv_obj_set_pos(txt, 84, 8);
     lv_label_set_long_mode(txt, LV_LABEL_LONG_WRAP);
 
     /* Indicador de continuacao */
-    lv_obj_t *cont = lv_label_create(box);
-    char cbuf[28];
-    snprintf(cbuf, sizeof(cbuf), "[A]  %d/%d  ►", step + 1, TUTORIAL_STEPS);
-    lv_label_set_text(cont, cbuf);
-    lv_obj_set_style_text_color(cont, lv_color_hex(0x5588AA), 0);
-    lv_obj_set_style_text_font(cont, &lv_font_montserrat_10, 0);
-    lv_obj_align(cont, LV_ALIGN_BOTTOM_RIGHT, -6, -4);
+    lv_obj_t *pg = lv_label_create(box);
+    char pbuf[32];
+    snprintf(pbuf, sizeof(pbuf), "[A] continuar  %d/%d", step + 1, total);
+    lv_label_set_text(pg, pbuf);
+    lv_obj_set_style_text_color(pg, lv_color_hex(0x5588AA), 0);
+    lv_obj_set_style_text_font(pg, &lv_font_montserrat_10, 0);
+    lv_obj_align(pg, LV_ALIGN_BOTTOM_RIGHT, -6, -4);
+}
+
+static void show_secretaria_step(int step)
+{
+    create_npc_dialog(IMG_SECRETARIO, k_sec_dialog[step], step, SEC_STEPS);
+}
+
+static void show_worker_intro_step(int step)
+{
+    create_npc_dialog(IMG_TRABALHADOR, k_worker_intro[step], step, WORKER_INTRO_STEPS);
+}
+
+static void show_worker_task(void)
+{
+    if (g_dlg_overlay) { lv_obj_del(g_dlg_overlay); g_dlg_overlay = NULL; }
+
+    g_dlg_overlay = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(g_dlg_overlay, SCR_W, SCR_H);
+    lv_obj_set_pos(g_dlg_overlay, 0, 0);
+    lv_obj_set_style_bg_color(g_dlg_overlay, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(g_dlg_overlay, LV_OPA_60, 0);
+    lv_obj_set_style_border_width(g_dlg_overlay, 0, 0);
+    lv_obj_clear_flag(g_dlg_overlay, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *box = lv_obj_create(g_dlg_overlay);
+    lv_obj_set_size(box, 340, 220);
+    lv_obj_center(box);
+    lv_obj_set_style_bg_color(box, lv_color_hex(0x03060A), 0);
+    lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(box, lv_color_hex(0xFFAA00), 0);
+    lv_obj_set_style_border_width(box, 2, 0);
+    lv_obj_set_style_radius(box, 4, 0);
+    lv_obj_set_style_pad_all(box, 12, 0);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *ttl = lv_label_create(box);
+    lv_label_set_text(ttl, "! TAREFA: Identificar Senha Fraca");
+    lv_obj_set_style_text_color(ttl, lv_color_hex(0xFFAA00), 0);
+    lv_obj_set_style_text_font(ttl, &lv_font_montserrat_14, 0);
+    lv_obj_align(ttl, LV_ALIGN_TOP_MID, 0, 0);
+
+    lv_obj_t *sep = lv_obj_create(box);
+    lv_obj_set_size(sep, 310, 1);
+    lv_obj_set_style_bg_color(sep, lv_color_hex(0xFFAA00), 0);
+    lv_obj_set_style_border_width(sep, 0, 0);
+    lv_obj_align(sep, LV_ALIGN_TOP_MID, 0, 20);
+    lv_obj_clear_flag(sep, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *q = lv_label_create(box);
+    lv_label_set_text(q, "Qual das seguintes senhas\ne considerada FRACA e deve ser trocada?");
+    lv_obj_set_style_text_color(q, lv_color_hex(0xCCDDEE), 0);
+    lv_obj_set_style_text_font(q, &lv_font_montserrat_10, 0);
+    lv_obj_set_width(q, 310);
+    lv_obj_align(q, LV_ALIGN_TOP_MID, 0, 28);
+
+    for (int i = 0; i < TASK_OPTIONS; i++) {
+        lv_obj_t *opt = lv_label_create(box);
+        lv_label_set_text(opt, k_task_opts[i]);
+        lv_obj_set_style_text_font(opt, &lv_font_montserrat_10, 0);
+        lv_color_t c = (i == g_task_selected) ?
+                        lv_color_hex(0x00FFAA) : lv_color_hex(0x8899AA);
+        lv_obj_set_style_text_color(opt, c, 0);
+        lv_obj_set_width(opt, 310);
+        lv_obj_set_pos(opt, 12, 75 + i * 24);
+    }
+
+    lv_obj_t *hint = lv_label_create(box);
+    lv_label_set_text(hint, "[↑↓] Selecionar   [A] Confirmar");
+    lv_obj_set_style_text_color(hint, lv_color_hex(0x5588AA), 0);
+    lv_obj_set_style_text_font(hint, &lv_font_montserrat_10, 0);
+    lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -4);
 }
 
 static void show_event_dialog(int slot)
@@ -1229,10 +1281,8 @@ static void show_event_dialog(int slot)
     lv_obj_set_style_pad_all(box, 12, 0);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Titulo */
     char ttl[80];
-    snprintf(ttl, sizeof(ttl), "%s  %s",
-             ev_icon(ev->type),
+    snprintf(ttl, sizeof(ttl), "%s  %s", ev_icon(ev->type),
              ev->type == EV_CRITICAL ? "RANSOMWARE DETECTADO!" :
              ev->type == EV_ANOMALY  ? "VULNERABILIDADE DETECTADA" :
                                        "TAREFA DE PREVENCAO");
@@ -1245,7 +1295,6 @@ static void show_event_dialog(int slot)
     lv_label_set_long_mode(t, LV_LABEL_LONG_WRAP);
     lv_obj_align(t, LV_ALIGN_TOP_MID, 0, 0);
 
-    /* Separador */
     lv_obj_t *sep = lv_obj_create(box);
     lv_obj_set_size(sep, 280, 1);
     lv_obj_set_style_bg_color(sep, ev_color(ev->type), 0);
@@ -1253,7 +1302,6 @@ static void show_event_dialog(int slot)
     lv_obj_align(sep, LV_ALIGN_TOP_MID, 0, 20);
     lv_obj_clear_flag(sep, LV_OBJ_FLAG_SCROLLABLE);
 
-    /* Detalhes */
     char det[200];
     snprintf(det, sizeof(det),
              "* Sala:        %s\n"
@@ -1261,10 +1309,8 @@ static void show_event_dialog(int slot)
              "* Detalhe:     %s\n"
              "* Integridade: %d%%\n"
              "* Nivel risco: %s",
-             (ev->room == ROOM_1) ? "Recepcao" : "Escritorio",
-             ev->victim,
-             ev->detail,
-             ev->hp,
+             (ev->room == ROOM_1) ? "Recepcao" : "Escritorios",
+             ev->victim, ev->detail, ev->hp,
              ev->type == EV_CRITICAL ? "CRITICO" :
              ev->type == EV_ANOMALY  ? "Alto" : "Baixo");
 
@@ -1276,7 +1322,6 @@ static void show_event_dialog(int slot)
     lv_label_set_long_mode(d, LV_LABEL_LONG_WRAP);
     lv_obj_align(d, LV_ALIGN_TOP_MID, 0, 28);
 
-    /* Barra HP do evento */
     lv_obj_t *hbar = lv_bar_create(box);
     lv_obj_set_size(hbar, 280, 8);
     lv_obj_align(hbar, LV_ALIGN_BOTTOM_MID, 0, -20);
@@ -1287,7 +1332,6 @@ static void show_event_dialog(int slot)
     lv_obj_set_style_radius(hbar, 2, 0);
     lv_obj_set_style_radius(hbar, 2, LV_PART_INDICATOR);
 
-    /* Instrucao */
     const char *act =
         (ev->type == EV_CRITICAL) ? "[ N = NFC scan para resolver ]" :
                                     "[ A = Corrigir vulnerabilidade ]";
@@ -1298,14 +1342,9 @@ static void show_event_dialog(int slot)
     lv_obj_align(ai, LV_ALIGN_BOTTOM_MID, 0, -4);
 }
 
-static void close_dialog(bool advance_tut)
+static void close_dialog(void)
 {
     if (g_dlg_overlay) { lv_obj_del(g_dlg_overlay); g_dlg_overlay = NULL; }
-
-    if (g_state == GS_TUTORIAL && advance_tut) {
-        g_tutorial_step++;
-        show_tutorial_step(g_tutorial_step);
-    }
 }
 
 /* ============================================================
@@ -1314,17 +1353,13 @@ static void close_dialog(bool advance_tut)
 static void update_hud(void)
 {
     if (!g_lbl_time) return;
-
     char buf[10];
     snprintf(buf, sizeof(buf), "%02d:%02d", g_game_hour, g_game_min);
     lv_label_set_text(g_lbl_time, buf);
-
     lv_bar_set_value(g_bar_hp, g_integrity, LV_ANIM_ON);
-
     char pct[8];
     snprintf(pct, sizeof(pct), "%d%%", g_integrity);
     lv_label_set_text(g_lbl_hp_val, pct);
-
     lv_color_t c =
         (g_integrity > 60) ? lv_color_hex(0x00FF88) :
         (g_integrity > 30) ? lv_color_hex(0xFFCC00) : lv_color_hex(0xFF4444);
@@ -1334,10 +1369,9 @@ static void update_hud(void)
 
 static void update_player_pos(void)
 {
-    if (!g_player_head || !g_player_body) return;
+    if (!g_player_cont) return;
     int ry = g_plr.y - GAME_Y;
-    lv_obj_set_pos(g_player_head, g_plr.x, ry);
-    lv_obj_set_pos(g_player_body, g_plr.x, ry + 8);
+    lv_obj_set_pos(g_player_cont, g_plr.x, ry);
 }
 
 static void rebuild_event_bubbles(void)
@@ -1345,7 +1379,7 @@ static void rebuild_event_bubbles(void)
     for (int i = 0; i < MAX_EVENTS; i++) {
         if (g_events[i].bubble) {
             lv_obj_del(g_events[i].bubble);
-            g_events[i].bubble    = NULL;
+            g_events[i].bubble     = NULL;
             g_events[i].bubble_lbl = NULL;
         }
         if (!g_events[i].active || g_events[i].room != g_room) continue;
@@ -1371,7 +1405,7 @@ static void rebuild_event_bubbles(void)
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, 0);
         lv_obj_center(lbl);
 
-        g_events[i].bubble    = bub;
+        g_events[i].bubble     = bub;
         g_events[i].bubble_lbl = lbl;
     }
 }
@@ -1381,79 +1415,6 @@ static void set_status(const char *msg, lv_color_t c)
     if (!g_lbl_status) return;
     lv_label_set_text(g_lbl_status, msg);
     lv_obj_set_style_text_color(g_lbl_status, c, 0);
-}
-
-/* ============================================================
- *  HELPERS DE DESENHO
- * ============================================================ */
-static lv_obj_t *mk_rect(lv_obj_t *p, int x, int y, int w, int h, uint32_t col)
-{
-    lv_obj_t *o = lv_obj_create(p);
-    lv_obj_set_size(o, w, h);
-    lv_obj_set_pos(o, x, y);
-    lv_obj_set_style_bg_color(o, lv_color_hex(col), 0);
-    lv_obj_set_style_border_width(o, 0, 0);
-    lv_obj_set_style_radius(o, 0, 0);
-    lv_obj_set_style_pad_all(o, 0, 0);
-    lv_obj_clear_flag(o, LV_OBJ_FLAG_SCROLLABLE);
-    return o;
-}
-
-static lv_obj_t *mk_rect_r(lv_obj_t *p, int x, int y, int w, int h,
-                             uint32_t col, int radius)
-{
-    lv_obj_t *o = mk_rect(p, x, y, w, h, col);
-    lv_obj_set_style_radius(o, radius, 0);
-    return o;
-}
-
-static void draw_npc(lv_obj_t *p, int x, int y,
-                     uint32_t hair, uint32_t shirt, bool sitting)
-{
-    mk_rect(p, x,      y,     10, 8, 0xE0B090);
-    mk_rect(p, x,      y,     10, 4, hair);
-    mk_rect(p, x + 2,  y + 5,  2, 2, 0x282020);
-    mk_rect(p, x + 6,  y + 5,  2, 2, 0x282020);
-
-    if (!sitting) {
-        mk_rect(p, x + 1,  y + 8,  8, 8, shirt);
-        mk_rect(p, x,      y + 8,  3, 8, shirt);
-        mk_rect(p, x + 7,  y + 8,  3, 8, shirt);
-        mk_rect(p, x + 2,  y + 16, 3, 6, 0x2A2A40);
-        mk_rect(p, x + 5,  y + 16, 3, 6, 0x2A2A40);
-    } else {
-        mk_rect(p, x + 1,  y + 8,  8, 6, shirt);
-        mk_rect(p, x - 2,  y + 12, 14, 4, 0x2A2A40);
-    }
-}
-
-static void draw_portrait(lv_obj_t *p, int x, int y, int sz,
-                          uint32_t hair, uint32_t shirt)
-{
-    int hw = sz * 10 / 20;
-    int hh = sz * 9 / 20;
-    int hx = x + (sz - hw) / 2;
-    int hy = y + 4;
-
-    mk_rect(p, x, y, sz, sz, 0x080C14);
-
-    /* Corpo */
-    mk_rect(p, x + 4,        hy + hh + 6, sz - 8, sz - hh - 8, shirt);
-
-    /* Rosto */
-    mk_rect(p, hx,            hy,          hw,      hh,           0xE0B890);
-    /* Cabelo */
-    mk_rect(p, hx,            hy,          hw,      hh * 4 / 10, hair);
-    /* Olhos */
-    mk_rect(p, hx + 3,        hy + hh / 2 + 1, hw / 5, hh / 6, 0x202020);
-    mk_rect(p, hx + hw - 6,   hy + hh / 2 + 1, hw / 5, hh / 6, 0x202020);
-    /* Boca */
-    mk_rect(p, hx + 4,        hy + hh * 3 / 4, hw - 8, 2, 0x884040);
-    /* Nariz */
-    mk_rect(p, hx + hw/2 - 1, hy + hh * 3 / 5, 2, 2, 0xC08060);
-    /* Orelhas */
-    mk_rect(p, hx - 2,        hy + hh / 3, 3, hh / 4, 0xD0A870);
-    mk_rect(p, hx + hw - 1,   hy + hh / 3, 3, hh / 4, 0xD0A870);
 }
 
 /* ============================================================

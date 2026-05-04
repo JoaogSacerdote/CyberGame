@@ -43,6 +43,16 @@ if errorlevel 1 (
 )
 
 echo.
+echo Copiando imagens do jogo...
+if not exist "bin\img" mkdir "bin\img"
+copy /Y "..\img\tela_inicial.png" "bin\img\" >nul
+copy /Y "..\img\Tela01.png"       "bin\img\" >nul
+copy /Y "..\img\Tela02.png"       "bin\img\" >nul
+copy /Y "..\img\persoagem.png"    "bin\img\" >nul
+copy /Y "..\img\secretario.png"   "bin\img\" >nul
+copy /Y "..\img\npc_sala2.png"    "bin\img\" >nul
+copy /Y "..\img\trabalhador_sala2.png" "bin\img\" >nul
+
 echo Compilacao concluida com sucesso!
 echo Execute RODAR.bat para iniciar o jogo.
 pause
