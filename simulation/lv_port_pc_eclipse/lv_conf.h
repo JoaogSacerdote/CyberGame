@@ -68,7 +68,7 @@
 
 #if LV_USE_STDLIB_MALLOC == LV_STDLIB_BUILTIN
     /** Size of memory available for `lv_malloc()` in bytes (>= 2kB) */
-    #define LV_MEM_SIZE (1024 * 1024)
+    #define LV_MEM_SIZE (12 * 1024 * 1024)  /* 12MB: needed to decode large PNGs (963x640x4=~2.5MB each) */
 
     /** Size of the memory expand for `lv_malloc()` in bytes */
     #define LV_MEM_POOL_EXPAND_SIZE 0
