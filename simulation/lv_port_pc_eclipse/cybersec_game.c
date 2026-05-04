@@ -831,28 +831,28 @@ static void tmr_move_cb(lv_timer_t *t)
     bool moving = g_keys.up || g_keys.down || g_keys.left || g_keys.right;
     g_plr_moving = moving;
 
-    /* Transicoes de sala — so apos a secretaria ter sido consultada */
-    if (g_secretaria_done || g_state == GS_PLAYING) {
-        if (g_room == ROOM_1 &&
-            g_plr.x >= SCR_W - PLR_W * 2 - 10 &&
-            g_plr.y > GAME_Y + 100 && g_plr.y < GAME_Y + 220) {
-            switch_room(ROOM_2);
-            return;
-        }
-        if (g_room == ROOM_2 &&
-            g_plr.x <= 14 &&
-            g_plr.y > GAME_Y + 80 && g_plr.y < GAME_Y + 210) {
-            switch_room(ROOM_1);
-            return;
-        }
-    }
-
     if (g_keys.up)    { g_plr.y -= PLR_SPEED; g_plr_dir = PLR_DIR_UP;    }
     if (g_keys.down)  { g_plr.y += PLR_SPEED; g_plr_dir = PLR_DIR_DOWN;  }
     if (g_keys.left)  { g_plr.x -= PLR_SPEED; g_plr_dir = PLR_DIR_LEFT;  }
     if (g_keys.right) { g_plr.x += PLR_SPEED; g_plr_dir = PLR_DIR_RIGHT; }
 
-    int min_x = (g_room == ROOM_2) ? 16 : 0;
+    /* Transicoes de sala — verificar APOS mover, antes do clamp */
+    if (g_secretaria_done || g_state == GS_PLAYING) {
+        if (g_room == ROOM_1 &&
+            g_plr.x >= SCR_W - PLR_W * 2 - 10 &&
+            g_plr.y > GAME_Y + 80 && g_plr.y < GAME_Y + 240) {
+            switch_room(ROOM_2);
+            return;
+        }
+        if (g_room == ROOM_2 &&
+            g_plr.x <= 0 &&
+            g_plr.y > GAME_Y + 60 && g_plr.y < GAME_Y + 240) {
+            switch_room(ROOM_1);
+            return;
+        }
+    }
+
+    int min_x = 0;
     if (g_plr.x < min_x)           g_plr.x = min_x;
     if (g_plr.x > SCR_W - PLR_W * 2)  g_plr.x = SCR_W - PLR_W * 2;
     if (g_plr.y < GAME_Y + 2)      g_plr.y = GAME_Y + 2;
