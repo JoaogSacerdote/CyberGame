@@ -840,21 +840,27 @@ static void tmr_move_cb(lv_timer_t *t)
     if (g_keys.left)  { g_plr.x -= PLR_SPEED; g_plr_dir = PLR_DIR_LEFT;  }
     if (g_keys.right) { g_plr.x += PLR_SPEED; g_plr_dir = PLR_DIR_RIGHT; }
 
-    /* Transicoes de sala — verificar APOS mover, antes do clamp */
+    /* Transicoes de sala — verificar APOS mover, antes do clamp.
+     * Faixa Y restrita a abertura real da parede nos backgrounds.
+     * Ajuste DOOR_TOP / DOOR_BOT para bater com o recorte visual. */
+#define DOOR_TOP  55
+#define DOOR_BOT  135
     if (g_secretaria_done || g_state == GS_PLAYING) {
         if (g_room == ROOM_1 &&
             g_plr.x >= SCR_W - PLR_W * 2 - 10 &&
-            g_plr.y > GAME_Y + 80 && g_plr.y < GAME_Y + 240) {
+            g_plr.y > GAME_Y + DOOR_TOP && g_plr.y < GAME_Y + DOOR_BOT) {
             switch_room(ROOM_2);
             return;
         }
         if (g_room == ROOM_2 &&
             g_plr.x <= 0 &&
-            g_plr.y > GAME_Y + 60 && g_plr.y < GAME_Y + 240) {
+            g_plr.y > GAME_Y + DOOR_TOP && g_plr.y < GAME_Y + DOOR_BOT) {
             switch_room(ROOM_1);
             return;
         }
     }
+#undef DOOR_TOP
+#undef DOOR_BOT
 
     int min_x = 0;
     if (g_plr.x < min_x)           g_plr.x = min_x;
@@ -935,13 +941,13 @@ static void switch_room(RoomID room)
 
     if (room == ROOM_1) {
         g_plr.x = SCR_W - PLR_W * 2 - 16;
-        g_plr.y = GAME_Y + 150;
+        g_plr.y = GAME_Y + 90;   /* centro da abertura da porta */
         build_room1();
         lv_label_set_text(g_lbl_room_name, "Recepcao");
         set_status("Sala Principal.", lv_color_hex(0x44CC88));
     } else {
         g_plr.x = 18;
-        g_plr.y = GAME_Y + 150;
+        g_plr.y = GAME_Y + 90;   /* centro da abertura da porta */
         build_room2();
         lv_label_set_text(g_lbl_room_name, "Escritorios");
         if (!g_worker_task_done && g_state == GS_SECRETARIA) {
