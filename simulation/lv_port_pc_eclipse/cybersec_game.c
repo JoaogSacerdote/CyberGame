@@ -677,7 +677,7 @@ static void build_room1(void)
 
     /* Seta sala 2 */
     lv_obj_t *arrow = lv_label_create(g_room_cont);
-    lv_label_set_text(arrow, "► Sala 2");
+    lv_label_set_text(arrow, "> Sala 2");
     lv_obj_set_style_text_color(arrow, lv_color_hex(0x00FFAA), 0);
     lv_obj_set_style_text_font(arrow, &lv_font_montserrat_10, 0);
     lv_obj_set_pos(arrow, SCR_W - 60, GAME_H / 2 - 6);
@@ -753,7 +753,7 @@ static void build_room2(void)
 
     /* Seta de volta */
     lv_obj_t *back = lv_label_create(g_room_cont);
-    lv_label_set_text(back, "◄ Sala 1");
+    lv_label_set_text(back, "< Sala 1");
     lv_obj_set_style_text_color(back, lv_color_hex(0x00FFAA), 0);
     lv_obj_set_style_text_font(back, &lv_font_montserrat_10, 0);
     lv_obj_set_pos(back, 2, GAME_H / 2 - 6);
