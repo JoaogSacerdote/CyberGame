@@ -124,8 +124,8 @@ static const int S2_Y[S2_SPOTS] = { 156, 196, 172, 216 };
 /* Posicao do trabalhador na Sala 2 (estacao inferior direita)
  * - centro visual: (WORKER_X + NPC_FRAME_W, WORKER_Y + NPC_FRAME_H)
  * - clip topo-esq: (WORKER_X, WORKER_Y) */
-#define WORKER_X  382
-#define WORKER_Y  201
+#define WORKER_X  320
+#define WORKER_Y  55
 
 /* Raio de interacao com NPCs */
 #define NPC_INTERACT_R   55
