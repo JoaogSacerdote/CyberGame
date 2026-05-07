@@ -1140,8 +1140,8 @@ static void create_npc_dialog(const char *sprite_src, const char *text,
     lv_obj_clear_flag(g_dlg_overlay, LV_OBJ_FLAG_SCROLLABLE);
 
     lv_obj_t *box = lv_obj_create(g_dlg_overlay);
-    lv_obj_set_size(box, SCR_W - 10, 132);
-    lv_obj_set_pos(box, 5, SCR_H - 140);
+    lv_obj_set_size(box, SCR_W, 142);
+    lv_obj_set_pos(box, 0, SCR_H - 160);
     lv_obj_set_style_bg_color(box, lv_color_hex(0x030608), 0);
     lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(box, lv_color_hex(0x1E3050), 0);
@@ -1153,7 +1153,7 @@ static void create_npc_dialog(const char *sprite_src, const char *text,
     /* Frame de portrait */
     lv_obj_t *pframe = lv_obj_create(box);
     lv_obj_set_size(pframe, 72, 116);
-    lv_obj_set_pos(pframe, 6, 8);
+    lv_obj_set_pos(pframe, 2, 8);
     lv_obj_set_style_bg_color(pframe, lv_color_hex(0x080C18), 0);
     lv_obj_set_style_border_color(pframe, lv_color_hex(0x1E3050), 0);
     lv_obj_set_style_border_width(pframe, 1, 0);
@@ -1176,23 +1176,24 @@ static void create_npc_dialog(const char *sprite_src, const char *text,
     lv_image_set_scale(npc_portrait, 1152); /* 4.5x: 16px->72, 32px->144 */
     lv_obj_set_pos(npc_portrait, 0, 0);
 
-    /* Texto do dialogo */
+    /* Texto — alinhado com topo do portrait (y=8), altura 96 deixa ~22px para indicador */
     lv_obj_t *txt = lv_label_create(box);
     lv_label_set_text(txt, text);
     lv_obj_set_style_text_color(txt, lv_color_hex(0xDDEEFF), 0);
     lv_obj_set_style_text_font(txt, &lv_font_montserrat_14, 0);
-    lv_obj_set_size(txt, SCR_W - 110, 98);
-    lv_obj_set_pos(txt, 84, 8);
+    lv_obj_set_size(txt, SCR_W - 80 - 8, 96);
+    lv_obj_set_pos(txt, 80, 8);
     lv_label_set_long_mode(txt, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(txt, LV_TEXT_ALIGN_LEFT, 0);
 
-    /* Indicador de continuacao */
+    /* Indicador de continuacao — abaixo do texto, nao sobrepoe */
     lv_obj_t *pg = lv_label_create(box);
     char pbuf[32];
     snprintf(pbuf, sizeof(pbuf), "[A] continuar  %d/%d", step + 1, total);
     lv_label_set_text(pg, pbuf);
     lv_obj_set_style_text_color(pg, lv_color_hex(0x5588AA), 0);
     lv_obj_set_style_text_font(pg, &lv_font_montserrat_10, 0);
-    lv_obj_align(pg, LV_ALIGN_BOTTOM_RIGHT, -6, -4);
+    lv_obj_align(pg, LV_ALIGN_BOTTOM_LEFT, 80, -5);
 }
 
 static void show_secretaria_step(int step)
