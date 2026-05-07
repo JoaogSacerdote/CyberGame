@@ -235,9 +235,9 @@ static const char *k_worker_intro[WORKER_INTRO_STEPS] = {
  * ============================================================ */
 #define TASK_OPTIONS 3
 static const char *k_task_opts[TASK_OPTIONS] = {
-    "A) Admin123   <- senha fraca!",
-    "B) xK#9mP!2@q <- senha forte",
-    "C) P@ssw0rd99 <- fraca tambem!"
+    "A) Admin123",
+    "B) xK#9mP!2@q",
+    "C) P@ssw0rd99"
 };
 /* Opcoes corretas: 0 (A) e 2 (C) */
 
@@ -449,12 +449,12 @@ void cybersec_sdl_key_event(int32_t sdlk, bool is_down)
 
     /* --- MINI-TASK SENHA --- */
     if (g_state == GS_WORKER_TASK && g_dlg_overlay != NULL) {
-        if ((uint32_t)sdlk == SDLK_UP) {
+        if ((uint32_t)sdlk == 0x5Bu) { /* [ */
             if (g_task_selected > 0) g_task_selected--;
             show_worker_task();
             return;
         }
-        if ((uint32_t)sdlk == SDLK_DOWN) {
+        if ((uint32_t)sdlk == 0x5Du) { /* ] */
             if (g_task_selected < TASK_OPTIONS - 1) g_task_selected++;
             show_worker_task();
             return;
@@ -1261,7 +1261,7 @@ static void show_worker_task(void)
     }
 
     lv_obj_t *hint = lv_label_create(box);
-    lv_label_set_text(hint, "[↑↓] Selecionar   [A] Confirmar");
+    lv_label_set_text(hint, "[ Cima  ] Baixo   [A] Confirmar");
     lv_obj_set_style_text_color(hint, lv_color_hex(0x5588AA), 0);
     lv_obj_set_style_text_font(hint, &lv_font_montserrat_10, 0);
     lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -4);
