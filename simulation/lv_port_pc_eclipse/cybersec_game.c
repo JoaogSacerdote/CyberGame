@@ -21,7 +21,7 @@
  *  1. Tela inicial -> pressiona A
  *  2. Sala 1: ir ate a secretaria (inferior esq.) e pressionar A -> tutorial
  *  3. Jogador vai para Sala 2 pela porta direita
- *  4. Interagir com trabalhador Carlos (superior direito) -> primeira task
+ *  4. Interagir com trabalhador Carlos (inferior direito) -> primeira task
  *  5. Resolver task (identificar senha fraca) -> jogo principal inicia
  *
  * CONTROLES:
@@ -115,13 +115,17 @@ static const int S1_Y[S1_SPOTS] = { 185, 240, 195, 240 };
 static const int S2_X[S2_SPOTS] = { 96, 212, 312, 425 };
 static const int S2_Y[S2_SPOTS] = { 156, 196, 172, 216 };
 
-/* Posicao da secretaria na Sala 1 (cadeira inferior esquerda) */
-#define SEC_X   68
-#define SEC_Y   242
+/* Posicao da secretaria na Sala 1 (cadeira inferior esquerda)
+ * - centro visual: (SEC_X, SEC_Y - NPC_FRAME_H)
+ * - clip topo-esq: (SEC_X - NPC_FRAME_W, SEC_Y - NPC_FRAME_H*2) */
+#define SEC_X   90
+#define SEC_Y   280
 
-/* Posicao do trabalhador na Sala 2 (canto superior direito) */
-#define WORKER_X  400
-#define WORKER_Y   55
+/* Posicao do trabalhador na Sala 2 (estacao inferior direita)
+ * - centro visual: (WORKER_X + NPC_FRAME_W, WORKER_Y + NPC_FRAME_H)
+ * - clip topo-esq: (WORKER_X, WORKER_Y) */
+#define WORKER_X  382
+#define WORKER_Y  201
 
 /* Raio de interacao com NPCs */
 #define NPC_INTERACT_R   55
@@ -372,7 +376,7 @@ void cybersec_sdl_key_event(int32_t sdlk, bool is_down)
             build_room1();
             create_player();
             update_hud();
-            set_status("Fale com a secretaria (inferior esq.)", lv_color_hex(0x00FFAA));
+            set_status("Fale com a secretaria", lv_color_hex(0x00FFAA));
             if (!g_tmr_move) g_tmr_move = lv_timer_create(tmr_move_cb, MOVE_MS, NULL);
             if (!g_tmr_anim) g_tmr_anim = lv_timer_create(tmr_anim_cb, ANIM_MS, NULL);
             g_state = GS_SECRETARIA;
@@ -404,9 +408,9 @@ void cybersec_sdl_key_event(int32_t sdlk, bool is_down)
                 g_sec_step = 0;
                 show_secretaria_step(0);
             } else if (g_secretaria_done) {
-                set_status("Va a sala 2 (porta na parede direita).", lv_color_hex(0x00FFAA));
+                set_status("Va a sala 2.", lv_color_hex(0x00FFAA));
             } else {
-                set_status("Fale com a secretaria (inferior esq.)!", lv_color_hex(0xFFAA00));
+                set_status("Fale com a secretaria!", lv_color_hex(0xFFAA00));
             }
         }
         return;
@@ -437,7 +441,7 @@ void cybersec_sdl_key_event(int32_t sdlk, bool is_down)
                 g_worker_step = 0;
                 show_worker_intro_step(0);
             } else {
-                set_status("Fale com Carlos (superior direito).", lv_color_hex(0xFFAA00));
+                set_status("Fale com Carlos!", lv_color_hex(0xFFAA00));
             }
         }
         return;
@@ -723,7 +727,7 @@ static void build_room2(void)
     lv_image_set_scale(npc2, 512);
     lv_obj_set_pos(npc2, 0, 0);
 
-    /* Trabalhador Carlos — container clipping 32x64, superior direito */
+    /* Trabalhador Carlos — container clipping 32x64, inferior direito */
     lv_obj_t *wrk_clip = lv_obj_create(g_room_cont);
     lv_obj_set_size(wrk_clip, NPC_FRAME_W * 2, NPC_FRAME_H * 2);
     lv_obj_set_pos(wrk_clip, WORKER_X, WORKER_Y);
@@ -908,7 +912,7 @@ static void tmr_drain_cb(lv_timer_t *t)
 static bool near_secretaria(void)
 {
     int ex = SEC_X;
-    int ey = SEC_Y + GAME_Y;
+    int ey = (SEC_Y - NPC_FRAME_H) + GAME_Y;  /* centro visual do NPC em coords de tela */
     int dx = g_plr.x + PLR_W - ex;
     int dy = g_plr.y + PLR_H - ey;
     return (dx * dx + dy * dy) < (NPC_INTERACT_R * NPC_INTERACT_R);
@@ -942,7 +946,7 @@ static void switch_room(RoomID room)
         lv_label_set_text(g_lbl_room_name, "Escritorios");
         if (!g_worker_task_done && g_state == GS_SECRETARIA) {
             g_state = GS_WORKER_INTRO;
-            set_status("Fale com Carlos (superior direito).", lv_color_hex(0xFFAA00));
+            set_status("Fale com Carlos.", lv_color_hex(0xFFAA00));
         } else {
             set_status("Escritorios - Andar 2.", lv_color_hex(0x44CC88));
         }
