@@ -96,8 +96,17 @@ void app_main(void)
     xTaskCreate(pmu_shutdown_monitor_task, "pmu_monitor", 3072, NULL, 5, NULL);
 
     if (mode == PMU_BOOT_RECOVERY) {
-        ESP_LOGI(TAG, "Boot RECOVERY confirmado (PWR+REC). Modo gravador (placeholder Fase A1).");
-        ESP_LOGI(TAG, "Aqui na Fase A4 vai subir USB MSC. Por enquanto so idle aguardando shutdown via PWR.");
+        ESP_LOGI(TAG, "Boot RECOVERY confirmado (PWR+REC). Modo gravador.");
+
+        if (storage_hal_init() != ESP_OK) {
+            ESP_LOGE(TAG, "storage_hal_init falhou — sem como rodar POST do NAND");
+        } else if (storage_hal_test_write_cycle() == ESP_OK) {
+            ESP_LOGI(TAG, "POST do NAND PASSOU — chip escreve e le corretamente.");
+        } else {
+            ESP_LOGE(TAG, "POST do NAND FALHOU — ver logs acima para diagnostico.");
+        }
+
+        ESP_LOGI(TAG, "Recovery idle (Fase A4 sobe USB MSC aqui). Segure PWR para desligar.");
         while (1) {
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
