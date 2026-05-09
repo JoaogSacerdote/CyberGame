@@ -12,23 +12,25 @@ static const char *TAG = "PMU";
 
 esp_err_t pmu_init(void)
 {
-    /* Libera o pino do dominio RTC: necessario quando boot vem de wake-up
+    /* Libera o PWR do dominio RTC: necessario quando boot vem de wake-up
      * de Deep Sleep, senao gpio_config nao consegue reconfigurar o pino. */
     rtc_gpio_deinit(PMU_PIN_PWR);
 
+    /* PWR e REC compartilham a mesma config: input pull-up, sem interrupcao.
+     * Botoes ligados a GND, nivel LOW = pressionado. */
     const gpio_config_t cfg = {
-        .pin_bit_mask = (1ULL << PMU_PIN_PWR),
+        .pin_bit_mask = (1ULL << PMU_PIN_PWR) | (1ULL << PMU_PIN_REC),
         .mode         = GPIO_MODE_INPUT,
         .pull_up_en   = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type    = GPIO_INTR_DISABLE,
     };
 
-    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "gpio_config failed for PMU_PIN_PWR");
+    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "gpio_config failed for PWR/REC");
     return ESP_OK;
 }
 
-bool pmu_check_boot_hold(void)
+pmu_boot_mode_t pmu_check_boot_mode(void)
 {
     /* Settle inicial para mascarar bounce mecanico do botao. */
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -38,11 +40,17 @@ bool pmu_check_boot_hold(void)
 
     for (int i = 0; i < total_steps; ++i) {
         if (gpio_get_level(PMU_PIN_PWR) != 0) {
-            return false;
+            return PMU_BOOT_ABORT;
         }
         vTaskDelay(step_ticks);
     }
-    return true;
+
+    /* PWR confirmado pelo hold de 2s. Amostra REC para decidir o modo:
+     * REC pressionado no fim do hold = boot em modo gravador (RECOVERY). */
+    if (gpio_get_level(PMU_PIN_REC) == 0) {
+        return PMU_BOOT_RECOVERY;
+    }
+    return PMU_BOOT_NORMAL;
 }
 
 void pmu_enter_deep_sleep(void)

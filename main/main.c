@@ -85,13 +85,26 @@ void app_main(void)
     ESP_ERROR_CHECK(pmu_init());
 
     ESP_LOGI(TAG, "Avaliando Power Latch...");
-    if (!pmu_check_boot_hold()) {
+    const pmu_boot_mode_t mode = pmu_check_boot_mode();
+
+    if (mode == PMU_BOOT_ABORT) {
         ESP_LOGW(TAG, "Botao solto prematuramente. Voltando ao Deep Sleep.");
         pmu_enter_deep_sleep();
     }
-    ESP_LOGI(TAG, "Boot confirmado! Iniciando sistema...");
 
+    /* Monitor de PWR para shutdown vale tanto em jogo quanto em recovery. */
     xTaskCreate(pmu_shutdown_monitor_task, "pmu_monitor", 3072, NULL, 5, NULL);
+
+    if (mode == PMU_BOOT_RECOVERY) {
+        ESP_LOGI(TAG, "Boot RECOVERY confirmado (PWR+REC). Modo gravador (placeholder Fase A1).");
+        ESP_LOGI(TAG, "Aqui na Fase A4 vai subir USB MSC. Por enquanto so idle aguardando shutdown via PWR.");
+        while (1) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
+
+    /* PMU_BOOT_NORMAL daqui em diante. */
+    ESP_LOGI(TAG, "Boot NORMAL confirmado! Iniciando sistema...");
 
     ESP_ERROR_CHECK(button_hal_init());
     xTaskCreate(button_logger_task, "btn_logger", 3072, NULL, 4, NULL);
