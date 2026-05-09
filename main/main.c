@@ -9,6 +9,7 @@
 #include "button_hal.h"
 #include "joystick_hal.h"
 #include "nfc_hal.h"
+#include "storage_hal.h"
 
 static const char *TAG = "APP_MAIN";
 
@@ -101,6 +102,12 @@ void app_main(void)
     ESP_ERROR_CHECK(nfc_hal_init());
     xTaskCreate(nfc_logger_task,       "nfc_logger", 3072, NULL, 4, NULL);
     xTaskCreate(nfc_test_trigger_task, "nfc_trig",   2560, NULL, 4, NULL);
+
+    /* Storage: nao usa ESP_ERROR_CHECK — se a NAND nao responder, queremos
+     * que o resto do sistema continue funcional para diagnostico via UART. */
+    if (storage_hal_init() != ESP_OK) {
+        ESP_LOGE(TAG, "storage_hal_init falhou — NAND inacessivel. Boot continua.");
+    }
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
