@@ -1,10 +1,12 @@
 #include "storage_hal.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include "esp_check.h"
+#include "esp_heap_caps.h"
 #include "esp_log.h"
 
 static const char *TAG = "STORAGE_HAL";
@@ -20,15 +22,46 @@ static const char *TAG = "STORAGE_HAL";
 #define STORAGE_SPI_HZ         (10 * 1000 * 1000)
 
 /* W25N01GV NAND commands */
-#define NAND_CMD_RESET         0xFF
-#define NAND_CMD_JEDEC_ID      0x9F
+#define NAND_CMD_RESET           0xFF
+#define NAND_CMD_JEDEC_ID        0x9F
+#define NAND_CMD_GET_FEATURE     0x0F
+#define NAND_CMD_SET_FEATURE     0x1F
+#define NAND_CMD_WRITE_ENABLE    0x06
+#define NAND_CMD_BLOCK_ERASE     0xD8
+#define NAND_CMD_PROGRAM_LOAD    0x02
+#define NAND_CMD_PROGRAM_EXEC    0x10
+#define NAND_CMD_PAGE_READ       0x13
+#define NAND_CMD_READ_FROM_CACHE 0x03
+
+/* Feature register addresses */
+#define NAND_REG_PROTECTION      0xA0
+#define NAND_REG_CONFIG          0xB0
+#define NAND_REG_STATUS          0xC0
+
+/* Status register bits (reg 0xC0) */
+#define NAND_STATUS_OIP          (1 << 0)
+#define NAND_STATUS_WEL          (1 << 1)
+#define NAND_STATUS_E_FAIL       (1 << 2)
+#define NAND_STATUS_P_FAIL       (1 << 3)
+
+/* Configuration register bits (reg 0xB0) */
+#define NAND_CONFIG_BUF          (1 << 3)
+#define NAND_CONFIG_ECC_E        (1 << 4)
 
 /* JEDEC ID esperado: Winbond W25N01GV = EF AA 21 */
-#define NAND_EXPECTED_MANUF    0xEF
-#define NAND_EXPECTED_DEV_HI   0xAA
-#define NAND_EXPECTED_DEV_LO   0x21
+#define NAND_EXPECTED_MANUF      0xEF
+#define NAND_EXPECTED_DEV_HI     0xAA
+#define NAND_EXPECTED_DEV_LO     0x21
+
+/* Bloco reservado para POST destrutivo — ultimo bloco do chip, fora da area
+ * de assets futuros do jogo. */
+#define NAND_TEST_BLOCK          1023u
 
 static spi_device_handle_t s_spi = NULL;
+
+/* Buffer de transferencia para read/write de pagina inteira. ~2 KB em BSS.
+ * Nao reentrante — storage_hal nao eh chamado por multiplas tarefas. */
+static uint8_t s_xfer_buf[STORAGE_PAGE_SIZE + 4];
 
 static esp_err_t storage_spi_init(void)
 {
@@ -58,6 +91,65 @@ static esp_err_t storage_spi_init(void)
     };
     return spi_bus_add_device(STORAGE_SPI_HOST, &dev_cfg, &s_spi);
 }
+
+/* --- Helpers internos --- */
+
+static esp_err_t nand_cmd_only(uint8_t cmd)
+{
+    spi_transaction_t t = {
+        .cmd    = cmd,
+        .length = 0,
+    };
+    return spi_device_polling_transmit(s_spi, &t);
+}
+
+/* Get Feature: cmd(0x0F) + reg + read 1 byte. */
+static esp_err_t nand_get_feature(uint8_t reg, uint8_t *val)
+{
+    uint8_t txrx[2] = { reg, 0xFF };
+    spi_transaction_t t = {
+        .cmd       = NAND_CMD_GET_FEATURE,
+        .length    = 16,
+        .tx_buffer = txrx,
+        .rx_buffer = txrx,
+    };
+    const esp_err_t err = spi_device_polling_transmit(s_spi, &t);
+    if (err == ESP_OK) *val = txrx[1];
+    return err;
+}
+
+/* Set Feature: cmd(0x1F) + reg + write 1 byte. */
+static esp_err_t nand_set_feature(uint8_t reg, uint8_t val)
+{
+    uint8_t tx[2] = { reg, val };
+    spi_transaction_t t = {
+        .cmd       = NAND_CMD_SET_FEATURE,
+        .length    = 16,
+        .tx_buffer = tx,
+    };
+    return spi_device_polling_transmit(s_spi, &t);
+}
+
+/* Polla bit OIP do status register ate clear ou timeout.
+ * Operacoes do NAND sao curtas (us a poucos ms) — tight loop eh OK. */
+static esp_err_t nand_wait_oip(uint32_t timeout_ms)
+{
+    const TickType_t deadline = xTaskGetTickCount() + pdMS_TO_TICKS(timeout_ms);
+    uint8_t status = 0;
+    do {
+        ESP_RETURN_ON_ERROR(nand_get_feature(NAND_REG_STATUS, &status),
+                            TAG, "get status failed");
+        if ((status & NAND_STATUS_OIP) == 0) return ESP_OK;
+    } while (xTaskGetTickCount() < deadline);
+    return ESP_ERR_TIMEOUT;
+}
+
+static esp_err_t nand_write_enable(void)
+{
+    return nand_cmd_only(NAND_CMD_WRITE_ENABLE);
+}
+
+/* --- API publica --- */
 
 esp_err_t storage_hal_read_jedec_id(uint8_t *manuf, uint16_t *device)
 {
@@ -130,5 +222,215 @@ esp_err_t storage_hal_init(void)
                  manuf, device);
     }
 
+    /* Tira protecao de escrita default (bits BP do Protection Register).
+     * Sem isso, qualquer programa/erase falha silenciosamente. */
+    if (nand_set_feature(NAND_REG_PROTECTION, 0x00) != ESP_OK) {
+        ESP_LOGW(TAG, "Nao consegui limpar Protection Register — escritas podem falhar");
+    }
+
+    /* Garante BUF=1 (cache buffer mode) e ECC-E=1 (correcao de erros automatica). */
+    if (nand_set_feature(NAND_REG_CONFIG, NAND_CONFIG_BUF | NAND_CONFIG_ECC_E) != ESP_OK) {
+        ESP_LOGW(TAG, "Nao consegui setar Config Register — operando com defaults");
+    }
+
     return ESP_OK;
+}
+
+esp_err_t storage_hal_read_page(uint32_t page, uint8_t *buf)
+{
+    if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
+    if (buf == NULL || page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
+
+    /* Step 1: Page Data Read — array NAND -> cache interna do chip.
+     * Formato: cmd(0x13) + 1 dummy + 16-bit page address. */
+    uint8_t prefix[3] = { 0x00, (uint8_t)(page >> 8), (uint8_t)page };
+    spi_transaction_t t1 = {
+        .cmd       = NAND_CMD_PAGE_READ,
+        .length    = 24,
+        .tx_buffer = prefix,
+    };
+    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t1), TAG, "page read cmd failed");
+    ESP_RETURN_ON_ERROR(nand_wait_oip(50), TAG, "page read OIP timeout");
+
+    /* Step 2: Read From Cache — cache do chip -> host.
+     * Formato: cmd(0x03) + 16-bit column + 8 dummy + N bytes data. */
+    memset(s_xfer_buf, 0, 3 + STORAGE_PAGE_SIZE);
+    spi_transaction_t t2 = {
+        .cmd       = NAND_CMD_READ_FROM_CACHE,
+        .length    = (3 + STORAGE_PAGE_SIZE) * 8,
+        .tx_buffer = s_xfer_buf,
+        .rx_buffer = s_xfer_buf,
+    };
+    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t2), TAG, "read from cache failed");
+
+    memcpy(buf, &s_xfer_buf[3], STORAGE_PAGE_SIZE);
+    return ESP_OK;
+}
+
+esp_err_t storage_hal_write_page(uint32_t page, const uint8_t *buf)
+{
+    if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
+    if (buf == NULL || page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
+
+    ESP_RETURN_ON_ERROR(nand_write_enable(), TAG, "write enable failed");
+
+    /* Step 1: Load Program Data — host -> cache interna do chip.
+     * Formato: cmd(0x02) + 16-bit column + N bytes data. */
+    s_xfer_buf[0] = 0x00;
+    s_xfer_buf[1] = 0x00;
+    memcpy(&s_xfer_buf[2], buf, STORAGE_PAGE_SIZE);
+    spi_transaction_t t1 = {
+        .cmd       = NAND_CMD_PROGRAM_LOAD,
+        .length    = (2 + STORAGE_PAGE_SIZE) * 8,
+        .tx_buffer = s_xfer_buf,
+    };
+    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t1), TAG, "program load failed");
+
+    /* Step 2: Program Execute — commita cache para o array NAND.
+     * Formato: cmd(0x10) + 1 dummy + 16-bit page address. */
+    uint8_t exec[3] = { 0x00, (uint8_t)(page >> 8), (uint8_t)page };
+    spi_transaction_t t2 = {
+        .cmd       = NAND_CMD_PROGRAM_EXEC,
+        .length    = 24,
+        .tx_buffer = exec,
+    };
+    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t2), TAG, "program exec failed");
+
+    ESP_RETURN_ON_ERROR(nand_wait_oip(10), TAG, "program OIP timeout");
+
+    uint8_t status = 0;
+    ESP_RETURN_ON_ERROR(nand_get_feature(NAND_REG_STATUS, &status), TAG, "status read failed");
+    if (status & NAND_STATUS_P_FAIL) {
+        ESP_LOGE(TAG, "Program FAIL na pagina %u (status=0x%02X)", (unsigned)page, status);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+esp_err_t storage_hal_erase_block(uint32_t block)
+{
+    if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
+    if (block >= STORAGE_BLOCK_COUNT) return ESP_ERR_INVALID_ARG;
+
+    ESP_RETURN_ON_ERROR(nand_write_enable(), TAG, "write enable failed");
+
+    /* Block Erase: cmd(0xD8) + 1 dummy + 16-bit page address (qualquer pagina do bloco). */
+    const uint32_t page = block * STORAGE_PAGES_PER_BLOCK;
+    uint8_t cmd[3] = { 0x00, (uint8_t)(page >> 8), (uint8_t)page };
+    spi_transaction_t t = {
+        .cmd       = NAND_CMD_BLOCK_ERASE,
+        .length    = 24,
+        .tx_buffer = cmd,
+    };
+    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t), TAG, "erase cmd failed");
+
+    /* Erase tipico 4 ms, max 10 ms. Folga de 50 ms. */
+    ESP_RETURN_ON_ERROR(nand_wait_oip(50), TAG, "erase OIP timeout");
+
+    uint8_t status = 0;
+    ESP_RETURN_ON_ERROR(nand_get_feature(NAND_REG_STATUS, &status), TAG, "status read failed");
+    if (status & NAND_STATUS_E_FAIL) {
+        ESP_LOGE(TAG, "Erase FAIL no bloco %u (status=0x%02X)", (unsigned)block, status);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+bool storage_hal_is_block_bad(uint32_t block)
+{
+    if (s_spi == NULL || block >= STORAGE_BLOCK_COUNT) return true;
+
+    /* Bad block marker: byte 0 da spare area da pagina 0 do bloco.
+     * 0xFF = bom; qualquer outro valor = ruim. */
+    const uint32_t page = block * STORAGE_PAGES_PER_BLOCK;
+
+    uint8_t prefix[3] = { 0x00, (uint8_t)(page >> 8), (uint8_t)page };
+    spi_transaction_t t1 = {
+        .cmd = NAND_CMD_PAGE_READ, .length = 24, .tx_buffer = prefix,
+    };
+    if (spi_device_polling_transmit(s_spi, &t1) != ESP_OK) return true;
+    if (nand_wait_oip(50) != ESP_OK) return true;
+
+    /* Read From Cache: column = 2048 (inicio da spare area), 1 byte util. */
+    uint8_t buf[4] = { (uint8_t)(STORAGE_PAGE_SIZE >> 8),
+                       (uint8_t)STORAGE_PAGE_SIZE, 0x00, 0xAA };
+    spi_transaction_t t2 = {
+        .cmd = NAND_CMD_READ_FROM_CACHE, .length = 32,
+        .tx_buffer = buf, .rx_buffer = buf,
+    };
+    if (spi_device_polling_transmit(s_spi, &t2) != ESP_OK) return true;
+
+    return buf[3] != 0xFF;
+}
+
+esp_err_t storage_hal_test_write_cycle(void)
+{
+    if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
+
+    ESP_LOGI(TAG, "POST: teste destrutivo no bloco %u (reservado)...", NAND_TEST_BLOCK);
+
+    if (storage_hal_is_block_bad(NAND_TEST_BLOCK)) {
+        ESP_LOGE(TAG, "Bloco %u marcado como bad block — abortando POST", NAND_TEST_BLOCK);
+        return ESP_FAIL;
+    }
+
+    ESP_RETURN_ON_ERROR(storage_hal_erase_block(NAND_TEST_BLOCK), TAG, "erase failed");
+    ESP_LOGI(TAG, "  Erase OK");
+
+    uint8_t *pattern  = heap_caps_malloc(STORAGE_PAGE_SIZE, MALLOC_CAP_DMA);
+    uint8_t *readback = heap_caps_malloc(STORAGE_PAGE_SIZE, MALLOC_CAP_DMA);
+    if (pattern == NULL || readback == NULL) {
+        free(pattern); free(readback);
+        ESP_LOGE(TAG, "Falha ao alocar buffers de teste");
+        return ESP_ERR_NO_MEM;
+    }
+
+    /* Verifica que erase realmente apagou (deve ser tudo 0xFF). */
+    esp_err_t ret = storage_hal_read_page(NAND_TEST_BLOCK * STORAGE_PAGES_PER_BLOCK, readback);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Read pos-erase falhou");
+        goto cleanup;
+    }
+    for (size_t i = 0; i < STORAGE_PAGE_SIZE; ++i) {
+        if (readback[i] != 0xFF) {
+            ESP_LOGE(TAG, "  Pos-erase FAIL: offset %u = 0x%02X (esperado 0xFF)",
+                     (unsigned)i, readback[i]);
+            ret = ESP_FAIL;
+            goto cleanup;
+        }
+    }
+    ESP_LOGI(TAG, "  Pos-erase: todos os %u bytes = 0xFF (OK)", STORAGE_PAGE_SIZE);
+
+    /* Escreve padrao variado e relê. */
+    for (size_t i = 0; i < STORAGE_PAGE_SIZE; ++i) {
+        pattern[i] = (uint8_t)(0xA5 ^ (i & 0xFF));
+    }
+
+    const uint32_t test_page = NAND_TEST_BLOCK * STORAGE_PAGES_PER_BLOCK;
+    ret = storage_hal_write_page(test_page, pattern);
+    if (ret != ESP_OK) { ESP_LOGE(TAG, "Write falhou"); goto cleanup; }
+    ESP_LOGI(TAG, "  Write %u bytes OK", STORAGE_PAGE_SIZE);
+
+    ret = storage_hal_read_page(test_page, readback);
+    if (ret != ESP_OK) { ESP_LOGE(TAG, "Read falhou"); goto cleanup; }
+    ESP_LOGI(TAG, "  Read %u bytes OK", STORAGE_PAGE_SIZE);
+
+    if (memcmp(pattern, readback, STORAGE_PAGE_SIZE) == 0) {
+        ESP_LOGI(TAG, "POST PASS — todos os %u bytes do padrao bateram", STORAGE_PAGE_SIZE);
+        ret = ESP_OK;
+    } else {
+        for (size_t i = 0; i < STORAGE_PAGE_SIZE; ++i) {
+            if (pattern[i] != readback[i]) {
+                ESP_LOGE(TAG, "POST FAIL — primeiro mismatch no offset %u (esperado 0x%02X, lido 0x%02X)",
+                         (unsigned)i, pattern[i], readback[i]);
+                break;
+            }
+        }
+        ret = ESP_FAIL;
+    }
+
+cleanup:
+    free(pattern);
+    free(readback);
+    return ret;
 }
