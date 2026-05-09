@@ -99,11 +99,15 @@ void app_main(void)
         ESP_LOGI(TAG, "Boot RECOVERY confirmado (PWR+REC). Modo gravador.");
 
         if (storage_hal_init() != ESP_OK) {
-            ESP_LOGE(TAG, "storage_hal_init falhou — sem como rodar POST do NAND");
-        } else if (storage_hal_test_write_cycle() == ESP_OK) {
-            ESP_LOGI(TAG, "POST do NAND PASSOU — chip escreve e le corretamente.");
+            ESP_LOGE(TAG, "storage_hal_init falhou — sem como rodar testes do NAND");
         } else {
-            ESP_LOGE(TAG, "POST do NAND FALHOU — ver logs acima para diagnostico.");
+            if (storage_hal_test_write_cycle() == ESP_OK) {
+                ESP_LOGI(TAG, "POST do NAND PASSOU.");
+            } else {
+                ESP_LOGE(TAG, "POST do NAND FALHOU — ver logs acima.");
+            }
+            ESP_LOGI(TAG, "---");
+            storage_hal_run_full_validation();
         }
 
         ESP_LOGI(TAG, "Recovery idle (Fase A4 sobe USB MSC aqui). Segure PWR para desligar.");

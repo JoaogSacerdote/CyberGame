@@ -34,9 +34,17 @@ esp_err_t storage_hal_erase_block(uint32_t block);
  * Retorna true se o bloco esta marcado como ruim (de fabrica ou pelo sistema). */
 bool      storage_hal_is_block_bad(uint32_t block);
 
-/* POST destrutivo: erase + write + read + compare em bloco reservado.
- * Roda em modo RECOVERY para nao tocar em assets reais do jogo. */
+/* POST destrutivo: erase + write + read + compare em bloco reservado (1023).
+ * Rapido (~30ms). Roda em modo RECOVERY para nao tocar em assets reais do jogo. */
 esp_err_t storage_hal_test_write_cycle(void);
+
+/* Suite de validacao fisica completa, executa em sequencia:
+ *  1. Dump dos feature registers (Protection / Config / Status com decode dos bits)
+ *  2. Multi-region write/read test em 5 blocos espalhados (0, 256, 512, 768, 1023)
+ *  3. Full bad block scan (varre os 1024 blocos lendo o marcador de bad block)
+ * DESTRUTIVA nos blocos testados (0, 256, 512, 768, 1023). So rodar em RECOVERY.
+ * Tempo total ~5-10 segundos. */
+esp_err_t storage_hal_run_full_validation(void);
 
 #ifdef __cplusplus
 }
