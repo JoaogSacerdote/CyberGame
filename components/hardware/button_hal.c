@@ -1,4 +1,5 @@
 #include "button_hal.h"
+#include "hal_common.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -83,12 +84,7 @@ esp_err_t button_hal_init(void)
     };
     ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "gpio_config failed");
 
-    /* gpio_install_isr_service pode ja ter sido chamado por outro HAL — tolerar. */
-    const esp_err_t isr_err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
-    if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
-        ESP_LOGE(TAG, "gpio_install_isr_service failed: %s", esp_err_to_name(isr_err));
-        return isr_err;
-    }
+    ESP_RETURN_ON_ERROR(hal_isr_service_install_once(), TAG, "isr service install failed");
 
     for (uint32_t i = 0; i < BTN_MAX_COUNT; ++i) {
         ESP_RETURN_ON_ERROR(
