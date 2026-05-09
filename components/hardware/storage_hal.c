@@ -434,3 +434,140 @@ cleanup:
     free(readback);
     return ret;
 }
+
+/* --- Suite de validacao fisica --- */
+
+static void storage_dump_registers(void)
+{
+    uint8_t prot = 0xFF, conf = 0xFF, stat = 0xFF;
+    nand_get_feature(NAND_REG_PROTECTION, &prot);
+    nand_get_feature(NAND_REG_CONFIG,     &conf);
+    nand_get_feature(NAND_REG_STATUS,     &stat);
+
+    ESP_LOGI(TAG, "  Protection (0xA0) = 0x%02X — SRP0=%u BP=%u%u%u TB=%u WP-E=%u",
+             prot,
+             (prot >> 7) & 1,
+             (prot >> 6) & 1, (prot >> 5) & 1, (prot >> 4) & 1,
+             (prot >> 3) & 1,
+             (prot >> 2) & 1);
+    ESP_LOGI(TAG, "  Config     (0xB0) = 0x%02X — OTP-L=%u OTP-E=%u SR1-L=%u ECC-E=%u BUF=%u",
+             conf,
+             (conf >> 7) & 1, (conf >> 6) & 1, (conf >> 5) & 1,
+             (conf >> 4) & 1, (conf >> 3) & 1);
+    ESP_LOGI(TAG, "  Status     (0xC0) = 0x%02X — OIP=%u WEL=%u E_FAIL=%u P_FAIL=%u ECCS=%u%u",
+             stat,
+             stat & 1, (stat >> 1) & 1, (stat >> 2) & 1, (stat >> 3) & 1,
+             (stat >> 5) & 1, (stat >> 4) & 1);
+}
+
+static esp_err_t storage_test_multi_region(void)
+{
+    static const uint32_t test_blocks[] = { 0, 256, 512, 768, 1023 };
+    const size_t n = sizeof(test_blocks) / sizeof(test_blocks[0]);
+
+    uint8_t *pattern  = heap_caps_malloc(STORAGE_PAGE_SIZE, MALLOC_CAP_DMA);
+    uint8_t *readback = heap_caps_malloc(STORAGE_PAGE_SIZE, MALLOC_CAP_DMA);
+    if (pattern == NULL || readback == NULL) {
+        free(pattern); free(readback);
+        ESP_LOGE(TAG, "  Falha ao alocar buffers de teste");
+        return ESP_ERR_NO_MEM;
+    }
+
+    uint32_t pass = 0;
+    char fail_list[96] = { 0 };
+    size_t fpos = 0;
+
+    for (size_t i = 0; i < n; ++i) {
+        const uint32_t b = test_blocks[i];
+
+        if (storage_hal_is_block_bad(b)) {
+            ESP_LOGW(TAG, "  Bloco %u marcado bad — pulando", (unsigned)b);
+            continue;
+        }
+
+        /* Padrao unico por bloco (id no XOR) — pega cross-block contamination. */
+        for (size_t j = 0; j < STORAGE_PAGE_SIZE; ++j) {
+            pattern[j] = (uint8_t)(b ^ j);
+        }
+        const uint32_t test_page = b * STORAGE_PAGES_PER_BLOCK;
+
+        bool ok = (storage_hal_erase_block(b) == ESP_OK)
+               && (storage_hal_write_page(test_page, pattern) == ESP_OK)
+               && (storage_hal_read_page(test_page, readback) == ESP_OK)
+               && (memcmp(pattern, readback, STORAGE_PAGE_SIZE) == 0);
+
+        if (ok) {
+            pass++;
+        } else if (fpos < sizeof(fail_list) - 8) {
+            fpos += snprintf(fail_list + fpos, sizeof(fail_list) - fpos,
+                             "%s%u", fpos == 0 ? "" : ", ", (unsigned)b);
+        }
+    }
+
+    free(pattern);
+    free(readback);
+
+    if (pass == n) {
+        ESP_LOGI(TAG, "  Multi-region: %u/%u blocos OK (0, 256, 512, 768, 1023)",
+                 (unsigned)pass, (unsigned)n);
+        return ESP_OK;
+    }
+    ESP_LOGE(TAG, "  Multi-region: %u/%u blocos OK — falharam: %s",
+             (unsigned)pass, (unsigned)n, fail_list);
+    return ESP_FAIL;
+}
+
+static esp_err_t storage_scan_bad_blocks(void)
+{
+    uint32_t bad_count = 0;
+    char bad_list[256] = { 0 };
+    size_t pos = 0;
+    bool truncated = false;
+
+    for (uint32_t b = 0; b < STORAGE_BLOCK_COUNT; ++b) {
+        if (!storage_hal_is_block_bad(b)) continue;
+
+        bad_count++;
+        if (truncated) continue;
+
+        const int written = snprintf(bad_list + pos, sizeof(bad_list) - pos,
+                                     "%s%u", pos == 0 ? "" : ", ", (unsigned)b);
+        if (written < 0 || (size_t)written >= sizeof(bad_list) - pos) {
+            truncated = true;
+        } else {
+            pos += (size_t)written;
+        }
+    }
+
+    if (bad_count == 0) {
+        ESP_LOGI(TAG, "  Bad block scan: 0/%u ruim (chip integro)", STORAGE_BLOCK_COUNT);
+    } else {
+        ESP_LOGI(TAG, "  Bad block scan: %u/%u ruim — blocos: %s%s",
+                 (unsigned)bad_count, STORAGE_BLOCK_COUNT,
+                 bad_list, truncated ? " ..." : "");
+    }
+    return ESP_OK;
+}
+
+esp_err_t storage_hal_run_full_validation(void)
+{
+    if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
+
+    ESP_LOGW(TAG, "Suite de validacao DESTRUTIVA nos blocos 0, 256, 512, 768, 1023.");
+
+    ESP_LOGI(TAG, "[1/3] Feature registers:");
+    storage_dump_registers();
+
+    ESP_LOGI(TAG, "[2/3] Multi-region write/read test:");
+    const esp_err_t r2 = storage_test_multi_region();
+
+    ESP_LOGI(TAG, "[3/3] Full bad block scan (pode levar ~5s):");
+    const esp_err_t r3 = storage_scan_bad_blocks();
+
+    if (r2 == ESP_OK && r3 == ESP_OK) {
+        ESP_LOGI(TAG, "Validacao completa: tudo OK");
+        return ESP_OK;
+    }
+    ESP_LOGE(TAG, "Validacao completa: alguma etapa falhou");
+    return ESP_FAIL;
+}
