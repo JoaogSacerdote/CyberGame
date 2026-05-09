@@ -10,6 +10,7 @@
 #include "joystick_hal.h"
 #include "nfc_hal.h"
 #include "storage_hal.h"
+#include "recovery.h"
 
 static const char *TAG = "APP_MAIN";
 
@@ -110,9 +111,14 @@ void app_main(void)
             storage_hal_run_full_validation();
         }
 
-        ESP_LOGI(TAG, "Recovery idle (Fase A4 sobe USB MSC aqui). Segure PWR para desligar.");
-        while (1) {
-            vTaskDelay(pdMS_TO_TICKS(1000));
+        if (recovery_init() == ESP_OK) {
+            ESP_LOGI(TAG, "Recovery USB CDC ativo. Use PC para enviar comandos. Segure PWR para desligar.");
+            recovery_run();   /* nunca retorna */
+        } else {
+            ESP_LOGE(TAG, "Falha ao iniciar USB CDC — caindo em idle. Segure PWR para desligar.");
+            while (1) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
         }
     }
 

@@ -1,0 +1,14 @@
+# Defaults do projeto CyberGame.
+# Sao aplicados quando sdkconfig nao existe (build limpo) ou quando algum
+# valor aqui ainda nao esta presente no sdkconfig gerado.
+#
+# Para forcar reaplicacao apos editar:
+#   idf.py fullclean && idf.py build
+# Ou alternativamente:
+#   idf.py menuconfig  (e salvar)
+
+# --- TinyUSB ---
+# Habilita classe CDC (Communication Device Class) — necessaria pelo
+# components/recovery/. Sem isso, tusb_cdc_acm.h aborta o build com
+# "TinyUSB CDC driver must be enabled in menuconfig".
+CONFIG_TINYUSB_CDC_ENABLED=y
