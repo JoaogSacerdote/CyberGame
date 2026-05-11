@@ -13,6 +13,7 @@
 #include "display_hal.h"
 #include "hal_bridge.h"
 #include "ui_debug.h"
+#include "asset_store.h"
 #include "recovery.h"
 
 static const char *TAG = "APP_MAIN";
@@ -159,6 +160,12 @@ void app_main(void)
      * que o resto do sistema continue funcional para diagnostico via UART. */
     if (storage_hal_init() != ESP_OK) {
         ESP_LOGE(TAG, "storage_hal_init falhou — NAND inacessivel. Boot continua.");
+    } else if (asset_store_init() != ESP_OK) {
+        ESP_LOGE(TAG, "asset_store_init falhou — assets indisponiveis. Boot continua.");
+    } else {
+        size_t n = 0;
+        asset_store_count(&n);
+        ESP_LOGI(TAG, "asset_store pronto: %u entries", (unsigned)n);
     }
 
     while (1) {
