@@ -1,0 +1,5 @@
+## IDF Component Manager Manifest File
+## Run `idf.py reconfigure` after editing.
+dependencies:
+  idf: ">=5.1"
+  espressif/esp_lcd_st7796: "^1.2.0"

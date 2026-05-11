@@ -10,6 +10,9 @@
 #include "joystick_hal.h"
 #include "nfc_hal.h"
 #include "storage_hal.h"
+#include "display_hal.h"
+#include "hal_bridge.h"
+#include "ui_debug.h"
 #include "recovery.h"
 
 static const char *TAG = "APP_MAIN";
@@ -55,6 +58,7 @@ static void nfc_logger_task(void *pv)
             hex[card.uid_len * 2] = '\0';
             ESP_LOGI(TAG, "Cartao NFC: UID=%s (len=%d, ATQA=0x%04X, SAK=0x%02X)",
                      hex, card.uid_len, card.atqa, card.sak);
+            ui_debug_set_nfc_card(&card);
         }
     }
 }
@@ -72,9 +76,11 @@ static void nfc_test_trigger_task(void *pv)
         if (now && !was_pressed) {
             ESP_LOGI(TAG, "[TEST] BTN_A pressionado -> NFC scanning ON");
             nfc_hal_start_scanning();
+            ui_debug_set_nfc_scanning(true);
         } else if (!now && was_pressed) {
             ESP_LOGI(TAG, "[TEST] BTN_A solto -> NFC scanning OFF");
             nfc_hal_stop_scanning();
+            ui_debug_set_nfc_scanning(false);
         }
         was_pressed = now;
         vTaskDelay(pdMS_TO_TICKS(50));
@@ -134,6 +140,20 @@ void app_main(void)
     ESP_ERROR_CHECK(nfc_hal_init());
     xTaskCreate(nfc_logger_task,       "nfc_logger", 3072, NULL, 4, NULL);
     xTaskCreate(nfc_test_trigger_task, "nfc_trig",   2560, NULL, 4, NULL);
+
+    /* Display antes do storage: ele eh o dono do SPI2 (precisa de max_transfer_sz
+     * grande para framebuffer). Storage anexa depois via spi_bus_add_device,
+     * tolerando ESP_ERR_INVALID_STATE no spi_bus_initialize dele. */
+    if (display_hal_init() != ESP_OK) {
+        ESP_LOGE(TAG, "display_hal_init falhou — display fora. Boot continua.");
+    } else if (hal_bridge_init() != ESP_OK) {
+        ESP_LOGE(TAG, "hal_bridge_init falhou — sem UI. Boot continua.");
+    } else if (ui_debug_init() != ESP_OK) {
+        ESP_LOGE(TAG, "ui_debug_init falhou — UI sem tela de debug. Boot continua.");
+        display_hal_set_backlight_percent(70);
+    } else {
+        display_hal_set_backlight_percent(70);
+    }
 
     /* Storage: nao usa ESP_ERROR_CHECK — se a NAND nao responder, queremos
      * que o resto do sistema continue funcional para diagnostico via UART. */

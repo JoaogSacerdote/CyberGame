@@ -15,3 +15,11 @@ simulation/lv_port_pc_eclipse/bin/
 # LVGL external library (clone via COMPILAR.bat)
 simulation/lv_port_pc_eclipse/lvgl/
 
+# CONFIDENCIAL — Segundo Cerebro / Vault Obsidian e biblioteca de consulta
+# NAO COMMITAR: contem artigo cientifico, manuais e notas internas
+CyberGameCore/
+sdkconfig.old
+
+# Local MCP server config (path absoluto especifico do desenvolvedor)
+.mcp.json
+
