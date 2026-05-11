@@ -1,0 +1,7 @@
+## IDF Component Manager Manifest File
+## Run `idf.py reconfigure` after editing.
+dependencies:
+  idf: ">=5.1"
+  ## Mesma versao do simulator (simulation/lv_port_pc_eclipse) para garantir
+  ## paridade da camada de UI entre firmware e PC simulator.
+  lvgl/lvgl: "9.3.0"
