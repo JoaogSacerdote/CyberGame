@@ -323,18 +323,18 @@ static void refresh_nfc(void)
     s_nfc_first_paint = false;
 }
 
-static void refresh_task(void *pv)
+/* Callback do lv_timer — roda DENTRO do lv_timer_handler (na task "lvgl"),
+ * ja sob o lock interno do LVGL. NAO chamar lv_lock aqui (ja temos). NAO
+ * criar uma task FreeRTOS separada para isso: a janela "task externa segura
+ * lv_lock + lv_task espera + invalidacoes acumulam" foi a causa de varios
+ * task_wdt ate aqui. */
+static void ui_refresh_cb(lv_timer_t *t)
 {
-    (void)pv;
-    while (1) {
-        lv_lock();
-        refresh_buttons();
-        refresh_joystick();
-        refresh_header();
-        refresh_nfc();
-        lv_unlock();
-        vTaskDelay(pdMS_TO_TICKS(UI_REFRESH_PERIOD_MS));
-    }
+    (void)t;
+    refresh_buttons();
+    refresh_joystick();
+    refresh_header();
+    refresh_nfc();
 }
 
 /* ============================================================== API === */
@@ -354,13 +354,16 @@ esp_err_t ui_debug_init(void)
 
     lv_lock();
     build_screen();
-    lv_unlock();
-
-    if (xTaskCreate(refresh_task, "ui_dbg", 4096, NULL, 4, NULL) != pdPASS) {
-        ESP_LOGE(TAG, "xTaskCreate(ui_dbg) falhou");
+    /* Cria o timer LVGL ja sob lv_lock (lv_timer_create nao eh thread-safe
+     * sem lock externo). O callback roda dentro do lv_timer_handler. */
+    if (lv_timer_create(ui_refresh_cb, UI_REFRESH_PERIOD_MS, NULL) == NULL) {
+        lv_unlock();
+        ESP_LOGE(TAG, "lv_timer_create falhou");
         return ESP_ERR_NO_MEM;
     }
-    ESP_LOGI(TAG, "ui_debug iniciado (refresh %d ms)", UI_REFRESH_PERIOD_MS);
+    lv_unlock();
+
+    ESP_LOGI(TAG, "ui_debug iniciado (refresh %d ms via lv_timer)", UI_REFRESH_PERIOD_MS);
     return ESP_OK;
 }
 
