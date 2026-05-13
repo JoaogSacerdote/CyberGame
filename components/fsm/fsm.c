@@ -1,10 +1,19 @@
 #include "fsm.h"
+#include "fsm_gameplay.h"
 
 #include "esp_log.h"
+#include "button_hal.h"
 
 static const char *TAG = "FSM";
 
-static game_state_t s_current = GAME_STATE_SPLASH;
+/* Constantes de fase (em ms). Replicam game_config.h sem incluir o header
+ * — a FSM nao deve ter dependencia em engine/. Os valores tem que bater. */
+#define FSM_ACTION_LOCK_MS    1500
+#define FSM_SYSTEM_DEPLOY_MS  4000
+
+static game_state_t        s_current     = GAME_STATE_SPLASH;
+static gameplay_substate_t s_sub         = GAMEPLAY_SUB_EXPLORANDO;
+static uint32_t            s_phase_ms    = 0;   /* tempo decorrido no sub-estado atual */
 
 static const char *state_name(game_state_t s)
 {
@@ -19,17 +28,39 @@ static const char *state_name(game_state_t s)
     }
 }
 
+const char *fsm_gameplay_substate_name(gameplay_substate_t s)
+{
+    switch (s) {
+        case GAMEPLAY_SUB_EXPLORANDO:      return "EXPLORANDO";
+        case GAMEPLAY_SUB_TERMINAL_ABERTO: return "TERMINAL_ABERTO";
+        case GAMEPLAY_SUB_WAITING_CARD:    return "WAITING_CARD";
+        case GAMEPLAY_SUB_ACTION_LOCK:     return "ACTION_LOCK";
+        case GAMEPLAY_SUB_SYSTEM_DEPLOY:   return "SYSTEM_DEPLOY";
+        default:                           return "INVALID";
+    }
+}
+
+static void set_sub(gameplay_substate_t next)
+{
+    if (next == s_sub) return;
+    ESP_LOGI(TAG, "[GAMEPLAY] sub %s -> %s",
+             fsm_gameplay_substate_name(s_sub),
+             fsm_gameplay_substate_name(next));
+    s_sub      = next;
+    s_phase_ms = 0;
+}
+
 esp_err_t fsm_init(void)
 {
-    s_current = GAME_STATE_SPLASH;
+    s_current  = GAME_STATE_SPLASH;
+    s_sub      = GAMEPLAY_SUB_EXPLORANDO;
+    s_phase_ms = 0;
     ESP_LOGI(TAG, "fsm init -> %s", state_name(s_current));
     return ESP_OK;
 }
 
-game_state_t fsm_get_state(void)
-{
-    return s_current;
-}
+game_state_t fsm_get_state(void)            { return s_current; }
+gameplay_substate_t fsm_get_gameplay_substate(void) { return s_sub; }
 
 void fsm_set_state(game_state_t new_state)
 {
@@ -42,30 +73,94 @@ void fsm_set_state(game_state_t new_state)
     }
     ESP_LOGI(TAG, "transicao %s -> %s", state_name(s_current), state_name(new_state));
     s_current = new_state;
+    /* Toda entrada em GAMEPLAY comeca explorando, fase zerada. */
+    if (new_state == GAME_STATE_GAMEPLAY) {
+        s_sub      = GAMEPLAY_SUB_EXPLORANDO;
+        s_phase_ms = 0;
+    }
+}
+
+/* Handler do sub-FSM de gameplay. Botoes A/B/X/Y disparam transicoes de
+ * sub-estado; START sobe macro pra PAUSE; B em EXPLORANDO sai pro MENU.
+ * NFC real e timeline entram nos sub-blocos seguintes da Etapa C. */
+static void gameplay_handle_event(const fsm_event_t *evt)
+{
+    if (evt->kind == FSM_EVT_TICK) {
+        s_phase_ms += evt->payload.tick.dt_ms;
+        switch (s_sub) {
+            case GAMEPLAY_SUB_ACTION_LOCK:
+                if (s_phase_ms >= FSM_ACTION_LOCK_MS) {
+                    set_sub(GAMEPLAY_SUB_SYSTEM_DEPLOY);
+                }
+                break;
+            case GAMEPLAY_SUB_SYSTEM_DEPLOY:
+                if (s_phase_ms >= FSM_SYSTEM_DEPLOY_MS) {
+                    set_sub(GAMEPLAY_SUB_EXPLORANDO);
+                }
+                break;
+            default:
+                break;
+        }
+        return;
+    }
+
+    if (evt->kind != FSM_EVT_BUTTON) return;
+    if (evt->payload.button.state != BTN_PRESSED) return;
+    const uint8_t btn = evt->payload.button.id;
+
+    /* START em qualquer sub-estado de gameplay -> PAUSE. */
+    if (btn == BTN_START) {
+        fsm_set_state(GAME_STATE_PAUSE);
+        return;
+    }
+
+    switch (s_sub) {
+        case GAMEPLAY_SUB_EXPLORANDO:
+            if (btn == BTN_Y) set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
+            else if (btn == BTN_B) fsm_set_state(GAME_STATE_MENU);
+            break;
+        case GAMEPLAY_SUB_TERMINAL_ABERTO:
+            if (btn == BTN_A) set_sub(GAMEPLAY_SUB_WAITING_CARD);
+            else if (btn == BTN_B) set_sub(GAMEPLAY_SUB_EXPLORANDO);
+            break;
+        case GAMEPLAY_SUB_WAITING_CARD:
+            /* X = mock de leitura NFC enquanto nfc_config.h nao tem UIDs reais. */
+            if (btn == BTN_X) set_sub(GAMEPLAY_SUB_ACTION_LOCK);
+            else if (btn == BTN_B) set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
+            break;
+        case GAMEPLAY_SUB_ACTION_LOCK:
+        case GAMEPLAY_SUB_SYSTEM_DEPLOY:
+            /* Fases automaticas — botoes ignorados (B aborto entra no sub-bloco
+             * de tarefas, junto com personagem e attack_matrix). */
+            break;
+        default:
+            break;
+    }
+}
+
+/* Handler de PAUSE: START retoma, B sai pro menu. */
+static void pause_handle_event(const fsm_event_t *evt)
+{
+    if (evt->kind != FSM_EVT_BUTTON) return;
+    if (evt->payload.button.state != BTN_PRESSED) return;
+    const uint8_t btn = evt->payload.button.id;
+    if (btn == BTN_START) fsm_set_state(GAME_STATE_GAMEPLAY);
+    else if (btn == BTN_B) fsm_set_state(GAME_STATE_MENU);
 }
 
 void fsm_handle_event(const fsm_event_t *evt)
 {
-    /* Etapa A: stub que so loga. Transicoes reais entram nas etapas C-E
-     * conforme cada estado ganha sua sub-FSM. */
-    if (evt == NULL) {
-        return;
-    }
-    switch (evt->kind) {
-        case FSM_EVT_BUTTON:
-            /* TODO Etapa C: trocar para ESP_LOGD apos validar A6. */
-            ESP_LOGI(TAG, "[%s] BUTTON id=%u state=%u",
-                     state_name(s_current), evt->payload.button.id, evt->payload.button.state);
+    if (evt == NULL) return;
+    switch (s_current) {
+        case GAME_STATE_GAMEPLAY:
+            gameplay_handle_event(evt);
             break;
-        case FSM_EVT_JOYSTICK:
-            ESP_LOGD(TAG, "[%s] JOYSTICK x=%d y=%d",
-                     state_name(s_current), evt->payload.joystick.x, evt->payload.joystick.y);
+        case GAME_STATE_PAUSE:
+            pause_handle_event(evt);
             break;
-        case FSM_EVT_NFC:
-            ESP_LOGI(TAG, "[%s] NFC uid_len=%u", state_name(s_current), evt->payload.nfc.uid_len);
-            break;
-        case FSM_EVT_TICK:
-            /* Silencioso por padrao — ticks chegam ~10x/s. */
+        default:
+            /* SPLASH/MENU/RANKING/CREDITOS: por enquanto a UI dirige a
+             * navegacao via peek. Quando migrarem pra FSM, entram aqui. */
             break;
     }
 }

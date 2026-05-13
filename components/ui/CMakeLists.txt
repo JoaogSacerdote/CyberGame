@@ -10,6 +10,7 @@ idf_component_register(
         "hardware"
         "hal_bridge"
         "lvgl__lvgl"
+        "fsm"
     PRIV_REQUIRES
         "esp_timer"
 )

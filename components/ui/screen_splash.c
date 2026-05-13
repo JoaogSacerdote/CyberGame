@@ -4,6 +4,7 @@
 #include "esp_log.h"
 #include "lvgl.h"
 #include "button_hal.h"
+#include "fsm.h"
 
 static const char *TAG = "UI_SPLASH";
 
@@ -27,10 +28,10 @@ static void splash_tick(lv_timer_t *t)
                              LV_PART_MAIN);
     }
 
-    /* Avanca para o menu ao pressionar A (edge). */
+    /* Avanca para o menu ao pressionar A (edge). FSM dirige a troca de tela. */
     if (ui_btn_edge(BTN_A, &s_a_cache)) {
         ESP_LOGI(TAG, "A pressionado na splash -> menu");
-        ui_show_menu();
+        fsm_set_state(GAME_STATE_MENU);
     }
 }
 
