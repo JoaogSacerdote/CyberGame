@@ -53,7 +53,8 @@ void fsm_handle_event(const fsm_event_t *evt)
     }
     switch (evt->kind) {
         case FSM_EVT_BUTTON:
-            ESP_LOGD(TAG, "[%s] BUTTON id=%u state=%u",
+            /* TODO Etapa C: trocar para ESP_LOGD apos validar A6. */
+            ESP_LOGI(TAG, "[%s] BUTTON id=%u state=%u",
                      state_name(s_current), evt->payload.button.id, evt->payload.button.state);
             break;
         case FSM_EVT_JOYSTICK:
@@ -61,7 +62,7 @@ void fsm_handle_event(const fsm_event_t *evt)
                      state_name(s_current), evt->payload.joystick.x, evt->payload.joystick.y);
             break;
         case FSM_EVT_NFC:
-            ESP_LOGD(TAG, "[%s] NFC uid_len=%u", state_name(s_current), evt->payload.nfc.uid_len);
+            ESP_LOGI(TAG, "[%s] NFC uid_len=%u", state_name(s_current), evt->payload.nfc.uid_len);
             break;
         case FSM_EVT_TICK:
             /* Silencioso por padrao — ticks chegam ~10x/s. */
