@@ -8,6 +8,7 @@
 #include "esp_log.h"
 
 #include "fsm.h"
+#include "ui.h"
 #include "button_hal.h"
 #include "joystick_hal.h"
 
@@ -21,10 +22,6 @@ static const char *TAG = "ENGINE";
 static QueueHandle_t s_event_queue   = NULL;
 static TaskHandle_t  s_task          = NULL;
 static bool          s_initialized   = false;
-
-/* Forward: consumida em A4 quando ui.h existir. Por ora declaro extern fraca. */
-extern esp_err_t __attribute__((weak)) ui_init(void);
-extern void      __attribute__((weak)) ui_show_splash(void);
 
 static void button_reader_task(void *pv)
 {
@@ -80,17 +77,12 @@ esp_err_t engine_init(void)
 
     ESP_RETURN_ON_ERROR(fsm_init(), TAG, "fsm_init failed");
 
-    /* UI e opcional na Etapa A — se nao linkar ainda, segue sem tela inicial. */
-    if (ui_init != NULL) {
-        const esp_err_t ui_err = ui_init();
-        if (ui_err != ESP_OK) {
-            ESP_LOGW(TAG, "ui_init falhou (%s) — engine sobe sem UI", esp_err_to_name(ui_err));
-        } else if (ui_show_splash != NULL) {
-            ui_show_splash();
-        }
-    } else {
-        ESP_LOGW(TAG, "ui_init nao linkado — modo headless");
+    const esp_err_t ui_err = ui_init();
+    if (ui_err != ESP_OK) {
+        ESP_LOGE(TAG, "ui_init falhou (%s) — abortando engine_init", esp_err_to_name(ui_err));
+        return ui_err;
     }
+    ui_show_splash();
 
     s_initialized = true;
     ESP_LOGI(TAG, "engine_init OK");
