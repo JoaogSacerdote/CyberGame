@@ -21,7 +21,7 @@ static const char *TAG = "APP_MAIN";
 static void button_logger_task(void *pv)
 {
     (void)pv;
-    static const char *names[BTN_MAX_COUNT] = { "A", "B", "X", "Y" };
+    static const char *names[BTN_MAX_COUNT] = { "A", "B", "X", "Y", "START" };
     button_event_t ev;
     while (1) {
         if (button_hal_get_event(&ev, UINT32_MAX)) {

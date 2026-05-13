@@ -14,12 +14,13 @@ static const char *TAG = "BUTTON_HAL";
 #define BTN_GPIO_B          GPIO_NUM_12
 #define BTN_GPIO_X          GPIO_NUM_13
 #define BTN_GPIO_Y          GPIO_NUM_14
+#define BTN_GPIO_START      GPIO_NUM_3   /* compartilhado com REC do PMU; ver project_hardware */
 
 #define BTN_QUEUE_DEPTH     16
 #define BTN_DEBOUNCE_MS     50
 
 static const gpio_num_t s_gpio[BTN_MAX_COUNT] = {
-    BTN_GPIO_A, BTN_GPIO_B, BTN_GPIO_X, BTN_GPIO_Y,
+    BTN_GPIO_A, BTN_GPIO_B, BTN_GPIO_X, BTN_GPIO_Y, BTN_GPIO_START,
 };
 
 static QueueHandle_t  s_queue = NULL;
@@ -76,13 +77,21 @@ esp_err_t button_hal_init(void)
 
     const gpio_config_t cfg = {
         .pin_bit_mask = (1ULL << BTN_GPIO_A) | (1ULL << BTN_GPIO_B) |
-                        (1ULL << BTN_GPIO_X) | (1ULL << BTN_GPIO_Y),
+                        (1ULL << BTN_GPIO_X) | (1ULL << BTN_GPIO_Y) |
+                        (1ULL << BTN_GPIO_START),
         .mode         = GPIO_MODE_INPUT,
         .pull_up_en   = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type    = GPIO_INTR_ANYEDGE,
     };
     ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "gpio_config failed");
+
+    /* GPIO 3 era REC para o PMU. Se o usuario ainda esta segurando o botao
+     * apos o boot, armar ISR agora dispararia evento espurio imediato. */
+    vTaskDelay(pdMS_TO_TICKS(100));
+    while (gpio_get_level(BTN_GPIO_START) == 0) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 
     ESP_RETURN_ON_ERROR(hal_isr_service_install_once(), TAG, "isr service install failed");
 
@@ -92,9 +101,9 @@ esp_err_t button_hal_init(void)
             TAG, "isr handler add for btn %lu failed", i);
     }
 
-    ESP_LOGI(TAG, "button_hal initialized (debounce %d ms, queue %d, pinos A=%d B=%d X=%d Y=%d)",
+    ESP_LOGI(TAG, "button_hal initialized (debounce %d ms, queue %d, pinos A=%d B=%d X=%d Y=%d START=%d)",
              BTN_DEBOUNCE_MS, BTN_QUEUE_DEPTH,
-             BTN_GPIO_A, BTN_GPIO_B, BTN_GPIO_X, BTN_GPIO_Y);
+             BTN_GPIO_A, BTN_GPIO_B, BTN_GPIO_X, BTN_GPIO_Y, BTN_GPIO_START);
     return ESP_OK;
 }
 
