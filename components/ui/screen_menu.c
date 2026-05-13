@@ -6,6 +6,7 @@
 #include "lvgl.h"
 #include "button_hal.h"
 #include "joystick_hal.h"
+#include "fsm.h"
 
 static const char *TAG = "UI_MENU";
 
@@ -62,11 +63,11 @@ static void menu_tick(lv_timer_t *t)
     }
     redraw_cursor_if_needed();
 
-    /* Confirma com A. */
+    /* Confirma com A. FSM dirige troca de tela. */
     if (ui_btn_edge(BTN_A, &s_a_cache)) {
         ESP_LOGI(TAG, "A em '%s' (idx %d)", MENU_LABELS[s_selected], s_selected);
         switch (s_selected) {
-            case 0: ui_show_placeholder(); break;
+            case 0: fsm_set_state(GAME_STATE_GAMEPLAY); break;
             case 1: ESP_LOGI(TAG, "Ranking — TODO"); break;
             case 2: ESP_LOGI(TAG, "Sobre — TODO"); break;
             default: break;
@@ -74,7 +75,7 @@ static void menu_tick(lv_timer_t *t)
     }
     /* B na splash do menu volta para a splash inicial. */
     if (ui_btn_edge(BTN_B, &s_b_cache)) {
-        ui_show_splash();
+        fsm_set_state(GAME_STATE_SPLASH);
     }
 }
 

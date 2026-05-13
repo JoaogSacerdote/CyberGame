@@ -8,6 +8,7 @@
 #include "esp_log.h"
 
 #include "fsm.h"
+#include "fsm_gameplay.h"
 #include "ui.h"
 #include "button_hal.h"
 #include "joystick_hal.h"
@@ -39,11 +40,27 @@ static void button_reader_task(void *pv)
     }
 }
 
+/* Sincroniza a tela ativa com o estado macro da FSM. Quem mudou o estado
+ * (a propria FSM via botoes, ou a UI via fsm_set_state) so precisa mexer no
+ * estado — esta funcao detecta a transicao e chama o ui_show_X correto. */
+static void sync_ui_to_macro(game_state_t macro)
+{
+    switch (macro) {
+        case GAME_STATE_SPLASH:   ui_show_splash();      break;
+        case GAME_STATE_MENU:     ui_show_menu();        break;
+        case GAME_STATE_GAMEPLAY: ui_show_placeholder(); break;
+        case GAME_STATE_PAUSE:    ui_show_pause();       break;
+        default:                  /* sem tela ainda */   break;
+    }
+}
+
 static void engine_task(void *pv)
 {
     (void)pv;
     TickType_t last_tick = xTaskGetTickCount();
     fsm_event_t evt;
+
+    game_state_t last_macro = fsm_get_state();
 
     while (1) {
         /* Consome eventos com timeout pequeno; se nao houver, emite tick. */
@@ -62,6 +79,15 @@ static void engine_task(void *pv)
             };
             fsm_handle_event(&tick_evt);
             last_tick = now;
+        }
+
+        /* Macro mudou? troca tela. Mudanca de sub-estado e observada pela
+         * tela placeholder via fsm_get_gameplay_substate() no proprio timer
+         * dela (diff-gating local). */
+        const game_state_t cur_macro = fsm_get_state();
+        if (cur_macro != last_macro) {
+            sync_ui_to_macro(cur_macro);
+            last_macro = cur_macro;
         }
     }
 }
