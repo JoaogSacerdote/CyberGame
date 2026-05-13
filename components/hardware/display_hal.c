@@ -170,9 +170,11 @@ esp_err_t display_hal_init(void)
 
     const esp_lcd_panel_dev_config_t panel_cfg = {
         .reset_gpio_num = DISP_PIN_RST,
-        .rgb_ele_order  = LCD_RGB_ELEMENT_ORDER_RGB,
+        /* Calibracao empirica 2026-05-13: confirmado por 24-cell color grid
+         * que o display espera BGR (vermelho e azul trocados em modo RGB).
+         * Combinado com byte_swap_inplace no hal_bridge, fecha o pipeline. */
+        .rgb_ele_order  = LCD_RGB_ELEMENT_ORDER_BGR,
         .bits_per_pixel = 16,
-        //.flags.swap_color_bytes = 1, //adicionado pelo gemini
     };
     
     ESP_RETURN_ON_ERROR(

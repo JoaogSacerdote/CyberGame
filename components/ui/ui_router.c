@@ -29,6 +29,10 @@ static void show_screen(ui_screen_t target, void (*build_fn)(void))
     lv_lock();
     destroy_active();
     build_fn();
+    /* Forca redraw da tela inteira: sem isso, o partial render so flusha
+     * as areas dos widgets recem-criados e o resto fica com lixo do GRAM
+     * do controlador (sintoma: "ruido sobreposto ao texto"). */
+    lv_obj_invalidate(lv_screen_active());
     s_active = target;
     lv_unlock();
     ESP_LOGI(TAG, "ui_show -> %d", (int)target);

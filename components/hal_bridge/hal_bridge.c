@@ -33,24 +33,31 @@ static esp_timer_handle_t s_lv_tick_timer = NULL;
 static void              *s_buf1          = NULL;
 static void              *s_buf2          = NULL;
 
-/* O painel deste modulo tem fios fisicos de G e B trocados na PCB (ST7796
- * clone). Compensamos no flush, antes de mandar pro display_hal. Como
- * G ocupa 6 bits no RGB565 e B ocupa 5, ao trocar fazemos ajuste de
- * largura: B (5b) -> slot G (6b) com replica do bit alto; G (6b) -> slot
- * B (5b) com truncamento do bit baixo.
+/* Calibracao 2026-05-13: RGB565 e armazenado como uint16_t little-endian
+ * na memoria do ESP32, mas o ST7796 espera os bytes em ordem big-endian
+ * via SPI. Combinado com BGR mode no display_hal, fecha o pipeline.
  *
- * O buffer pertence ao LVGL e sera reusado apos lv_display_flush_ready(),
- * portanto modifica-lo in-place e seguro. */
-static inline void swap_gb_inplace(uint16_t *pixels, size_t count)
+ * Adicionalmente, os LEDs vermelhos deste painel ST7796 tem eficiencia
+ * luminica menor que verdes/azuis (R aparece ~3x mais escuro que devia).
+ * Aplicamos boost 2x no canal R com clamp em 5 bits antes do byte swap.
+ * Cores saturadas (R=31) ficam inalteradas. */
+#define HAL_BRIDGE_R_BOOST_MULT  2u
+
+static inline void rb_boost_and_byte_swap_inplace(uint16_t *pixels, size_t count)
 {
     for (size_t i = 0; i < count; ++i) {
-        const uint16_t p   = pixels[i];
-        const uint16_t r   = p & 0xF800u;            /* RRRRR ............ */
-        const uint16_t g6  = (p >> 5) & 0x3Fu;       /* G atual em 6 bits  */
-        const uint16_t b5  = p & 0x1Fu;              /* B atual em 5 bits  */
-        const uint16_t ng6 = (uint16_t)((b5 << 1) | (b5 >> 4));  /* 5 -> 6 */
-        const uint16_t nb5 = (uint16_t)(g6 >> 1);                /* 6 -> 5 */
-        pixels[i] = (uint16_t)(r | (ng6 << 5) | nb5);
+        uint16_t p = pixels[i];
+
+        /* Boost canal R (bits 15-11 do pixel em RGB565). Empiricamente
+         * confirmado: esses bits geram o canal R visual no display em
+         * BGR mode + byte swap. */
+        uint16_t r = (p >> 11) & 0x1Fu;
+        uint16_t boosted = r * HAL_BRIDGE_R_BOOST_MULT;
+        if (boosted > 31u) boosted = 31u;
+        p = (uint16_t)((p & 0x07FFu) | (boosted << 11));
+
+        /* Byte swap LE -> BE para o ST7796 ler corretamente via SPI. */
+        pixels[i] = (uint16_t)((p << 8) | (p >> 8));
     }
 }
 
@@ -72,7 +79,7 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     const int y2 = area->y2;
     const size_t pixels = (size_t)(x2 - x1 + 1) * (size_t)(y2 - y1 + 1);
 
-    swap_gb_inplace((uint16_t *)px_map, pixels);
+    rb_boost_and_byte_swap_inplace((uint16_t *)px_map, pixels);
 
     /* display_hal espera (x_end, y_end) exclusivos -> +1. */
     const esp_err_t err = display_hal_draw_bitmap(x1, y1, x2 + 1, y2 + 1, px_map);
