@@ -1,0 +1,37 @@
+NOTAS GERAL:
+	OS componentes com final null servem para delimitar area e não devem ser renderizados, são ferramentas de orientação a voce!
+	PISO_CAMADA_00 se refere ao chão onde servira de background para as telas, cada tela com o seu!
+	PAREDES_E_OBJETOS_02 se refere a todos os itens que tem colisão 
+	COMPLEMENTO_SEMCOLISAO_PAREDES_E_OBJETOS_03 se refere a partes dos objetos que tem colisão, porem essas partes do objetos não tem colisão, é como se o personagem estivesse passando por traz do objeto nessa parte.
+	No final de cada imagem tem um numero (com exeção de algumas que tem null) e isso corresponde a sua camada em relação as demais
+	
+
+
+TELA - 02: RECEPÇÃO 
+
+	ICONE_DE_NOTIFICACAO_RECEPCIONISTA_04 - este ícone aparece no inicio do jogo para indicar ao jogador que ele pode interagir com o personagem que esta ali presente (O recepcionista). O ícone deve ficar piscando em uma frequência calma e sutil, não precisa chamar atenção, apenas mostrar que tem algo que possa ser interagido ali. ele devera desaparecer apos a interação do usuário com o recepcionista
+	RECEPCIONISTA_MECHENDO_NO_COMPUTADOR_SEM_INTERACAO_05 se refere ao recepcionista quando o usuario não esta com ele ou não esta dentro do campo "AREA_QUE_LIBERA_INTERACAO_COM_RECEPCIONISTA_NULL"
+	RECEPCIONISTA_OLHANDO_PARA_JOGADOR_ENQUANTO_ACONTECE_DIALOGO_06 se refere a um estado momentaneo do recepcionista quando o jogador ou esta interagindo com o recepcionista, ou quando ele esta dentro do campo "AREA_QUE_LIBERA_INTERACAO_COM_RECEPCIONISTA_NULL" a partir do momento que o jogador poara de interagir e sai do local demarcado o recepcionista volta a ao estado "RECEPCIONISTA_MECHENDO_NO_COMPUTADOR_SEM_INTERACAO_05"
+	CAIXA_DE_DIALOGO_RECEPCIONISTA_07 se refere a uma cixa de dialogo que ira aparecer enquanto o jogador interage com o recepcionista, neste momento, o recepcionista ira lhe passar as instruções de como jogar o jogo, como se estivesse apresentando a empresa ao jogador.
+	CAIXA_DELIMITADORA_ONDE_PODE_APARECER_O_TEXTO_DO_DIALOGO_08 se refere a um espaço onde voce deverar escrever os dialogos, de preferencia o dialogo deve aparecer palavra por palavra montando todo o texto como se ele estivesse conversando com o jogado. esta cixa é da mesma cor da caixa de dialogo 07 e pode ser usada sem problemas apenas como campo delimitante.
+	CAIXA_PARA_PULAR_TEXTO_"[A] Pular  [B] >>" _09 assim como a anteriro este espaço é uma area de demarcação, porem este serve para demarcar o local onde sera escrito o texto "[A] Pular  [B] >>" instruindo o jogador que quando ele apertar "A" ele poula para o proximo texto quando ele aperta "B" ele pula para o final do dialogo.
+	As caixas de dialogo de texto devem seguir extritamente a ordem delas e se possível um pequendo delay entre a primeria caixa aparecer, a "CAIXA_DE_DIALOGO_RECEPCIONISTA_07" e para a "CAIXA_DELIMITADORA_ONDE_PODE_APARECER_O_TEXTO_DO_DIALOGO_08", acredito que 10ms seja suficiente para que não tenha muito atraso, mas para aparecer a caixa "CAIXA_PARA_PULAR_TEXTO_"[A] Pular  [B] >>" _09" e seu texto dentro pode demorar um pouco para aparecer pelo menos uma pequena parte do text, cerca de 4 palavras.
+
+	
+TELA - 01: EMPRESA
+
+	ICONE_TAREFA_VERDE_04 se refere ao icone verde da tarefa de trocar a senha e usuario pardrão por uma senha forte. devera aparecer aleatoriamente ou quase aleatoriamente no inicio do jogo apos os 10s que entrou na empresa.
+	ICONE_TAREFA_AMARELA_05 se refere ao icone de tarefa amarela de trocar os HDs danificados para que o backup não seja interrompido ou perdido.
+	NPC_TI_TAREFA_AMARELA_PARA_CIMA_06 se refere ao NPC_TI que identificou o problema e esta esperando voce aparecer para resolver
+	NPC_TI_TAREFA_AMARELA_PARA_DIREITA_07 e NPC_TI_TAREFA_AMARELA_PARA_BAIXO_08 ambas teoricamente fazem a mesma função para o NPC_TI porem uma vira para a direita e o outro para frente, elas seguem a mesma logica do recepcionista da recepção, porem ele pode assumir 2 estados que depende de qual area o jogado vai esta, se é na AREA_DE_INTERACAO_DIREITA_DO_NPC_TI_NULL ou na AREA_DE_INTERACAO_PARA_TAREFA_VERDE_NULL.
+
+as telas de tarefas ainda não estão disponiveis.
+
+	
+
+a IMAGEM "Sprite_PLAYER.png" é a do jogador que voce solicitou, a altura do jogador sera de 32x48.	
+
+	
+	
+	
+

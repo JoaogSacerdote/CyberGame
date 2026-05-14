@@ -24,6 +24,14 @@ CONFIG_SPIRAM_USE_MALLOC=y
 # --- Flash 16MB (ESP32-S3 N16R8) ---
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
+# --- Particao customizada (factory 4M ao inves de 1M) ---
+# Necessario porque os assets de UI (PNGs convertidos para arrays C em
+# components/assets/generated/) somam ~2.1 MB e estouram a particao
+# factory padrao de 1MB. Layout completo em partitions.csv.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+
 # --- LVGL 9.3 ---
 # RGB565 para casar com display_hal (DISPLAY_HAL_BYTES_PER_PIXEL = 2).
 CONFIG_LV_COLOR_DEPTH_16=y
