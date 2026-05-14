@@ -51,6 +51,11 @@ esp_err_t ui_init(void)
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
     lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+    /* Zera tambem o scroll_dir: remove_flag(SCROLLABLE) so desabilita scroll
+     * por toque — o layout_update_core do refresh ainda chama
+     * lv_obj_readjust_scroll se scroll_dir != NONE (default e LV_DIR_ALL).
+     * Sem isso, o readjust itera filhos e crasha (LoadProhibited). */
+    lv_obj_set_scroll_dir(scr, LV_DIR_NONE);
     lv_unlock();
     s_inited = true;
     ESP_LOGI(TAG, "ui_init OK");

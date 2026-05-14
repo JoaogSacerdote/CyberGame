@@ -33,6 +33,10 @@ gameplay_sala_t     fsm_get_gameplay_sala(void);
 void                fsm_set_gameplay_sala(gameplay_sala_t sala);
 const char         *fsm_gameplay_sala_name(gameplay_sala_t s);
 
+/* Sala de onde o player veio na ultima troca. Usado pelas telas pra
+ * decidir o ponto de spawn (ex: voltar da Empresa -> nascer na porta). */
+gameplay_sala_t     fsm_get_gameplay_sala_prev(void);
+
 #ifdef __cplusplus
 }
 #endif

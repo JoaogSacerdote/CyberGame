@@ -31,7 +31,7 @@ const size_t collision_recepcao_obstaculos_count = sizeof(collision_recepcao_obs
 
 /* Areas de gatilho (extraidas dos arquivos _NULL) */
 const collision_rect_t collision_recepcao_gatilhos[] = {
-    { .x = 135, .y = 254, .w =  40, .h =  51, .kind = AREA_PORTA_EMPRESA }, /* Saida pra Empresa (AREA_PARA_ACESSAR_ESCRITORIO_NULL) */
+    { .x = 441, .y = 136, .w =  39, .h =  48, .kind = AREA_PORTA_EMPRESA }, /* Saida pra Empresa (AREA_PARA_ACESSAR_ESCRITORIO_NULL) */
     { .x = 137, .y = 261, .w =  41, .h =  53, .kind = AREA_INTERACAO_NPC }, /* Recepcionista (AREA_QUE_LIBERA_INTERACAO_COM_RECEPCIONISTA_NULL) */
 };
 const size_t collision_recepcao_gatilhos_count = sizeof(collision_recepcao_gatilhos) / sizeof(collision_recepcao_gatilhos[0]);

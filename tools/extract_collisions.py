@@ -154,6 +154,7 @@ def process_sala(sala):
     parts.append("/* Areas de gatilho (extraidas dos arquivos _NULL) */")
     parts.append(f"const collision_rect_t collision_{sala}_gatilhos[] = {{")
     null_files = sorted(sala_dir.glob("*_NULL.png"))
+    gatilhos = []  # (type_name, x, y, w, h, stem)
     for npng in null_files:
         bb = bbox_of_opaque(Image.open(npng))
         if not bb:
@@ -161,9 +162,21 @@ def process_sala(sala):
             continue
         type_name, comment = classify_null(npng.stem)
         x, y, w, h = bb
+        gatilhos.append((type_name, x, y, w, h, npng.stem))
         parts.append(f"    {{ .x = {x:3d}, .y = {y:3d}, .w = {w:3d}, .h = {h:3d}, .kind = {type_name} }}, /* {comment} ({npng.stem}) */")
         print(f"  {sala}: gatilho {type_name} @ ({x},{y}) {w}x{h}")
     parts.append("};")
+
+    # Aviso de sobreposicao: 2 gatilhos no mesmo pixel sao ambiguos —
+    # gatilho_at() so retorna o primeiro do array.
+    for i in range(len(gatilhos)):
+        for j in range(i + 1, len(gatilhos)):
+            t1, x1, y1, w1, h1, s1 = gatilhos[i]
+            t2, x2, y2, w2, h2, s2 = gatilhos[j]
+            if x1 < x2 + w2 and x1 + w1 > x2 and y1 < y2 + h2 and y1 + h1 > y2:
+                print(f"  *** AVISO: gatilhos SOBREPOSTOS em {sala}:")
+                print(f"      {t1} ({s1}) e {t2} ({s2})")
+                print(f"      -> repinte um deles em outro lugar (gatilho_at so ve o 1o)")
     parts.append(f"const size_t collision_{sala}_gatilhos_count = sizeof(collision_{sala}_gatilhos) / sizeof(collision_{sala}_gatilhos[0]);")
 
     out = OUT_COL / f"collision_{sala}.c"

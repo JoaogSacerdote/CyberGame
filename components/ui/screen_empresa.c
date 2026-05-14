@@ -9,6 +9,7 @@
 #include "assets.h"
 #include "collision_data.h"
 #include "joystick_hal.h"
+#include "button_hal.h"
 #include "fsm_gameplay.h"
 #include "fsm.h"
 
@@ -16,11 +17,22 @@ static const char *TAG = "UI_EMPRESA";
 
 #define PFRAME_W   32
 #define PFRAME_H   48
-#define PSTEP      2
 #define J_DEADZONE 30
+#define PSTEP_MIN  2                /* -20% do valor anterior */
+#define PSTEP_MAX  6                /* -20% do valor anterior */
 
 static const int8_t WALK_SEQ[] = { 0, 1, 2, 1 };
 #define WALK_PERIOD_MS 125
+
+/* Velocidade proporcional a deflexao do joystick. */
+static int speed_from_mag(int mag)
+{
+    if (mag <= J_DEADZONE) return 0;
+    int s = PSTEP_MIN + (mag - J_DEADZONE) * (PSTEP_MAX - PSTEP_MIN) / (100 - J_DEADZONE);
+    if (s < PSTEP_MIN) s = PSTEP_MIN;
+    if (s > PSTEP_MAX) s = PSTEP_MAX;
+    return s;
+}
 
 /* Spawn fallback — perto da porta esquerda (entrada vinda da Recepcao).
  * Usado se a tabela AREA_SPAWN nao existir OU se o spawn da tabela cair
@@ -30,11 +42,14 @@ static const int8_t WALK_SEQ[] = { 0, 1, 2, 1 };
 
 static int16_t s_px = SPAWN_FALLBACK_X;
 static int16_t s_py = SPAWN_FALLBACK_Y;
-static int8_t  s_dir = 1;          /* RIGHT (entra pela porta da esquerda) */
+static int8_t  s_dir = 2;          /* linha do sheet 0=DOWN 1=LEFT 2=RIGHT 3=UP — entra olhando pra RIGHT */
 static uint8_t s_walk_idx = 1;
 static uint32_t s_walk_ms = 0;
 
-/* Estado do NPC TI: 0=baixo (de costas), 1=direita, 2=cima (de frente) */
+/* Pose do NPC TI (indices batem com os arquivos):
+ *   0 = PARA_BAIXO  (de frente, encarando o player que vem por baixo)
+ *   1 = PARA_DIREITA (perfil direito)
+ *   2 = PARA_CIMA   (de costas — pose default, trabalhando no PC) */
 static uint8_t s_npc_pose = 0;
 
 static lv_obj_t   *s_root        = NULL;
@@ -42,9 +57,13 @@ static lv_obj_t   *s_player      = NULL;
 static lv_obj_t   *s_npc         = NULL;
 static lv_obj_t   *s_icone_am    = NULL;
 static lv_obj_t   *s_icone_vd    = NULL;
+static lv_obj_t   *s_prompt      = NULL;  /* "[A]" sobre o player perto de gatilho */
 static lv_obj_t   *s_lbl_tarefa  = NULL;  /* label flutuante de tarefa verde (simulacao) */
 static lv_timer_t *s_timer       = NULL;
-static bool        s_in_verde    = false;
+static bool        s_tarefa_open = false; /* label de tarefa verde aberto */
+static bool        s_porta_armed = false; /* anti-loop ao spawnar perto de porta */
+static button_state_t s_a_cache  = BTN_RELEASED;
+static button_state_t s_b_cache  = BTN_RELEASED;
 
 #define PCOL_OFF_X 8
 #define PCOL_OFF_Y 36
@@ -94,6 +113,7 @@ static void apply_player_frame(void)
 
 static void set_npc_pose(uint8_t pose)
 {
+    if (!s_npc) return;
     if (pose == s_npc_pose) return;
     s_npc_pose = pose;
     switch (pose) {
@@ -121,25 +141,32 @@ static void empresa_tick(lv_timer_t *t)
 {
     (void)t;
 
-    const joystick_data_t j = joystick_hal_get_state();
-    int dx = 0, dy = 0;
-    if (j.x >  J_DEADZONE) dx = +1;
-    else if (j.x < -J_DEADZONE) dx = -1;
-    if (j.y >  J_DEADZONE) dy = -1;
-    else if (j.y < -J_DEADZONE) dy = +1;
+    /* Guard defensivo: tela destruida mas timer disparou. */
+    if (!s_root || !s_player) return;
 
-    if (abs(dx) > abs(dy)) {
-        s_dir = (dx > 0) ? 1 : 2;
+    /* Ambos os eixos chegam invertidos do joystick_hal. jx>0=direita, jy>0=baixo. */
+    const joystick_data_t j = joystick_hal_get_state();
+    const int jx = -j.x;
+    const int jy = -j.y;
+    int dx = 0, dy = 0, sx = 0, sy = 0;
+    if (jx >  J_DEADZONE) { dx = +1; sx = speed_from_mag(jx); }
+    else if (jx < -J_DEADZONE) { dx = -1; sx = speed_from_mag(-jx); }
+    if (jy >  J_DEADZONE) { dy = +1; sy = speed_from_mag(jy); }
+    else if (jy < -J_DEADZONE) { dy = -1; sy = speed_from_mag(-jy); }
+
+    /* Linhas do sheet: 0=DOWN, 1=LEFT, 2=RIGHT, 3=UP. */
+    if (abs(jx) > abs(jy)) {
+        if (dx != 0) s_dir = (dx > 0) ? 2 /*RIGHT*/ : 1 /*LEFT*/;
     } else if (dy != 0) {
-        s_dir = (dy > 0) ? 0 : 3;
+        s_dir = (dy > 0) ? 0 /*DOWN*/ : 3 /*UP*/;
     }
 
     if (dx != 0) {
-        const int nx = s_px + dx * PSTEP;
+        const int nx = s_px + dx * sx;
         if (!collides_at(nx, s_py)) s_px = nx;
     }
     if (dy != 0) {
-        const int ny = s_py + dy * PSTEP;
+        const int ny = s_py + dy * sy;
         if (!collides_at(s_px, ny)) s_py = ny;
     }
 
@@ -157,32 +184,56 @@ static void empresa_tick(lv_timer_t *t)
     lv_obj_set_pos(s_player, s_px, s_py);
     apply_player_frame();
 
-    /* Gatilho NPC TI: muda pose conforme area */
+    /* Gatilho sob o player */
     const collision_rect_t *g = gatilho_at(s_px, s_py);
+
+    /* NPC TI muda pose conforme area (feedback visual — automatico).
+     * Player na AREA_BAIXO -> NPC encara pra baixo (pose 0).
+     * Player na AREA_DIREITA -> NPC vira pra direita (pose 1).
+     * Player longe -> NPC de costas trabalhando (pose 2). */
     if (g && g->kind == AREA_INTERACAO_NPC_TI_DIREITA) {
         set_npc_pose(1);
     } else if (g && g->kind == AREA_INTERACAO_NPC_TI_BAIXO) {
-        set_npc_pose(2);
-    } else {
         set_npc_pose(0);
+    } else {
+        set_npc_pose(2);
     }
 
-    /* Tarefa verde — simulacao com label LVGL flutuante */
-    const bool now_verde = (g && g->kind == AREA_TAREFA_VERDE);
-    if (now_verde != s_in_verde) {
-        s_in_verde = now_verde;
-        if (now_verde) {
+    /* Porta: troca de sala por CONTATO. s_porta_armed evita loop quando o
+     * player spawna perto da porta. */
+    if (g && g->kind == AREA_PORTA_RECEPCAO) {
+        if (s_porta_armed) {
+            ESP_LOGI(TAG, "porta recepcao (contato) -> trocando sala");
+            fsm_set_gameplay_sala(GAMEPLAY_SALA_RECEPCAO);
+            return;
+        }
+    } else if (!g || g->kind != AREA_PORTA_RECEPCAO) {
+        s_porta_armed = true;  /* saiu da porta -> rearma */
+    }
+
+    /* Prompt "[A]" sobre o player so para gatilhos INTERATIVOS (tarefa). */
+    if (g && g->kind == AREA_TAREFA_VERDE) {
+        lv_obj_set_pos(s_prompt, s_px + 8, s_py - 17);
+        lv_obj_remove_flag(s_prompt, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_prompt, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    /* Botao A: interage com tarefa verde. */
+    if (ui_btn_edge(BTN_A, &s_a_cache) && g && g->kind == AREA_TAREFA_VERDE) {
+        s_tarefa_open = !s_tarefa_open;
+        if (s_tarefa_open) {
             lv_obj_remove_flag(s_lbl_tarefa, LV_OBJ_FLAG_HIDDEN);
-            ESP_LOGI(TAG, "tarefa verde: player na area");
         } else {
             lv_obj_add_flag(s_lbl_tarefa, LV_OBJ_FLAG_HIDDEN);
         }
+        ESP_LOGI(TAG, "tarefa verde: %s", s_tarefa_open ? "aberta" : "fechada");
     }
 
-    /* Gatilho porta Recepcao -> volta */
-    if (g && g->kind == AREA_PORTA_RECEPCAO) {
-        ESP_LOGI(TAG, "porta recepcao -> trocando sala");
-        fsm_set_gameplay_sala(GAMEPLAY_SALA_RECEPCAO);
+    /* B fecha o label de tarefa se estiver aberto. */
+    if (ui_btn_edge(BTN_B, &s_b_cache) && s_tarefa_open) {
+        s_tarefa_open = false;
+        lv_obj_add_flag(s_lbl_tarefa, LV_OBJ_FLAG_HIDDEN);
     }
 }
 
@@ -208,12 +259,20 @@ static void apply_spawn_from_table(void)
     s_py = SPAWN_FALLBACK_Y;
 }
 
+/* Remove scrollabilidade — defensivo contra crash em readjust_scroll. */
+static void no_scroll(lv_obj_t *o)
+{
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(o, LV_DIR_NONE);
+}
+
 static lv_obj_t *layer_full(lv_obj_t *parent, const lv_image_dsc_t *src,
                             int16_t x, int16_t y)
 {
     lv_obj_t *img = lv_image_create(parent);
     lv_image_set_src(img, src);
     lv_obj_set_pos(img, x, y);
+    no_scroll(img);
     return img;
 }
 
@@ -226,7 +285,7 @@ void screen_empresa_build(void)
     lv_obj_set_style_bg_opa(s_root, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(s_root, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_all(s_root, 0, LV_PART_MAIN);
-    lv_obj_remove_flag(s_root, LV_OBJ_FLAG_SCROLLABLE);
+    no_scroll(s_root);
 
     layer_full(s_root, &img_emp_piso, 0, 0);
     layer_full(s_root, &img_emp_paredes, 0, 0);
@@ -235,31 +294,37 @@ void screen_empresa_build(void)
     lv_image_set_src(s_player, &img_player);
     lv_obj_set_size(s_player, PFRAME_W, PFRAME_H);
     lv_image_set_inner_align(s_player, LV_IMAGE_ALIGN_TOP_LEFT);
-    lv_obj_remove_flag(s_player, LV_OBJ_FLAG_SCROLLABLE);
+    no_scroll(s_player);
     apply_spawn_from_table();
-    s_dir = 1; s_walk_idx = 1; s_walk_ms = 0;
-    s_in_verde = false;
+    s_dir = 2; s_walk_idx = 1; s_walk_ms = 0;   /* RIGHT */
+    s_tarefa_open = false;
+    s_porta_armed = false;   /* spawn pode ser perto da porta — rearma ao sair */
+    s_a_cache = button_hal_peek(BTN_A);
+    s_b_cache = button_hal_peek(BTN_B);
     lv_obj_set_pos(s_player, s_px, s_py);
     apply_player_frame();
 
     layer_full(s_root, &img_emp_complemento,
                IMG_EMP_COMPLEMENTO_META.off_x, IMG_EMP_COMPLEMENTO_META.off_y);
 
-    /* NPC TI — default pose 0 (de costas, sem player perto) */
+    /* NPC TI — default pose 2 (PARA_CIMA = de costas, trabalhando) */
     s_npc = lv_image_create(s_root);
+    no_scroll(s_npc);
     s_npc_pose = 255;  /* forca set_npc_pose() executar na primeira chamada */
-    set_npc_pose(0);
+    set_npc_pose(2);
 
     /* Icones de tarefa (amarela: NPC TI; verde: PC de tarefa) */
     s_icone_am = lv_image_create(s_root);
     lv_image_set_src(s_icone_am, &img_emp_icone_amarelo);
     lv_obj_set_pos(s_icone_am, IMG_EMP_ICONE_AMARELO_META.off_x,
                                IMG_EMP_ICONE_AMARELO_META.off_y);
+    no_scroll(s_icone_am);
 
     s_icone_vd = lv_image_create(s_root);
     lv_image_set_src(s_icone_vd, &img_emp_icone_verde);
     lv_obj_set_pos(s_icone_vd, IMG_EMP_ICONE_VERDE_META.off_x,
                                IMG_EMP_ICONE_VERDE_META.off_y);
+    no_scroll(s_icone_vd);
 
     /* Label flutuante simulando o terminal de tarefa verde (placeholder
      * pra etapa de fontes pixel art + interacao real). Aparece quando
@@ -276,7 +341,18 @@ void screen_empresa_build(void)
     lv_obj_set_style_border_color(s_lbl_tarefa, lv_color_hex(0x00C853), LV_PART_MAIN);
     lv_obj_set_style_border_width(s_lbl_tarefa, 2, LV_PART_MAIN);
     lv_obj_align(s_lbl_tarefa, LV_ALIGN_TOP_MID, 0, 8);
+    no_scroll(s_lbl_tarefa);
     lv_obj_add_flag(s_lbl_tarefa, LV_OBJ_FLAG_HIDDEN);
+
+    /* Prompt "[A]" — segue o player perto de gatilho. Oculto por padrao. */
+    s_prompt = lv_label_create(s_root);
+    lv_label_set_text(s_prompt, "[A]");
+    lv_obj_set_style_text_color(s_prompt, lv_color_hex(0xFFD000), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_prompt, lv_color_black(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_prompt, LV_OPA_70, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_prompt, 2, LV_PART_MAIN);
+    no_scroll(s_prompt);
+    lv_obj_add_flag(s_prompt, LV_OBJ_FLAG_HIDDEN);
 
     s_timer = lv_timer_create(empresa_tick, UI_TICK_MS, NULL);
     ESP_LOGI(TAG, "empresa built (player @ %d,%d)", s_px, s_py);
@@ -288,6 +364,7 @@ void screen_empresa_destroy(void)
     if (s_root)  {
         lv_obj_delete(s_root);
         s_root = NULL;
-        s_player = s_npc = s_icone_am = s_icone_vd = s_lbl_tarefa = NULL;
+        s_player = s_npc = s_icone_am = s_icone_vd = NULL;
+        s_prompt = s_lbl_tarefa = NULL;
     }
 }
