@@ -73,8 +73,17 @@ void app_main(void)
             } else {
                 ESP_LOGE(TAG, "POST do NAND FALHOU — ver logs acima.");
             }
-            ESP_LOGI(TAG, "---");
-            storage_hal_run_full_validation();
+            /* A validacao fisica completa (destrutiva, ~5-10 s) NAO roda mais
+             * automaticamente: viraria risco a cada entrada em recovery, que
+             * agora tambem e o modo de upload de assets. Disponivel sob
+             * demanda pelo comando CMD_SELFTEST do protocolo de recovery. */
+        }
+
+        /* asset_store sobe sobre o storage_hal — necessario para os comandos
+         * PUT/GET/LIST do recovery. Se falhar, o recovery ainda roda (PING),
+         * mas comandos de asset retornam NACK. */
+        if (asset_store_init() != ESP_OK) {
+            ESP_LOGE(TAG, "asset_store_init falhou — comandos de asset indisponiveis.");
         }
 
         if (recovery_init() == ESP_OK) {
