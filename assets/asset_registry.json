@@ -1,0 +1,24 @@
+{
+  "_doc": "Fonte unica de verdade dos assets do CyberGame. Mapeia cada PNG renderizavel para um (type, id, name) estavel. O asset_uploader.py le este arquivo para fazer upload pra NAND; o gerador de asset_ids.h (Fase 5) le o mesmo arquivo para o firmware. Arquivos *_NULL.png NAO entram aqui (sao mascaras de area/colisao, tratadas por extract_collisions.py). Caminhos em 'file' sao relativos a assets/sprites/. 'crop' recorta ao bounding box (default true); sprite-sheets como o player usam crop=false.",
+  "assets": [
+    { "file": "recepcao/PISO_CAMADA_00.png",                                          "type": "sprite", "id": 0,  "name": "rec_piso",          "crop": true },
+    { "file": "recepcao/PAREDES_E_OBJETOS_02.png",                                     "type": "sprite", "id": 1,  "name": "rec_paredes",       "crop": true },
+    { "file": "recepcao/COMPLEMENTO_SEMCOLISAO_PAREDES_E_OBJETOS_03.png",               "type": "sprite", "id": 2,  "name": "rec_complemento",   "crop": true },
+    { "file": "recepcao/ICONE_DE_NOTIFICACAO_RECEPCIONISTA_04.png",                     "type": "sprite", "id": 3,  "name": "rec_icone_notif",   "crop": true },
+    { "file": "recepcao/RECEPCIONISTA_MECHENDO_NO_COMPUTADOR_SEM_INTERACAO_05.png",     "type": "sprite", "id": 4,  "name": "rec_recep_idle",    "crop": true },
+    { "file": "recepcao/RECEPCIONISTA_OLHANDO_PARA_JOGADOR_ENQUANTO_ACONTECE_DIALOGO_06.png", "type": "sprite", "id": 5, "name": "rec_recep_dialog", "crop": true },
+    { "file": "recepcao/CAIXA_DE_DIALOGO_RECEPCIONISTA_07.png",                         "type": "sprite", "id": 6,  "name": "rec_caixa_dialogo", "crop": true },
+    { "file": "recepcao/CAIXA_DELIMITADORA_ONDE_PODE_APARECER_O_TEXTO_DO_DIALOGO_08.png", "type": "sprite", "id": 7, "name": "rec_caixa_texto",  "crop": true },
+
+    { "file": "empresa/PISO_CAMADA_00.png",                                            "type": "sprite", "id": 8,  "name": "emp_piso",          "crop": true },
+    { "file": "empresa/PAREDES_E_OBJETOS_02.png",                                      "type": "sprite", "id": 9,  "name": "emp_paredes",       "crop": true },
+    { "file": "empresa/COMPLEMENTO_SEMCOLISAO_PAREDES_E_OBJETOS_03.png",                "type": "sprite", "id": 10, "name": "emp_complemento",   "crop": true },
+    { "file": "empresa/ICONE_TAREFA_VERDE_04.png",                                     "type": "sprite", "id": 11, "name": "emp_icone_verde",   "crop": true },
+    { "file": "empresa/ICONE_TAREFA_AMARELA_05.png",                                   "type": "sprite", "id": 12, "name": "emp_icone_amarelo", "crop": true },
+    { "file": "empresa/NPC_TI_TAREFA_AMARELA_PARA_CIMA_06.png",                        "type": "sprite", "id": 13, "name": "emp_npc_ti_cima",   "crop": true },
+    { "file": "empresa/NPC_TI_TAREFA_AMARELA_PARA_DIREITA_07.png",                     "type": "sprite", "id": 14, "name": "emp_npc_ti_direita","crop": true },
+    { "file": "empresa/NPC_TI_TAREFA_AMARELA_PARA_BAIXO_08.png",                       "type": "sprite", "id": 15, "name": "emp_npc_ti_baixo",  "crop": true },
+
+    { "file": "Sprite_PLAYER.png",                                                     "type": "sprite", "id": 16, "name": "player",            "crop": false }
+  ]
+}

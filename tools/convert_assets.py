@@ -23,7 +23,8 @@ Comportamento:
 - Arquivos *_NULL.png sao IGNORADOS aqui — tratados por extract_collisions.py.
 """
 from pathlib import Path
-from PIL import Image
+
+from asset_codec import PIXFMT_RGB565A8, png_to_pixels
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "assets" / "sprites"
@@ -52,62 +53,6 @@ SALA_PREFIX = {"recepcao": "rec", "empresa": "emp"}
 
 def short_name(stem):
     return NAME_MAP.get(stem, stem.lower())
-
-
-def encode_rgb565(r, g, b):
-    return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
-
-
-def png_to_arrays(png_path, crop=True):
-    """Retorna (data_bytes, w, h, off_x, off_y, has_alpha).
-    Em RGB565A8, data_bytes = RGB565 contiguous + A8 contiguous depois.
-    """
-    img = Image.open(png_path)
-    has_alpha = img.mode in ("RGBA", "LA") or "transparency" in img.info
-
-    if has_alpha:
-        img = img.convert("RGBA")
-        if crop:
-            bbox = img.getbbox()
-            if bbox:
-                off_x, off_y = bbox[0], bbox[1]
-                img = img.crop(bbox)
-            else:
-                off_x, off_y = 0, 0
-        else:
-            off_x, off_y = 0, 0
-
-        # Otimizacao: se todos os pixels sao 100% opacos, descarta alpha
-        # e trata como RGB sem transparencia (economiza 1/3 do tamanho).
-        alpha_chan = img.split()[3]
-        if alpha_chan.getextrema() == (255, 255):
-            img = img.convert("RGB")
-            has_alpha = False
-    else:
-        img = img.convert("RGB")
-        off_x, off_y = 0, 0
-
-    w, h = img.size
-    px = img.load()
-    rgb = bytearray()
-    if has_alpha:
-        a = bytearray()
-        for y in range(h):
-            for x in range(w):
-                r, g, b, alpha = px[x, y]
-                v = encode_rgb565(r, g, b)
-                rgb.append(v & 0xFF)
-                rgb.append((v >> 8) & 0xFF)
-                a.append(alpha)
-        return bytes(rgb) + bytes(a), w, h, off_x, off_y, True
-    else:
-        for y in range(h):
-            for x in range(w):
-                r, g, b = px[x, y]
-                v = encode_rgb565(r, g, b)
-                rgb.append(v & 0xFF)
-                rgb.append((v >> 8) & 0xFF)
-        return bytes(rgb), w, h, off_x, off_y, False
 
 
 def emit_c_array(name, data):
@@ -151,7 +96,8 @@ def process_sala(sala_dir, prefix):
     for png in files:
         short = short_name(png.stem)
         var = f"img_{prefix}_{short}"
-        data, w, h, ox, oy, has_alpha = png_to_arrays(png, crop=True)
+        data, w, h, ox, oy, pixfmt = png_to_pixels(png, crop=True)
+        has_alpha = pixfmt == PIXFMT_RGB565A8
         parts.append(emit_c_array(var, data))
         parts.append(emit_image_dsc(var, w, h, has_alpha))
         meta.append((var, ox, oy, w, h, has_alpha))
@@ -186,7 +132,8 @@ def main():
         "#include \"lvgl.h\"",
         "",
     ]
-    data, w, h, _, _, has_alpha = png_to_arrays(player_png, crop=False)
+    data, w, h, _, _, pixfmt = png_to_pixels(player_png, crop=False)
+    has_alpha = pixfmt == PIXFMT_RGB565A8
     parts.append(emit_c_array("img_player", data))
     parts.append(emit_image_dsc("img_player", w, h, has_alpha))
     out = OUT_GEN / "img_player.c"
