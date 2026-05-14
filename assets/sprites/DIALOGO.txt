@@ -1,0 +1,13 @@
+Bom dia! Você deve ser o novo analista de cibersegurança contratado, correto? Bem-vindo à empresa.
+
+Seu turno é das 10h às 18h. Durante esse período você vai encontrar 3 tipos de tarefas.
+
+As tarefas VERDES são de prevenção. São opcionais e tranquilas.
+
+Eu recomendo sempre fazer-las, isso evita problemas maiores no futuro.
+
+As tarefas AMARELAS são anomalias. Elas podem evoluir para algo pior, se ignoradas.
+
+As tarefas VERMELHAS são ataques ativos. Quando aparecerem, aja imediatamente.
+
+Isso é tudo, verifique se há mais ocorrências pelo andar, a sala 2 fica logo ao seu lado esquerdo.
