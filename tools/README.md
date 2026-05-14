@@ -71,10 +71,21 @@ Espelha `components/assets/include/asset_blob.h`. Fonte unica do encoder —
 usado tanto pelo `asset_uploader.py` (blobs da NAND) quanto pelo
 `convert_assets.py` (arrays C embarcados, legado ate a Fase 6).
 
+### gen_asset_ids.py
+
+Gera `components/assets/include/asset_ids.h` a partir do registry — os
+simbolos `ASSET_*` que o firmware usa com `asset_loader_load()`. Rode sempre
+que mexer no `asset_registry.json`:
+
+```
+python tools/gen_asset_ids.py
+```
+
 ## assets/asset_registry.json
 
 Fonte unica de verdade dos assets: mapeia cada PNG renderizavel para um
-`(type, id, name)` estavel. O `asset_uploader.py upload` le este arquivo.
+`(type, id, name)` estavel. Consumido pelo `asset_uploader.py upload` (grava
+na NAND) e pelo `gen_asset_ids.py` (gera os simbolos do firmware).
 Arquivos `*_NULL.png` (mascaras de area/colisao) **nao** entram aqui.
 
 ## Identificando a porta CDC

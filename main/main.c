@@ -12,6 +12,8 @@
 #include "display_hal.h"
 #include "hal_bridge.h"
 #include "asset_store.h"
+#include "asset_loader.h"
+#include "asset_ids.h"
 #include "recovery.h"
 #include "ui_debug.h"     /* modo dev — acessivel pelo combo Y+START */
 #include "engine.h"       /* gameplay loop */
@@ -128,6 +130,24 @@ void app_main(void)
         size_t n = 0;
         asset_store_count(&n);
         ESP_LOGI(TAG, "asset_store pronto: %u entries", (unsigned)n);
+    }
+
+    /* SMOKE-TEST TEMPORARIO (Fase 5) — prova o caminho NAND -> PSRAM ->
+     * lv_image_dsc_t. Remover na Fase 6, quando as telas usarem o
+     * asset_loader de verdade. */
+    {
+        loaded_asset_t smoke;
+        if (asset_loader_load(ASSET_TYPE_SPRITE, ASSET_REC_PISO, &smoke) == ESP_OK) {
+            ESP_LOGI(TAG, "[smoke] asset_loader OK: rec_piso %dx%d cf=%d "
+                          "off=%d,%d data=%u B",
+                     (int)smoke.dsc.header.w, (int)smoke.dsc.header.h,
+                     (int)smoke.dsc.header.cf, smoke.off_x, smoke.off_y,
+                     (unsigned)smoke.dsc.data_size);
+            asset_loader_free(&smoke);
+        } else {
+            ESP_LOGW(TAG, "[smoke] asset_loader_load(rec_piso) falhou — "
+                          "rodou o upload de assets via recovery?");
+        }
     }
 
     /* Combo dev: Y+START segurados juntos por 2s -> ui_debug.
