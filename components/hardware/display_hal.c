@@ -17,7 +17,7 @@
 #define DISP_PIN_DC         18
 #define DISP_PIN_RST        21
 #define DISP_PIN_BL         38
-#define DISP_PIN_PWR_EN     42      /* PNP high-side switch: 0 = LIGA VCC, 1 = CORTA VCC */
+#define DISP_PIN_PWR_EN     42      /* NPN (driver de gate): 1 = LIGA VCC, 0 = CORTA VCC */
 
 #define DISP_PWR_STABILIZE_MS   50
 
