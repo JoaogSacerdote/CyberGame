@@ -24,6 +24,12 @@ void screen_placeholder_destroy(void);
 void screen_pause_build(void);
 void screen_pause_destroy(void);
 
+void screen_recepcao_build(void);
+void screen_recepcao_destroy(void);
+
+void screen_empresa_build(void);
+void screen_empresa_destroy(void);
+
 /* Helper compartilhado: detecta edge RELEASED->PRESSED para um botao.
  * O state cache fica por conta de cada screen. */
 static inline bool ui_btn_edge(button_id_t id, button_state_t *cache)

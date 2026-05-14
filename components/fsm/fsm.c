@@ -13,6 +13,7 @@ static const char *TAG = "FSM";
 
 static game_state_t        s_current     = GAME_STATE_SPLASH;
 static gameplay_substate_t s_sub         = GAMEPLAY_SUB_EXPLORANDO;
+static gameplay_sala_t     s_sala        = GAMEPLAY_SALA_RECEPCAO;
 static uint32_t            s_phase_ms    = 0;   /* tempo decorrido no sub-estado atual */
 
 static const char *state_name(game_state_t s)
@@ -40,6 +41,25 @@ const char *fsm_gameplay_substate_name(gameplay_substate_t s)
     }
 }
 
+const char *fsm_gameplay_sala_name(gameplay_sala_t s)
+{
+    switch (s) {
+        case GAMEPLAY_SALA_RECEPCAO: return "RECEPCAO";
+        case GAMEPLAY_SALA_EMPRESA:  return "EMPRESA";
+        default:                     return "INVALID";
+    }
+}
+
+gameplay_sala_t fsm_get_gameplay_sala(void) { return s_sala; }
+
+void fsm_set_gameplay_sala(gameplay_sala_t sala)
+{
+    if (sala >= GAMEPLAY_SALA_MAX || sala == s_sala) return;
+    ESP_LOGI(TAG, "[GAMEPLAY] sala %s -> %s",
+             fsm_gameplay_sala_name(s_sala), fsm_gameplay_sala_name(sala));
+    s_sala = sala;
+}
+
 static void set_sub(gameplay_substate_t next)
 {
     if (next == s_sub) return;
@@ -54,6 +74,7 @@ esp_err_t fsm_init(void)
 {
     s_current  = GAME_STATE_SPLASH;
     s_sub      = GAMEPLAY_SUB_EXPLORANDO;
+    s_sala     = GAMEPLAY_SALA_RECEPCAO;
     s_phase_ms = 0;
     ESP_LOGI(TAG, "fsm init -> %s", state_name(s_current));
     return ESP_OK;
@@ -72,11 +93,16 @@ void fsm_set_state(game_state_t new_state)
         return;
     }
     ESP_LOGI(TAG, "transicao %s -> %s", state_name(s_current), state_name(new_state));
+    const game_state_t prev = s_current;
     s_current = new_state;
-    /* Toda entrada em GAMEPLAY comeca explorando, fase zerada. */
+    /* Entrada em GAMEPLAY reseta sub-FSM. Sala so reseta pra RECEPCAO
+     * se veio de MENU/SPLASH; se veio de PAUSE, preserva sala atual. */
     if (new_state == GAME_STATE_GAMEPLAY) {
         s_sub      = GAMEPLAY_SUB_EXPLORANDO;
         s_phase_ms = 0;
+        if (prev == GAME_STATE_MENU || prev == GAME_STATE_SPLASH) {
+            s_sala = GAMEPLAY_SALA_RECEPCAO;
+        }
     }
 }
 

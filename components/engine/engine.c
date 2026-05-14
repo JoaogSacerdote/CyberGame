@@ -40,17 +40,25 @@ static void button_reader_task(void *pv)
     }
 }
 
-/* Sincroniza a tela ativa com o estado macro da FSM. Quem mudou o estado
- * (a propria FSM via botoes, ou a UI via fsm_set_state) so precisa mexer no
- * estado — esta funcao detecta a transicao e chama o ui_show_X correto. */
+static void sync_gameplay_sala_to_ui(gameplay_sala_t sala)
+{
+    switch (sala) {
+        case GAMEPLAY_SALA_RECEPCAO: ui_show_recepcao(); break;
+        case GAMEPLAY_SALA_EMPRESA:  ui_show_empresa();  break;
+        default: break;
+    }
+}
+
+/* Sincroniza a tela ativa com o estado macro da FSM. Em GAMEPLAY, escolhe
+ * a tela com base na sala atual (RECEPCAO ou EMPRESA). */
 static void sync_ui_to_macro(game_state_t macro)
 {
     switch (macro) {
-        case GAME_STATE_SPLASH:   ui_show_splash();      break;
-        case GAME_STATE_MENU:     ui_show_menu();        break;
-        case GAME_STATE_GAMEPLAY: ui_show_placeholder(); break;
-        case GAME_STATE_PAUSE:    ui_show_pause();       break;
-        default:                  /* sem tela ainda */   break;
+        case GAME_STATE_SPLASH:   ui_show_splash();  break;
+        case GAME_STATE_MENU:     ui_show_menu();    break;
+        case GAME_STATE_GAMEPLAY: sync_gameplay_sala_to_ui(fsm_get_gameplay_sala()); break;
+        case GAME_STATE_PAUSE:    ui_show_pause();   break;
+        default:                  /* sem tela ainda */ break;
     }
 }
 
@@ -60,7 +68,8 @@ static void engine_task(void *pv)
     TickType_t last_tick = xTaskGetTickCount();
     fsm_event_t evt;
 
-    game_state_t last_macro = fsm_get_state();
+    game_state_t    last_macro = fsm_get_state();
+    gameplay_sala_t last_sala  = fsm_get_gameplay_sala();
 
     while (1) {
         /* Consome eventos com timeout pequeno; se nao houver, emite tick. */
@@ -81,14 +90,18 @@ static void engine_task(void *pv)
             last_tick = now;
         }
 
-        /* Macro mudou? troca tela. Mudanca de sub-estado e observada pela
-         * tela placeholder via fsm_get_gameplay_substate() no proprio timer
-         * dela (diff-gating local). */
-        const game_state_t cur_macro = fsm_get_state();
+        /* Observa mudancas. Macro mudou? troca tela. Sala mudou (dentro
+         * de GAMEPLAY)? troca tela tambem. Sub-estado e observado pela
+         * propria tela via getter. */
+        const game_state_t    cur_macro = fsm_get_state();
+        const gameplay_sala_t cur_sala  = fsm_get_gameplay_sala();
         if (cur_macro != last_macro) {
             sync_ui_to_macro(cur_macro);
             last_macro = cur_macro;
+        } else if (cur_macro == GAME_STATE_GAMEPLAY && cur_sala != last_sala) {
+            sync_gameplay_sala_to_ui(cur_sala);
         }
+        last_sala = cur_sala;
     }
 }
 
