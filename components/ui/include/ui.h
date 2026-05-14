@@ -10,8 +10,10 @@ typedef enum {
     UI_SCREEN_NONE = 0,
     UI_SCREEN_SPLASH,
     UI_SCREEN_MENU,
-    UI_SCREEN_PLACEHOLDER,
+    UI_SCREEN_PLACEHOLDER,   /* legacy — Etapa A; substituido por RECEPCAO/EMPRESA */
     UI_SCREEN_PAUSE,
+    UI_SCREEN_RECEPCAO,
+    UI_SCREEN_EMPRESA,
 } ui_screen_t;
 
 /* ui_init: cria a tela ativa raiz com fundo neutro e prepara o roteador.
@@ -22,8 +24,10 @@ esp_err_t ui_init(void);
 
 void ui_show_splash(void);
 void ui_show_menu(void);
-void ui_show_placeholder(void);
+void ui_show_placeholder(void);   /* legacy — manter por compat */
 void ui_show_pause(void);
+void ui_show_recepcao(void);
+void ui_show_empresa(void);
 
 ui_screen_t ui_get_active(void);
 

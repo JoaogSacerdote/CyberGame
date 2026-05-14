@@ -18,8 +18,20 @@ typedef enum {
     GAMEPLAY_SUB_MAX,
 } gameplay_substate_t;
 
+/* Qual sala o player esta. Spawn inicial e SALA_RECEPCAO; gatilhos
+ * AREA_PORTA_* na propria sala disparam fsm_set_gameplay_sala(). */
+typedef enum {
+    GAMEPLAY_SALA_RECEPCAO = 0,
+    GAMEPLAY_SALA_EMPRESA,
+    GAMEPLAY_SALA_MAX,
+} gameplay_sala_t;
+
 gameplay_substate_t fsm_get_gameplay_substate(void);
 const char         *fsm_gameplay_substate_name(gameplay_substate_t s);
+
+gameplay_sala_t     fsm_get_gameplay_sala(void);
+void                fsm_set_gameplay_sala(gameplay_sala_t sala);
+const char         *fsm_gameplay_sala_name(gameplay_sala_t s);
 
 #ifdef __cplusplus
 }

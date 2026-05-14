@@ -5,12 +5,15 @@ idf_component_register(
         "screen_menu.c"
         "screen_placeholder.c"
         "screen_pause.c"
+        "screen_recepcao.c"
+        "screen_empresa.c"
     INCLUDE_DIRS "include"
     REQUIRES
         "hardware"
         "hal_bridge"
         "lvgl__lvgl"
         "fsm"
+        "assets"
     PRIV_REQUIRES
         "esp_timer"
 )
