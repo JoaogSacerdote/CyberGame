@@ -18,7 +18,10 @@ pip install pyserial
 
 ### test_ping.py
 
-Sanity check da conexao. Manda `PING\n`, espera `PONG\n`.
+Smoke-test do protocolo de recovery (Fase 3). Monta um frame binario `CMD_PING`,
+envia, e valida o `RESP_PONG` de volta — confirma enquadramento, CRC32 e o
+round-trip USB CDC. O contrato do protocolo esta em
+`components/recovery/include/recovery_proto.h`.
 
 ```
 python test_ping.py COM21
@@ -28,9 +31,11 @@ Saidas possiveis:
 
 | Saida | Significado |
 |---|---|
-| `OK — recebido: PONG` | USB CDC funcionando, comunicacao OK |
-| `FAIL — esperado 'PONG', recebido: ''` | ESP nao respondeu (timeout 2s) — checar se aparelho esta em recovery |
-| `FAIL — esperado 'PONG', recebido: 'UNKNOWN'` | ESP recebeu algo mas nao foi 'PING' — encoding ou ruido na linha |
+| `OK — framing, CRC e round-trip USB CDC validados.` | Protocolo funcionando ponta a ponta |
+| `FAIL: timeout esperando SOF ...` | ESP nao respondeu (2s) — checar se esta em recovery e se e a porta CDC certa |
+| `FAIL: CRC do frame nao bate ...` | Resposta corrompida na linha — ruido ou bug de enquadramento |
+| `FAIL: versao do firmware (vX) != script` | Firmware e script com versoes de protocolo diferentes — recompilar/atualizar |
+| `<- NACK (esp_err_t = N)` | ESP rejeitou o comando — ver codigo de erro |
 | `FAIL: nao consegui abrir a porta: ...` | Porta errada / outro programa segurando — checar Device Manager |
 
 ## Identificando a porta CDC

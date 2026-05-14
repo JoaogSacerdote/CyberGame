@@ -10,11 +10,15 @@ extern "C" {
  * como uma porta serial virtual no PC (alem da porta UART/JTAG existente). */
 esp_err_t recovery_init(void);
 
-/* Loop bloqueante: le linhas terminadas em '\n' do CDC, parseia comandos
- * e responde. Nao retorna — chamador segue para idle apos saida via QUIT
- * (futuro) ou shutdown via PWR.
+/* Loop bloqueante: monta frames binarios vindos do CDC, valida CRC e
+ * despacha os comandos do protocolo de assets. Nao retorna — chamador
+ * segue para shutdown via PWR.
  *
- * Comandos B1: PING -> PONG. Tudo o mais retorna UNKNOWN. */
+ * Pre-condicao: storage_hal_init() e asset_store_init() ja rodaram.
+ *
+ * Protocolo completo (frames, comandos, layouts) em recovery_proto.h.
+ * Comandos: PING, LIST, PUT_BEGIN/DATA/END/ABORT, GET, ERASE_CAT,
+ * FACTORY_RESET, SELFTEST (validacao fisica do NAND sob demanda). */
 void recovery_run(void);
 
 #ifdef __cplusplus
