@@ -3,8 +3,13 @@
  * asset_blob_header_t e monta um lv_image_dsc_t com os pixels na PSRAM.
  *
  * O asset_store e a camada de "arquivos na NAND" e NAO fala LVGL — esta
- * camada faz a ponte. O caller e dono da memoria alocada: chamar
- * asset_loader_free() ao descartar o asset (tipicamente no destroy da tela).
+ * camada faz a ponte.
+ *
+ * CACHE load-once: cada asset e lido da NAND uma unica vez; chamadas
+ * seguintes devolvem o mesmo buffer residente na PSRAM. O par
+ * asset_loader_load()/asset_loader_free() continua sendo o contrato das
+ * telas (load no build, free no destroy), mas para assets cacheados o
+ * free e no-op — o buffer fica residente pelo resto da sessao.
  *
  * Pre-condicao: asset_store_init() ja rodou com sucesso.
  */
@@ -24,9 +29,10 @@ typedef struct {
     void          *_buf;    /* buffer PSRAM dono dos pixels (uso interno)      */
 } loaded_asset_t;
 
-/* Carrega o asset (type, id) da NAND para a PSRAM e preenche *out.
+/* Preenche *out com o asset (type, id). Cache hit retorna instantaneo; cache
+ * miss le da NAND e cacheia.
  *
- * Retornos de erro:
+ * Retornos de erro (so no caminho de cache miss):
  *   ESP_ERR_NOT_FOUND         — asset nao existe no manifest
  *   ESP_ERR_INVALID_RESPONSE  — header do blob corrompido/inconsistente
  *   ESP_ERR_INVALID_VERSION   — versao de blob nao suportada
@@ -34,7 +40,8 @@ typedef struct {
  * Em qualquer erro, *out fica zerado e nada precisa ser liberado. */
 esp_err_t asset_loader_load(asset_type_t type, uint16_t id, loaded_asset_t *out);
 
-/* Libera os pixels e zera a struct. Seguro chamar com *a ja zerado ou NULL. */
+/* Descarta a referencia ao asset. Para assets cacheados (caso normal) e
+ * no-op — o cache mantem os pixels residentes. Seguro com *a zerado ou NULL. */
 void asset_loader_free(loaded_asset_t *a);
 
 #ifdef __cplusplus
