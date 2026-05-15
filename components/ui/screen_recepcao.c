@@ -272,12 +272,12 @@ static void recepcao_tick(lv_timer_t *t)
         return;
     }
 
-    /* Leitura do joystick — AMBOS os eixos chegam do joystick_hal com sinal
-     * trocado em relacao a tela. Invertemos os dois: jx>0=direita, jy>0=baixo.
+    /* Leitura do joystick — o eixo X chega do joystick_hal com sinal trocado
+     * em relacao a tela; invertemos so o X. jx>0=direita, jy>0=baixo.
      * Velocidade proporcional a deflexao. */
     const joystick_data_t j = joystick_hal_get_state();
     const int jx = -j.x;
-    const int jy = -j.y;
+    const int jy = j.y;
     int dx = 0, dy = 0, sx = 0, sy = 0;
     if (jx >  J_DEADZONE) { dx = +1; sx = speed_from_mag(jx); }
     else if (jx < -J_DEADZONE) { dx = -1; sx = speed_from_mag(-jx); }
