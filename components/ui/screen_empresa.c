@@ -6,7 +6,8 @@
 #include <stdbool.h>
 #include "esp_log.h"
 #include "lvgl.h"
-#include "assets.h"
+#include "asset_loader.h"
+#include "asset_ids.h"
 #include "collision_data.h"
 #include "joystick_hal.h"
 #include "button_hal.h"
@@ -65,6 +66,26 @@ static bool        s_porta_armed = false; /* anti-loop ao spawnar perto de porta
 static button_state_t s_a_cache  = BTN_RELEASED;
 static button_state_t s_b_cache  = BTN_RELEASED;
 
+/* === Assets da tela, carregados da NAND no build e liberados no destroy === */
+typedef enum {
+    A_PISO = 0, A_PAREDES, A_PLAYER, A_COMPLEMENTO,
+    A_NPC_BAIXO, A_NPC_DIREITA, A_NPC_CIMA, A_ICONE_AM, A_ICONE_VD,
+    A_COUNT
+} emp_slot_t;
+
+static const uint16_t EMP_ASSET_ID[A_COUNT] = {
+    [A_PISO]        = ASSET_EMP_PISO,
+    [A_PAREDES]     = ASSET_EMP_PAREDES,
+    [A_PLAYER]      = ASSET_PLAYER,
+    [A_COMPLEMENTO] = ASSET_EMP_COMPLEMENTO,
+    [A_NPC_BAIXO]   = ASSET_EMP_NPC_TI_BAIXO,
+    [A_NPC_DIREITA] = ASSET_EMP_NPC_TI_DIREITA,
+    [A_NPC_CIMA]    = ASSET_EMP_NPC_TI_CIMA,
+    [A_ICONE_AM]    = ASSET_EMP_ICONE_AMARELO,
+    [A_ICONE_VD]    = ASSET_EMP_ICONE_VERDE,
+};
+static loaded_asset_t s_assets[A_COUNT];
+
 #define PCOL_OFF_X 8
 #define PCOL_OFF_Y 36
 #define PCOL_W     16
@@ -118,19 +139,19 @@ static void set_npc_pose(uint8_t pose)
     s_npc_pose = pose;
     switch (pose) {
         case 0:
-            lv_image_set_src(s_npc, &img_emp_npc_ti_baixo);
-            lv_obj_set_pos(s_npc, IMG_EMP_NPC_TI_BAIXO_META.off_x,
-                                  IMG_EMP_NPC_TI_BAIXO_META.off_y);
+            lv_image_set_src(s_npc, &s_assets[A_NPC_BAIXO].dsc);
+            lv_obj_set_pos(s_npc, s_assets[A_NPC_BAIXO].off_x,
+                                  s_assets[A_NPC_BAIXO].off_y);
             break;
         case 1:
-            lv_image_set_src(s_npc, &img_emp_npc_ti_direita);
-            lv_obj_set_pos(s_npc, IMG_EMP_NPC_TI_DIREITA_META.off_x,
-                                  IMG_EMP_NPC_TI_DIREITA_META.off_y);
+            lv_image_set_src(s_npc, &s_assets[A_NPC_DIREITA].dsc);
+            lv_obj_set_pos(s_npc, s_assets[A_NPC_DIREITA].off_x,
+                                  s_assets[A_NPC_DIREITA].off_y);
             break;
         case 2:
-            lv_image_set_src(s_npc, &img_emp_npc_ti_cima);
-            lv_obj_set_pos(s_npc, IMG_EMP_NPC_TI_CIMA_META.off_x,
-                                  IMG_EMP_NPC_TI_CIMA_META.off_y);
+            lv_image_set_src(s_npc, &s_assets[A_NPC_CIMA].dsc);
+            lv_obj_set_pos(s_npc, s_assets[A_NPC_CIMA].off_x,
+                                  s_assets[A_NPC_CIMA].off_y);
             break;
         default:
             break;
@@ -276,8 +297,38 @@ static lv_obj_t *layer_full(lv_obj_t *parent, const lv_image_dsc_t *src,
     return img;
 }
 
+static void free_all_assets(void)
+{
+    for (int i = 0; i < A_COUNT; ++i) {
+        asset_loader_free(&s_assets[i]);
+    }
+}
+
+/* Carrega da NAND todos os assets da tela. Em falha, desfaz os que ja
+ * subiram e retorna false. */
+static bool load_all_assets(void)
+{
+    for (int i = 0; i < A_COUNT; ++i) {
+        const esp_err_t e = asset_loader_load(ASSET_TYPE_SPRITE,
+                                              EMP_ASSET_ID[i], &s_assets[i]);
+        if (e != ESP_OK) {
+            ESP_LOGE(TAG, "asset_loader_load slot %d (id %u) falhou: %s",
+                     i, EMP_ASSET_ID[i], esp_err_to_name(e));
+            free_all_assets();
+            return false;
+        }
+    }
+    return true;
+}
+
 void screen_empresa_build(void)
 {
+    if (!load_all_assets()) {
+        ESP_LOGE(TAG, "build abortado — assets da NAND indisponiveis "
+                      "(rodou o upload via recovery?)");
+        return;
+    }
+
     s_root = lv_obj_create(lv_screen_active());
     lv_obj_set_size(s_root, 480, 320);
     lv_obj_set_pos(s_root, 0, 0);
@@ -287,11 +338,11 @@ void screen_empresa_build(void)
     lv_obj_set_style_pad_all(s_root, 0, LV_PART_MAIN);
     no_scroll(s_root);
 
-    layer_full(s_root, &img_emp_piso, 0, 0);
-    layer_full(s_root, &img_emp_paredes, 0, 0);
+    layer_full(s_root, &s_assets[A_PISO].dsc, 0, 0);
+    layer_full(s_root, &s_assets[A_PAREDES].dsc, 0, 0);
 
     s_player = lv_image_create(s_root);
-    lv_image_set_src(s_player, &img_player);
+    lv_image_set_src(s_player, &s_assets[A_PLAYER].dsc);
     lv_obj_set_size(s_player, PFRAME_W, PFRAME_H);
     lv_image_set_inner_align(s_player, LV_IMAGE_ALIGN_TOP_LEFT);
     no_scroll(s_player);
@@ -304,8 +355,8 @@ void screen_empresa_build(void)
     lv_obj_set_pos(s_player, s_px, s_py);
     apply_player_frame();
 
-    layer_full(s_root, &img_emp_complemento,
-               IMG_EMP_COMPLEMENTO_META.off_x, IMG_EMP_COMPLEMENTO_META.off_y);
+    layer_full(s_root, &s_assets[A_COMPLEMENTO].dsc,
+               s_assets[A_COMPLEMENTO].off_x, s_assets[A_COMPLEMENTO].off_y);
 
     /* NPC TI — default pose 2 (PARA_CIMA = de costas, trabalhando) */
     s_npc = lv_image_create(s_root);
@@ -315,15 +366,15 @@ void screen_empresa_build(void)
 
     /* Icones de tarefa (amarela: NPC TI; verde: PC de tarefa) */
     s_icone_am = lv_image_create(s_root);
-    lv_image_set_src(s_icone_am, &img_emp_icone_amarelo);
-    lv_obj_set_pos(s_icone_am, IMG_EMP_ICONE_AMARELO_META.off_x,
-                               IMG_EMP_ICONE_AMARELO_META.off_y);
+    lv_image_set_src(s_icone_am, &s_assets[A_ICONE_AM].dsc);
+    lv_obj_set_pos(s_icone_am, s_assets[A_ICONE_AM].off_x,
+                               s_assets[A_ICONE_AM].off_y);
     no_scroll(s_icone_am);
 
     s_icone_vd = lv_image_create(s_root);
-    lv_image_set_src(s_icone_vd, &img_emp_icone_verde);
-    lv_obj_set_pos(s_icone_vd, IMG_EMP_ICONE_VERDE_META.off_x,
-                               IMG_EMP_ICONE_VERDE_META.off_y);
+    lv_image_set_src(s_icone_vd, &s_assets[A_ICONE_VD].dsc);
+    lv_obj_set_pos(s_icone_vd, s_assets[A_ICONE_VD].off_x,
+                               s_assets[A_ICONE_VD].off_y);
     no_scroll(s_icone_vd);
 
     /* Label flutuante simulando o terminal de tarefa verde (placeholder
@@ -367,4 +418,7 @@ void screen_empresa_destroy(void)
         s_player = s_npc = s_icone_am = s_icone_vd = NULL;
         s_prompt = s_lbl_tarefa = NULL;
     }
+    /* Libera os pixels da PSRAM DEPOIS de deletar os objetos LVGL que
+     * apontavam para eles. */
+    free_all_assets();
 }
