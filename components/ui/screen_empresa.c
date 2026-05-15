@@ -144,10 +144,10 @@ static void empresa_tick(lv_timer_t *t)
     /* Guard defensivo: tela destruida mas timer disparou. */
     if (!s_root || !s_player) return;
 
-    /* Ambos os eixos chegam invertidos do joystick_hal. jx>0=direita, jy>0=baixo. */
+    /* O eixo X chega invertido do joystick_hal; invertemos so o X. jx>0=direita, jy>0=baixo. */
     const joystick_data_t j = joystick_hal_get_state();
     const int jx = -j.x;
-    const int jy = -j.y;
+    const int jy = j.y;
     int dx = 0, dy = 0, sx = 0, sy = 0;
     if (jx >  J_DEADZONE) { dx = +1; sx = speed_from_mag(jx); }
     else if (jx < -J_DEADZONE) { dx = -1; sx = speed_from_mag(-jx); }

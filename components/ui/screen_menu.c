@@ -54,8 +54,8 @@ static void menu_tick(lv_timer_t *t)
 
     if (nav_unlocked) {
         int delta = 0;
-        if      (j.y >=  UI_JOYSTICK_DEFLEXAO_MIN) delta = -1;   /* y=+ = cima */
-        else if (j.y <= -UI_JOYSTICK_DEFLEXAO_MIN) delta = +1;   /* y=- = baixo */
+        if      (j.y >=  UI_JOYSTICK_DEFLEXAO_MIN) delta = +1;   /* y=+ = baixo */
+        else if (j.y <= -UI_JOYSTICK_DEFLEXAO_MIN) delta = -1;   /* y=- = cima */
         if (delta != 0) {
             s_selected = (s_selected + delta + MENU_OPTIONS) % MENU_OPTIONS;
             s_last_nav_us = now_us;
