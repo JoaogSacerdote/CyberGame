@@ -19,7 +19,7 @@ static const char *TAG = "STORAGE_HAL";
 #define STORAGE_SPI_HOST       SPI2_HOST
 /* 10 MHz conservador para bring-up em protoboard. NAND aguenta 104 MHz, mas
  * fios longos / sem decoupling sao sensiveis. Quando estabilizar, subir. */
-#define STORAGE_SPI_HZ         (10 * 1000 * 1000)
+#define STORAGE_SPI_HZ         (50 * 1000 * 1000)
 
 /* W25N01GV NAND commands */
 #define NAND_CMD_RESET           0xFF
