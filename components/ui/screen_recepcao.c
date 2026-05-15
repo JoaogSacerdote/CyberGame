@@ -7,7 +7,8 @@
 #include <string.h>
 #include "esp_log.h"
 #include "lvgl.h"
-#include "assets.h"
+#include "asset_loader.h"
+#include "asset_ids.h"
 #include "collision_data.h"
 #include "joystick_hal.h"
 #include "button_hal.h"
@@ -90,6 +91,26 @@ static lv_obj_t   *s_dlg_box     = NULL;   /* PNG caixa de dialogo (oculto por d
 static lv_obj_t   *s_dlg_text    = NULL;   /* texto typewriter */
 static lv_obj_t   *s_dlg_hint    = NULL;   /* "[A] >>  [B] Pular" */
 static lv_timer_t *s_timer       = NULL;
+
+/* === Assets da tela, carregados da NAND no build e liberados no destroy === */
+typedef enum {
+    A_PISO = 0, A_PAREDES, A_PLAYER, A_COMPLEMENTO,
+    A_RECEP_IDLE, A_RECEP_DIALOG, A_ICONE, A_CAIXA_DIALOGO, A_CAIXA_TEXTO,
+    A_COUNT
+} rec_slot_t;
+
+static const uint16_t REC_ASSET_ID[A_COUNT] = {
+    [A_PISO]          = ASSET_REC_PISO,
+    [A_PAREDES]       = ASSET_REC_PAREDES,
+    [A_PLAYER]        = ASSET_PLAYER,
+    [A_COMPLEMENTO]   = ASSET_REC_COMPLEMENTO,
+    [A_RECEP_IDLE]    = ASSET_REC_RECEP_IDLE,
+    [A_RECEP_DIALOG]  = ASSET_REC_RECEP_DIALOG,
+    [A_ICONE]         = ASSET_REC_ICONE_NOTIF,
+    [A_CAIXA_DIALOGO] = ASSET_REC_CAIXA_DIALOGO,
+    [A_CAIXA_TEXTO]   = ASSET_REC_CAIXA_TEXTO,
+};
+static loaded_asset_t s_assets[A_COUNT];
 
 /* Estado do dialogo */
 static dlg_state_t s_dlg_state = DLG_INACTIVE;
@@ -325,13 +346,13 @@ static void recepcao_tick(lv_timer_t *t)
     if (near_npc != s_npc_facing) {
         s_npc_facing = near_npc;
         if (near_npc) {
-            lv_image_set_src(s_npc, &img_rec_recep_dialog);
-            lv_obj_set_pos(s_npc, IMG_REC_RECEP_DIALOG_META.off_x,
-                                  IMG_REC_RECEP_DIALOG_META.off_y);
+            lv_image_set_src(s_npc, &s_assets[A_RECEP_DIALOG].dsc);
+            lv_obj_set_pos(s_npc, s_assets[A_RECEP_DIALOG].off_x,
+                                  s_assets[A_RECEP_DIALOG].off_y);
         } else {
-            lv_image_set_src(s_npc, &img_rec_recep_idle);
-            lv_obj_set_pos(s_npc, IMG_REC_RECEP_IDLE_META.off_x,
-                                  IMG_REC_RECEP_IDLE_META.off_y);
+            lv_image_set_src(s_npc, &s_assets[A_RECEP_IDLE].dsc);
+            lv_obj_set_pos(s_npc, s_assets[A_RECEP_IDLE].off_x,
+                                  s_assets[A_RECEP_IDLE].off_y);
         }
     }
 
@@ -399,8 +420,38 @@ static lv_obj_t *layer_full(lv_obj_t *parent, const lv_image_dsc_t *src,
     return img;
 }
 
+static void free_all_assets(void)
+{
+    for (int i = 0; i < A_COUNT; ++i) {
+        asset_loader_free(&s_assets[i]);
+    }
+}
+
+/* Carrega da NAND todos os assets da tela. Em falha, desfaz os que ja
+ * subiram e retorna false. */
+static bool load_all_assets(void)
+{
+    for (int i = 0; i < A_COUNT; ++i) {
+        const esp_err_t e = asset_loader_load(ASSET_TYPE_SPRITE,
+                                              REC_ASSET_ID[i], &s_assets[i]);
+        if (e != ESP_OK) {
+            ESP_LOGE(TAG, "asset_loader_load slot %d (id %u) falhou: %s",
+                     i, REC_ASSET_ID[i], esp_err_to_name(e));
+            free_all_assets();
+            return false;
+        }
+    }
+    return true;
+}
+
 void screen_recepcao_build(void)
 {
+    if (!load_all_assets()) {
+        ESP_LOGE(TAG, "build abortado — assets da NAND indisponiveis "
+                      "(rodou o upload via recovery?)");
+        return;
+    }
+
     s_root = lv_obj_create(lv_screen_active());
     lv_obj_set_size(s_root, 480, 320);
     lv_obj_set_pos(s_root, 0, 0);
@@ -411,15 +462,15 @@ void screen_recepcao_build(void)
     no_scroll(s_root);
 
     /* L0 — piso (cobre 480x320) */
-    layer_full(s_root, &img_rec_piso, 0, 0);
+    layer_full(s_root, &s_assets[A_PISO].dsc, 0, 0);
 
     /* L2 — paredes/objetos (cobre 480x320) */
-    layer_full(s_root, &img_rec_paredes, 0, 0);
+    layer_full(s_root, &s_assets[A_PAREDES].dsc, 0, 0);
 
     /* PLAYER — entre paredes e complemento. Janela 32x48 mostra so 1 frame
      * do sheet 96x192 via offset_x/y. */
     s_player = lv_image_create(s_root);
-    lv_image_set_src(s_player, &img_player);
+    lv_image_set_src(s_player, &s_assets[A_PLAYER].dsc);
     lv_obj_set_size(s_player, PFRAME_W, PFRAME_H);
     lv_image_set_inner_align(s_player, LV_IMAGE_ALIGN_TOP_LEFT);
     no_scroll(s_player);
@@ -448,23 +499,23 @@ void screen_recepcao_build(void)
     apply_player_frame();
 
     /* L3 — complemento (em cima do player; cropado, posicao via meta) */
-    layer_full(s_root, &img_rec_complemento,
-               IMG_REC_COMPLEMENTO_META.off_x, IMG_REC_COMPLEMENTO_META.off_y);
+    layer_full(s_root, &s_assets[A_COMPLEMENTO].dsc,
+               s_assets[A_COMPLEMENTO].off_x, s_assets[A_COMPLEMENTO].off_y);
 
     /* L5 — recepcionista (idle por padrao) */
     s_npc = lv_image_create(s_root);
-    lv_image_set_src(s_npc, &img_rec_recep_idle);
-    lv_obj_set_pos(s_npc, IMG_REC_RECEP_IDLE_META.off_x,
-                          IMG_REC_RECEP_IDLE_META.off_y);
+    lv_image_set_src(s_npc, &s_assets[A_RECEP_IDLE].dsc);
+    lv_obj_set_pos(s_npc, s_assets[A_RECEP_IDLE].off_x,
+                          s_assets[A_RECEP_IDLE].off_y);
     no_scroll(s_npc);
     s_npc_facing = false;
 
     /* L4 — icone notif (em cima da recepcionista, fica acima do NPC pelo
      * z-order de criacao) */
     s_icone = lv_image_create(s_root);
-    lv_image_set_src(s_icone, &img_rec_icone_notif);
-    lv_obj_set_pos(s_icone, IMG_REC_ICONE_NOTIF_META.off_x,
-                            IMG_REC_ICONE_NOTIF_META.off_y);
+    lv_image_set_src(s_icone, &s_assets[A_ICONE].dsc);
+    lv_obj_set_pos(s_icone, s_assets[A_ICONE].off_x,
+                            s_assets[A_ICONE].off_y);
     no_scroll(s_icone);
     s_icon_visible = true;
     s_icon_blink_ms = 0;
@@ -482,9 +533,9 @@ void screen_recepcao_build(void)
     /* === Dialogo do recepcionista (overlay, oculto por default) === */
     /* Camada visivel: a PNG da caixa em (84, 24) tamanho 323x107 */
     s_dlg_box = lv_image_create(s_root);
-    lv_image_set_src(s_dlg_box, &img_rec_caixa_dialogo);
-    lv_obj_set_pos(s_dlg_box, IMG_REC_CAIXA_DIALOGO_META.off_x,
-                              IMG_REC_CAIXA_DIALOGO_META.off_y);
+    lv_image_set_src(s_dlg_box, &s_assets[A_CAIXA_DIALOGO].dsc);
+    lv_obj_set_pos(s_dlg_box, s_assets[A_CAIXA_DIALOGO].off_x,
+                              s_assets[A_CAIXA_DIALOGO].off_y);
     no_scroll(s_dlg_box);
     lv_obj_add_flag(s_dlg_box, LV_OBJ_FLAG_HIDDEN);
 
@@ -493,9 +544,9 @@ void screen_recepcao_build(void)
     s_dlg_text = lv_label_create(s_root);
     lv_label_set_text(s_dlg_text, "");
     lv_label_set_long_mode(s_dlg_text, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(s_dlg_text, IMG_REC_CAIXA_TEXTO_META.w - 8);
-    lv_obj_set_pos(s_dlg_text, IMG_REC_CAIXA_TEXTO_META.off_x + 4,
-                               IMG_REC_CAIXA_TEXTO_META.off_y + 4);
+    lv_obj_set_width(s_dlg_text, s_assets[A_CAIXA_TEXTO].dsc.header.w - 8);
+    lv_obj_set_pos(s_dlg_text, s_assets[A_CAIXA_TEXTO].off_x + 4,
+                               s_assets[A_CAIXA_TEXTO].off_y + 4);
     lv_obj_set_style_text_color(s_dlg_text, lv_color_white(), LV_PART_MAIN);
     no_scroll(s_dlg_text);
     lv_obj_add_flag(s_dlg_text, LV_OBJ_FLAG_HIDDEN);
@@ -505,8 +556,8 @@ void screen_recepcao_build(void)
     lv_label_set_text(s_dlg_hint, "[A] >>  [B] Pular");
     lv_obj_set_style_text_color(s_dlg_hint, lv_color_hex(0xFFA500), LV_PART_MAIN);
     lv_obj_set_pos(s_dlg_hint,
-                   IMG_REC_CAIXA_DIALOGO_META.off_x + IMG_REC_CAIXA_DIALOGO_META.w - 130,
-                   IMG_REC_CAIXA_DIALOGO_META.off_y + IMG_REC_CAIXA_DIALOGO_META.h - 18);
+                   s_assets[A_CAIXA_DIALOGO].off_x + s_assets[A_CAIXA_DIALOGO].dsc.header.w - 130,
+                   s_assets[A_CAIXA_DIALOGO].off_y + s_assets[A_CAIXA_DIALOGO].dsc.header.h - 18);
     no_scroll(s_dlg_hint);
     lv_obj_add_flag(s_dlg_hint, LV_OBJ_FLAG_HIDDEN);
 
@@ -528,4 +579,7 @@ void screen_recepcao_destroy(void)
         s_player = s_npc = s_icone = s_prompt = NULL;
         s_dlg_box = s_dlg_text = s_dlg_hint = NULL;
     }
+    /* Libera os pixels da PSRAM DEPOIS de deletar os objetos LVGL que
+     * apontavam para eles. */
+    free_all_assets();
 }
