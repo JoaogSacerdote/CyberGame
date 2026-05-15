@@ -1,9 +1,6 @@
 idf_component_register(
     SRCS
         "asset_loader.c"
-        "generated/img_recepcao.c"
-        "generated/img_empresa.c"
-        "generated/img_player.c"
         "collision/collision_recepcao.c"
         "collision/collision_empresa.c"
     INCLUDE_DIRS "include"
