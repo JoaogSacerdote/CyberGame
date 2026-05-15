@@ -69,7 +69,7 @@ ESP32-S3  GPIO10 (CS)   ───── W25N01GV CS
 ```
 
 - Dois dispositivos, **um barramento**, **CS independentes** — só um ativo por vez.
-- Display roda a 40 MHz; a NAND suporta até ~104 MHz. O barramento é seguro pela seleção de CS.
+- Display roda a 40 MHz; NAND a **50 MHz** (validado com `selftest`). A NAND suporta até ~104 MHz. O barramento é seguro pela seleção de CS.
 - **Pull-up de ~10 kΩ em cada CS** (GPIO10 e GPIO17) para 3V3 — evita seleção espúria durante boot/reset, quando os GPIOs estão em alta impedância.
 - Manter as trilhas MOSI/SCK curtas e de comprimento parecido; se possível, resistor série de 22–33 Ω em MOSI e SCK próximos ao ESP para conter ringing.
 - W25N01GV: amarrar **WP#** e **HOLD#** a 3V3 (não usados no modo SPI single).
