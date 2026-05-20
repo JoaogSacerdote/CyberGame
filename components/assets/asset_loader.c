@@ -10,11 +10,11 @@ static const char *TAG = "ASSET_LOADER";
 
 /* ===================== Cache load-once =====================
  * Cada asset e lido da NAND uma unica vez e mantido residente na PSRAM pelo
- * resto da sessao. As telas continuam chamando asset_loader_load no build e
- * asset_loader_free no destroy normalmente — para assets cacheados o free e
- * no-op (loaded_asset_t._buf == NULL sinaliza "o caller nao e dono").
+ * resto da sessao. O cache eh SEMPRE o dono dos pixels — callers recebem
+ * lv_image_dsc_t com ponteiros somente-leitura e nunca liberam nada.
  *
- * Sem evicao: o MVP tem 17 assets (~2.2 MB) e 8 MB de PSRAM. */
+ * Sem evicao: o MVP tem 17 assets (~2.2 MB) e 8 MB de PSRAM. Se exceder
+ * ASSET_CACHE_MAX, load() retorna ESP_ERR_NO_MEM. */
 #define ASSET_CACHE_MAX  32
 
 typedef struct {
@@ -161,18 +161,25 @@ esp_err_t asset_loader_load(asset_type_t type, uint16_t id, loaded_asset_t *out)
     ESP_RETURN_ON_FALSE(out != NULL, ESP_ERR_INVALID_ARG, TAG, "out NULL");
     memset(out, 0, sizeof(*out));
 
-    /* Cache hit: devolve apontando para o buffer residente. O caller NAO e
-     * dono — _buf fica NULL e asset_loader_free vira no-op. */
+    /* Cache hit: devolve apontando pro buffer residente. */
     asset_cache_entry_t *c = cache_find(type, id);
     if (c != NULL) {
         out->dsc   = c->dsc;
         out->off_x = c->off_x;
         out->off_y = c->off_y;
-        out->_buf  = NULL;
         return ESP_OK;
     }
 
-    /* Cache miss: le da NAND. */
+    /* Cache miss: precisa de slot ANTES de ler. Se nao ha slot, falha rapido
+     * sem desperdicar PSRAM lendo um asset que nao vai ficar acessivel. */
+    asset_cache_entry_t *slot = cache_alloc_slot();
+    if (slot == NULL) {
+        ESP_LOGE(TAG, "cache cheio (%d slots) — asset (%d,%u) nao pode ser carregado",
+                 ASSET_CACHE_MAX, type, id);
+        return ESP_ERR_NO_MEM;
+    }
+
+    /* Le da NAND e cacheia. */
     lv_image_dsc_t dsc;
     int16_t off_x = 0, off_y = 0;
     void *buf = NULL;
@@ -181,40 +188,23 @@ esp_err_t asset_loader_load(asset_type_t type, uint16_t id, loaded_asset_t *out)
         return err;
     }
 
-    asset_cache_entry_t *slot = cache_alloc_slot();
-    if (slot != NULL) {
-        slot->valid = true;
-        slot->type  = type;
-        slot->id    = id;
-        slot->buf   = buf;
-        slot->dsc   = dsc;
-        slot->off_x = off_x;
-        slot->off_y = off_y;
-        out->dsc   = dsc;
-        out->off_x = off_x;
-        out->off_y = off_y;
-        out->_buf  = NULL;            /* dono e o cache */
-    } else {
-        /* Cache cheio (nao deveria acontecer no MVP): o caller vira dono do
-         * buffer e asset_loader_free o liberara normalmente. */
-        ESP_LOGW(TAG, "cache cheio (%d slots) — asset (%d,%u) sem cache",
-                 ASSET_CACHE_MAX, type, id);
-        out->dsc   = dsc;
-        out->off_x = off_x;
-        out->off_y = off_y;
-        out->_buf  = buf;
-    }
+    slot->valid = true;
+    slot->type  = type;
+    slot->id    = id;
+    slot->buf   = buf;
+    slot->dsc   = dsc;
+    slot->off_x = off_x;
+    slot->off_y = off_y;
+
+    out->dsc   = dsc;
+    out->off_x = off_x;
+    out->off_y = off_y;
     return ESP_OK;
 }
 
 void asset_loader_free(loaded_asset_t *a)
 {
-    /* Para assets cacheados (o caso normal) _buf == NULL e isto e no-op —
-     * o cache mantem os pixels residentes na PSRAM (load-once). So libera o
-     * caso de fallback de cache cheio. */
-    if (a == NULL || a->_buf == NULL) {
-        return;
-    }
-    heap_caps_free(a->_buf);
-    memset(a, 0, sizeof(*a));
+    /* No-op explicito. Cache eh dono — pixels ficam residentes na PSRAM
+     * pelo resto da sessao. Funcao existe por simetria com load(). */
+    (void)a;
 }

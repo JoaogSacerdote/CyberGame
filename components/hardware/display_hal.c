@@ -170,9 +170,8 @@ esp_err_t display_hal_init(void)
 
     const esp_lcd_panel_dev_config_t panel_cfg = {
         .reset_gpio_num = DISP_PIN_RST,
-        /* Calibracao empirica 2026-05-13: confirmado por 24-cell color grid
-         * que o display espera BGR (vermelho e azul trocados em modo RGB).
-         * Combinado com byte_swap_inplace no hal_bridge, fecha o pipeline. */
+        /* BGR mode + byte_swap_inplace no hal_bridge = pipeline de cor
+         * correto pra este painel ST7796. */
         .rgb_ele_order  = LCD_RGB_ELEMENT_ORDER_BGR,
         .bits_per_pixel = 16,
     };

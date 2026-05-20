@@ -67,9 +67,25 @@ static uint32_t                 s_active_block = UINT32_MAX;  /* qual copia esta
 static uint16_t                 s_num_entries = 0;
 static entry_on_disk_t          s_entries[MAX_ENTRIES_PER_PAGE];
 
-/* Buffer estatico de leitura (2 KB). Usado em init e read. Funcoes que
- * chamam read NAO sao reentrantes. */
+/* Buffer estatico de leitura (2 KB). Usado em init, read e write_manifest.
+ * Operacoes NAO sao reentrantes — uma flag atomica detecta violacao desse
+ * contrato (varias tasks usando o asset_store concorrentemente) e loga
+ * ERROR sem corromper o estado. */
 static uint8_t                  s_page_buf[STORAGE_PAGE_SIZE];
+static volatile bool            s_page_buf_busy;
+
+static inline bool page_buf_try_acquire(const char *fn)
+{
+    if (__atomic_exchange_n(&s_page_buf_busy, true, __ATOMIC_ACQUIRE)) {
+        ESP_LOGE(TAG, "REENTRANCIA em %s — s_page_buf ja em uso", fn);
+        return false;
+    }
+    return true;
+}
+static inline void page_buf_release(void)
+{
+    __atomic_store_n(&s_page_buf_busy, false, __ATOMIC_RELEASE);
+}
 
 /* Sessao de escrita (Etapa 2). Apenas UMA por vez. */
 typedef struct {
@@ -240,11 +256,14 @@ esp_err_t asset_store_read(asset_type_t type, uint16_t id,
     }
     if (size == 0) return ESP_OK;
 
+    if (!page_buf_try_acquire("asset_store_read")) return ESP_ERR_INVALID_STATE;
+
     /* Endereco absoluto em bytes dentro da NAND. */
     const uint64_t start_byte = (uint64_t)e->block_start * STORAGE_BLOCK_SIZE + offset;
     uint64_t       cur_byte   = start_byte;
     const uint64_t end_byte   = start_byte + size;
     uint8_t       *dst        = (uint8_t *)buf;
+    esp_err_t      err        = ESP_OK;
 
     while (cur_byte < end_byte) {
         const uint32_t page         = (uint32_t)(cur_byte / STORAGE_PAGE_SIZE);
@@ -253,18 +272,19 @@ esp_err_t asset_store_read(asset_type_t type, uint16_t id,
                                                 ? (STORAGE_PAGE_SIZE - off_in_page)
                                                 : (end_byte - cur_byte));
 
-        esp_err_t err = storage_hal_read_page(page, s_page_buf);
+        err = storage_hal_read_page(page, s_page_buf);
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "read_page(%u) falhou: %s", (unsigned)page,
                      esp_err_to_name(err));
-            return err;
+            break;
         }
         memcpy(dst, s_page_buf + off_in_page, chunk);
         dst      += chunk;
         cur_byte += chunk;
     }
 
-    return ESP_OK;
+    page_buf_release();
+    return err;
 }
 
 /* ============================================================ List === */

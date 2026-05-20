@@ -41,6 +41,7 @@ except ImportError as e:
 ROOT          = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = ROOT / "assets" / "asset_registry.json"
 SPRITES_DIR   = ROOT / "assets" / "sprites"
+DIALOGOS_DIR  = ROOT / "assets" / "dialogos"
 
 # nome de categoria (CLI / registry) -> asset_type_t
 _TYPE_BY_NAME = {name: val for val, name in ASSET_TYPE_NAMES.items()}
@@ -83,7 +84,7 @@ def cmd_ls(cli: RecoveryClient, _args) -> int:
 
 def cmd_upload(cli: RecoveryClient, args) -> int:
     try:
-        from asset_codec import build_blob
+        from asset_codec import build_blob, build_dialog_blob
     except ImportError as e:
         print(f"FAIL: upload precisa do Pillow ({e}). Rode: pip install pillow")
         return 2
@@ -98,11 +99,19 @@ def cmd_upload(cli: RecoveryClient, args) -> int:
     print(f"Subindo {len(entries)} asset(s) de {REGISTRY_PATH.name}...")
     total = 0
     for e in entries:
-        png = SPRITES_DIR / e["file"]
-        if not png.exists():
-            print(f"  FAIL: arquivo nao encontrado: {png}")
-            return 1
-        blob = build_blob(png, crop=e.get("crop", True))
+        # Dispatch pelo sufixo do 'file': .txt -> dialog, demais -> sprite PNG
+        if e["file"].lower().endswith(".txt"):
+            src = DIALOGOS_DIR / e["file"]
+            if not src.exists():
+                print(f"  FAIL: arquivo nao encontrado: {src}")
+                return 1
+            blob = build_dialog_blob(src)
+        else:
+            src = SPRITES_DIR / e["file"]
+            if not src.exists():
+                print(f"  FAIL: arquivo nao encontrado: {src}")
+                return 1
+            blob = build_blob(src, crop=e.get("crop", True))
         cli.put(_parse_type(e["type"]), e["id"], e["name"], blob)
         total += len(blob)
         print(f"  OK  {e['type']:<7} id={e['id']:<3} {e['name']:<22} {len(blob):>8} bytes")

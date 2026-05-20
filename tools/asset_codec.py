@@ -114,6 +114,46 @@ def parse_blob(blob: bytes) -> dict:
             "off_x": off_x, "off_y": off_y, "pixel_format": pixfmt, "pixels": pixels}
 
 
+## =================== Dialog blob (espelho de dialog_blob.h) ===================
+
+DIALOG_BLOB_MAGIC   = 0x42474C44   # 'DLGB'
+DIALOG_BLOB_VERSION = 1
+DIALOG_MAX_LINES    = 16
+
+# magic, version, num_lines, payload_size
+_DIALOG_HEADER_FMT = "<IHHI"
+DIALOG_HEADER_SIZE = struct.calcsize(_DIALOG_HEADER_FMT)
+assert DIALOG_HEADER_SIZE == 12, f"dialog header deveria ter 12 bytes, tem {DIALOG_HEADER_SIZE}"
+
+
+def build_dialog_blob(txt_path) -> bytes:
+    """Le um arquivo .txt (uma fala por linha) e produz um blob de dialogo.
+
+    Layout: header(12) + offsets(2*N) + payload(strings null-terminated).
+    Linhas vazias e espacos em branco no inicio/fim sao removidos.
+    """
+    raw_lines = [
+        l.strip() for l in open(txt_path, encoding="utf-8").read().splitlines()
+    ]
+    lines = [l for l in raw_lines if l]
+    if not lines:
+        raise ValueError(f"{txt_path}: nenhuma linha nao-vazia")
+    if len(lines) > DIALOG_MAX_LINES:
+        raise ValueError(f"{txt_path}: {len(lines)} linhas (max {DIALOG_MAX_LINES})")
+
+    payload = bytearray()
+    offsets = []
+    for line in lines:
+        offsets.append(len(payload))
+        payload.extend(line.encode("utf-8"))
+        payload.append(0)  # null terminator
+
+    header = struct.pack(_DIALOG_HEADER_FMT, DIALOG_BLOB_MAGIC,
+                         DIALOG_BLOB_VERSION, len(lines), len(payload))
+    offsets_bytes = b"".join(struct.pack("<H", o) for o in offsets)
+    return header + offsets_bytes + bytes(payload)
+
+
 def blob_to_png(blob: bytes, out_path) -> tuple[int, int]:
     """Reconstroi um PNG a partir de um blob (RGB565[A8] -> RGBA).
 

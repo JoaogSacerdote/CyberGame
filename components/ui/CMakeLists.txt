@@ -7,6 +7,9 @@ idf_component_register(
         "screen_pause.c"
         "screen_recepcao.c"
         "screen_empresa.c"
+        "screen_room.c"
+        "screen_hud.c"
+        "screen_game_over.c"
     INCLUDE_DIRS "include"
     REQUIRES
         "hardware"
@@ -14,6 +17,7 @@ idf_component_register(
         "lvgl__lvgl"
         "fsm"
         "assets"
+        "gamestate"
     PRIV_REQUIRES
         "esp_timer"
 )

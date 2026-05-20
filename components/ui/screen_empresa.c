@@ -1,7 +1,6 @@
 #include "ui.h"
 #include "ui_internal.h"
 
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_log.h"
@@ -13,27 +12,10 @@
 #include "button_hal.h"
 #include "fsm_gameplay.h"
 #include "fsm.h"
+#include "screen_room.h"
+#include "game_config.h"
 
 static const char *TAG = "UI_EMPRESA";
-
-#define PFRAME_W   32
-#define PFRAME_H   48
-#define J_DEADZONE 30
-#define PSTEP_MIN  2                /* -20% do valor anterior */
-#define PSTEP_MAX  6                /* -20% do valor anterior */
-
-static const int8_t WALK_SEQ[] = { 0, 1, 2, 1 };
-#define WALK_PERIOD_MS 125
-
-/* Velocidade proporcional a deflexao do joystick. */
-static int speed_from_mag(int mag)
-{
-    if (mag <= J_DEADZONE) return 0;
-    int s = PSTEP_MIN + (mag - J_DEADZONE) * (PSTEP_MAX - PSTEP_MIN) / (100 - J_DEADZONE);
-    if (s < PSTEP_MIN) s = PSTEP_MIN;
-    if (s > PSTEP_MAX) s = PSTEP_MAX;
-    return s;
-}
 
 /* Spawn fallback — perto da porta esquerda (entrada vinda da Recepcao).
  * Usado se a tabela AREA_SPAWN nao existir OU se o spawn da tabela cair
@@ -43,9 +25,8 @@ static int speed_from_mag(int mag)
 
 static int16_t s_px = SPAWN_FALLBACK_X;
 static int16_t s_py = SPAWN_FALLBACK_Y;
-static int8_t  s_dir = 2;          /* linha do sheet 0=DOWN 1=LEFT 2=RIGHT 3=UP — entra olhando pra RIGHT */
-static uint8_t s_walk_idx = 1;
-static uint32_t s_walk_ms = 0;
+/* Entra olhando pra RIGHT (vindo da Recepcao). */
+static room_player_anim_t s_anim = { .dir = 2, .walk_idx = 1, .walk_ms = 0 };
 
 /* Pose do NPC TI (indices batem com os arquivos):
  *   0 = PARA_BAIXO  (de frente, encarando o player que vem por baixo)
@@ -62,7 +43,7 @@ static lv_obj_t   *s_prompt      = NULL;  /* "[A]" sobre o player perto de gatil
 static lv_obj_t   *s_lbl_tarefa  = NULL;  /* label flutuante de tarefa verde (simulacao) */
 static lv_timer_t *s_timer       = NULL;
 static bool        s_tarefa_open = false; /* label de tarefa verde aberto */
-static bool        s_porta_armed = false; /* anti-loop ao spawnar perto de porta */
+
 static button_state_t s_a_cache  = BTN_RELEASED;
 static button_state_t s_b_cache  = BTN_RELEASED;
 
@@ -86,51 +67,13 @@ static const uint16_t EMP_ASSET_ID[A_COUNT] = {
 };
 static loaded_asset_t s_assets[A_COUNT];
 
-#define PCOL_OFF_X 8
-#define PCOL_OFF_Y 36
-#define PCOL_W     16
-#define PCOL_H     12
+/* Player bbox para colisao: pes (16x12) com offset (8, 36) no frame. */
+static const room_player_box_t s_player_box = {
+    .off_x = 8, .off_y = 36, .w = 16, .h = 12,
+};
 
-static bool rects_overlap(int ax, int ay, int aw, int ah,
-                          int bx, int by, int bw, int bh)
-{
-    return (ax < bx + bw) && (ax + aw > bx) &&
-           (ay < by + bh) && (ay + ah > by);
-}
-
-static bool collides_at(int px, int py)
-{
-    const int cx = px + PCOL_OFF_X;
-    const int cy = py + PCOL_OFF_Y;
-    for (size_t i = 0; i < collision_empresa_obstaculos_count; ++i) {
-        const collision_rect_t *r = &collision_empresa_obstaculos[i];
-        if (rects_overlap(cx, cy, PCOL_W, PCOL_H, r->x, r->y, r->w, r->h)) {
-            return true;
-        }
-    }
-    if (cx < 0 || cy < 0 || cx + PCOL_W > 480 || cy + PCOL_H > 320) return true;
-    return false;
-}
-
-static const collision_rect_t *gatilho_at(int px, int py)
-{
-    const int cx = px + PCOL_OFF_X;
-    const int cy = py + PCOL_OFF_Y;
-    for (size_t i = 0; i < collision_empresa_gatilhos_count; ++i) {
-        const collision_rect_t *r = &collision_empresa_gatilhos[i];
-        if (rects_overlap(cx, cy, PCOL_W, PCOL_H, r->x, r->y, r->w, r->h)) {
-            return r;
-        }
-    }
-    return NULL;
-}
-
-static void apply_player_frame(void)
-{
-    const int8_t col = WALK_SEQ[s_walk_idx];
-    lv_image_set_offset_x(s_player, -col * PFRAME_W);
-    lv_image_set_offset_y(s_player, -s_dir * PFRAME_H);
-}
+/* Dados de colisao da sala — preenchidos no build. */
+static room_collision_t s_room_col;
 
 static void set_npc_pose(uint8_t pose)
 {
@@ -165,48 +108,43 @@ static void empresa_tick(lv_timer_t *t)
     /* Guard defensivo: tela destruida mas timer disparou. */
     if (!s_root || !s_player) return;
 
-    /* O eixo X chega invertido do joystick_hal; invertemos so o X. jx>0=direita, jy>0=baixo. */
-    const joystick_data_t j = joystick_hal_get_state();
-    const int jx = -j.x;
-    const int jy = j.y;
-    int dx = 0, dy = 0, sx = 0, sy = 0;
-    if (jx >  J_DEADZONE) { dx = +1; sx = speed_from_mag(jx); }
-    else if (jx < -J_DEADZONE) { dx = -1; sx = speed_from_mag(-jx); }
-    if (jy >  J_DEADZONE) { dy = +1; sy = speed_from_mag(jy); }
-    else if (jy < -J_DEADZONE) { dy = -1; sy = speed_from_mag(-jy); }
+    /* PAUSE como overlay: a tela continua viva por baixo, mas o tick
+     * congela. Nem movimento nem animacao nem leitura de entrada — assim
+     * o estado da tela e identico antes/depois do pause. */
+    if (fsm_get_state() == GAME_STATE_PAUSE) return;
 
-    /* Linhas do sheet: 0=DOWN, 1=LEFT, 2=RIGHT, 3=UP. */
-    if (abs(jx) > abs(jy)) {
-        if (dx != 0) s_dir = (dx > 0) ? 2 /*RIGHT*/ : 1 /*LEFT*/;
-    } else if (dy != 0) {
-        s_dir = (dy > 0) ? 0 /*DOWN*/ : 3 /*UP*/;
-    }
+    /* Atualiza HUD (clock). Diff-gated internamente — barato. */
+    screen_hud_tick();
+
+    /* HAL devolve jx+ = direita, jy+ = baixo (casa com coords LVGL). */
+    const joystick_data_t j = joystick_hal_get_state();
+    const int jx = j.x;
+    const int jy = j.y;
+    const int sx_mag = room_speed_from_mag(jx < 0 ? -jx : jx);
+    const int sy_mag = room_speed_from_mag(jy < 0 ? -jy : jy);
+    const int dx = (sx_mag == 0) ? 0 : (jx > 0 ? +1 : -1);
+    const int dy = (sy_mag == 0) ? 0 : (jy > 0 ? +1 : -1);
+
+    room_anim_update_dir(&s_anim, jx, jy);
 
     if (dx != 0) {
-        const int nx = s_px + dx * sx;
-        if (!collides_at(nx, s_py)) s_px = nx;
+        const int nx = s_px + dx * sx_mag;
+        if (!room_collides_at(&s_room_col, &s_player_box, nx, s_py)) s_px = nx;
     }
     if (dy != 0) {
-        const int ny = s_py + dy * sy;
-        if (!collides_at(s_px, ny)) s_py = ny;
-    }
-
-    if (dx != 0 || dy != 0) {
-        s_walk_ms += UI_TICK_MS;
-        if (s_walk_ms >= WALK_PERIOD_MS) {
-            s_walk_ms = 0;
-            s_walk_idx = (s_walk_idx + 1) % (sizeof(WALK_SEQ) / sizeof(WALK_SEQ[0]));
-        }
-    } else {
-        s_walk_idx = 1;
-        s_walk_ms = 0;
+        const int ny = s_py + dy * sy_mag;
+        if (!room_collides_at(&s_room_col, &s_player_box, s_px, ny)) s_py = ny;
     }
 
     lv_obj_set_pos(s_player, s_px, s_py);
-    apply_player_frame();
+    room_anim_step(&s_anim, s_player, dx, dy, UI_TICK_MS, PLAYER_FRAME_W, PLAYER_FRAME_H);
 
     /* Gatilho sob o player */
-    const collision_rect_t *g = gatilho_at(s_px, s_py);
+    const collision_rect_t *g = room_gatilho_at(&s_room_col, &s_player_box, s_px, s_py);
+
+    /* Sincroniza com a FSM se o player esta em um gatilho de equipamento.
+     * Sem isso, a sub-FSM dispararia TERMINAL_ABERTO em qualquer Y. */
+    fsm_set_player_at_equipment(g && g->kind == AREA_TAREFA_VERDE);
 
     /* NPC TI muda pose conforme area (feedback visual — automatico).
      * Player na AREA_BAIXO -> NPC encara pra baixo (pose 0).
@@ -220,16 +158,12 @@ static void empresa_tick(lv_timer_t *t)
         set_npc_pose(2);
     }
 
-    /* Porta: troca de sala por CONTATO. s_porta_armed evita loop quando o
-     * player spawna perto da porta. */
+    /* Porta: troca de sala por CONTATO. Spawn ja nasce afastado dos gatilhos
+     * de porta (ver SPAWN_DOOR_MARGIN_PX), entao nao precisa de flag de armado. */
     if (g && g->kind == AREA_PORTA_RECEPCAO) {
-        if (s_porta_armed) {
-            ESP_LOGI(TAG, "porta recepcao (contato) -> trocando sala");
-            fsm_set_gameplay_sala(GAMEPLAY_SALA_RECEPCAO);
-            return;
-        }
-    } else if (!g || g->kind != AREA_PORTA_RECEPCAO) {
-        s_porta_armed = true;  /* saiu da porta -> rearma */
+        ESP_LOGI(TAG, "porta recepcao (contato) -> trocando sala");
+        fsm_set_gameplay_sala(GAMEPLAY_SALA_RECEPCAO);
+        return;
     }
 
     /* Prompt "[A]" sobre o player so para gatilhos INTERATIVOS (tarefa). */
@@ -266,7 +200,7 @@ static void apply_spawn_from_table(void)
     for (size_t i = 0; i < collision_empresa_gatilhos_count; ++i) {
         const collision_rect_t *r = &collision_empresa_gatilhos[i];
         if (r->kind == AREA_SPAWN) {
-            if (!collides_at(r->x, r->y)) {
+            if (!room_collides_at(&s_room_col, &s_player_box, r->x, r->y)) {
                 s_px = r->x;
                 s_py = r->y;
                 return;
@@ -323,6 +257,14 @@ static bool load_all_assets(void)
 
 void screen_empresa_build(void)
 {
+    /* Aponta os helpers de colisao pras tabelas da Empresa. */
+    s_room_col.obstaculos       = collision_empresa_obstaculos;
+    s_room_col.obstaculos_count = collision_empresa_obstaculos_count;
+    s_room_col.gatilhos         = collision_empresa_gatilhos;
+    s_room_col.gatilhos_count   = collision_empresa_gatilhos_count;
+    s_room_col.screen_w         = 480;
+    s_room_col.screen_h         = 320;
+
     if (!load_all_assets()) {
         ESP_LOGE(TAG, "build abortado — assets da NAND indisponiveis "
                       "(rodou o upload via recovery?)");
@@ -343,17 +285,24 @@ void screen_empresa_build(void)
 
     s_player = lv_image_create(s_root);
     lv_image_set_src(s_player, &s_assets[A_PLAYER].dsc);
-    lv_obj_set_size(s_player, PFRAME_W, PFRAME_H);
+    lv_obj_set_size(s_player, PLAYER_FRAME_W, PLAYER_FRAME_H);
     lv_image_set_inner_align(s_player, LV_IMAGE_ALIGN_TOP_LEFT);
     no_scroll(s_player);
     apply_spawn_from_table();
-    s_dir = 2; s_walk_idx = 1; s_walk_ms = 0;   /* RIGHT */
+    /* Sanity: se o spawn cair em gatilho de porta (mapa mal configurado),
+     * vamos logar — sem isso, vira loop silencioso de troca de sala. */
+    {
+        const collision_rect_t *g = room_gatilho_at(&s_room_col, &s_player_box, s_px, s_py);
+        if (g && g->kind == AREA_PORTA_RECEPCAO) {
+            ESP_LOGW(TAG, "spawn (%d,%d) caiu em gatilho de porta — risco de loop", s_px, s_py);
+        }
+    }
+    s_anim.dir = 2; s_anim.walk_idx = 1; s_anim.walk_ms = 0;   /* RIGHT */
     s_tarefa_open = false;
-    s_porta_armed = false;   /* spawn pode ser perto da porta — rearma ao sair */
     s_a_cache = button_hal_peek(BTN_A);
     s_b_cache = button_hal_peek(BTN_B);
     lv_obj_set_pos(s_player, s_px, s_py);
-    apply_player_frame();
+    room_anim_step(&s_anim, s_player, 0, 0, 0, PLAYER_FRAME_W, PLAYER_FRAME_H);
 
     layer_full(s_root, &s_assets[A_COMPLEMENTO].dsc,
                s_assets[A_COMPLEMENTO].off_x, s_assets[A_COMPLEMENTO].off_y);
@@ -405,6 +354,9 @@ void screen_empresa_build(void)
     no_scroll(s_prompt);
     lv_obj_add_flag(s_prompt, LV_OBJ_FLAG_HIDDEN);
 
+    /* HUD persistente no topo. Eh filho de s_root pra cair junto no destroy. */
+    screen_hud_build(s_root);
+
     s_timer = lv_timer_create(empresa_tick, UI_TICK_MS, NULL);
     ESP_LOGI(TAG, "empresa built (player @ %d,%d)", s_px, s_py);
 }
@@ -412,6 +364,9 @@ void screen_empresa_build(void)
 void screen_empresa_destroy(void)
 {
     if (s_timer) { lv_timer_delete(s_timer); s_timer = NULL; }
+    /* HUD primeiro (filho de s_root) — nullifica os ponteiros internos
+     * antes que o delete cascateado do parent invalide os handles. */
+    screen_hud_destroy();
     if (s_root)  {
         lv_obj_delete(s_root);
         s_root = NULL;

@@ -3,19 +3,17 @@
 
 #include "esp_log.h"
 #include "button_hal.h"
+#include "gamestate.h"
+#include "game_config.h"
 
 static const char *TAG = "FSM";
 
-/* Constantes de fase (em ms). Replicam game_config.h sem incluir o header
- * — a FSM nao deve ter dependencia em engine/. Os valores tem que bater. */
-#define FSM_ACTION_LOCK_MS    1500
-#define FSM_SYSTEM_DEPLOY_MS  4000
-
-static game_state_t        s_current     = GAME_STATE_SPLASH;
-static gameplay_substate_t s_sub         = GAMEPLAY_SUB_EXPLORANDO;
-static gameplay_sala_t     s_sala        = GAMEPLAY_SALA_RECEPCAO;
-static gameplay_sala_t     s_sala_prev   = GAMEPLAY_SALA_RECEPCAO;
-static uint32_t            s_phase_ms    = 0;   /* tempo decorrido no sub-estado atual */
+static game_state_t        s_current             = GAME_STATE_SPLASH;
+static gameplay_substate_t s_sub                 = GAMEPLAY_SUB_EXPLORANDO;
+static gameplay_sala_t     s_sala                = GAMEPLAY_SALA_RECEPCAO;
+static gameplay_sala_t     s_sala_prev           = GAMEPLAY_SALA_RECEPCAO;
+static uint32_t            s_phase_ms            = 0;   /* tempo decorrido no sub-estado atual */
+static bool                s_player_at_equipment = false; /* setado pelo tick do screen ativo */
 
 static const char *state_name(game_state_t s)
 {
@@ -24,6 +22,7 @@ static const char *state_name(game_state_t s)
         case GAME_STATE_MENU:          return "MENU";
         case GAME_STATE_GAMEPLAY:      return "GAMEPLAY";
         case GAME_STATE_PAUSE:         return "PAUSE";
+        case GAME_STATE_GAME_OVER:     return "GAME_OVER";
         case GAME_STATE_RANKING_VIEW:  return "RANKING";
         case GAME_STATE_CREDITOS:      return "CREDITOS";
         default:                       return "INVALID";
@@ -54,6 +53,9 @@ const char *fsm_gameplay_sala_name(gameplay_sala_t s)
 gameplay_sala_t fsm_get_gameplay_sala(void)      { return s_sala; }
 gameplay_sala_t fsm_get_gameplay_sala_prev(void) { return s_sala_prev; }
 
+void fsm_set_player_at_equipment(bool at)        { s_player_at_equipment = at; }
+bool fsm_get_player_at_equipment(void)           { return s_player_at_equipment; }
+
 void fsm_set_gameplay_sala(gameplay_sala_t sala)
 {
     if (sala >= GAMEPLAY_SALA_MAX || sala == s_sala) return;
@@ -61,6 +63,12 @@ void fsm_set_gameplay_sala(gameplay_sala_t sala)
              fsm_gameplay_sala_name(s_sala), fsm_gameplay_sala_name(sala));
     s_sala_prev = s_sala;
     s_sala = sala;
+    /* Trocar de sala invalida automaticamente "estou no equipamento" — a
+     * nova sala precisa reafirmar via fsm_set_player_at_equipment(true) se
+     * spawnar dentro de um gatilho de equipamento. Sem isso, salas sem
+     * equipamento (ex.: Recepcao) precisavam chamar set(false) toda
+     * iteracao como defesa, o que era fragil. */
+    s_player_at_equipment = false;
 }
 
 static void set_sub(gameplay_substate_t next)
@@ -75,11 +83,12 @@ static void set_sub(gameplay_substate_t next)
 
 esp_err_t fsm_init(void)
 {
-    s_current   = GAME_STATE_SPLASH;
-    s_sub       = GAMEPLAY_SUB_EXPLORANDO;
-    s_sala      = GAMEPLAY_SALA_RECEPCAO;
-    s_sala_prev = GAMEPLAY_SALA_RECEPCAO;
-    s_phase_ms  = 0;
+    s_current             = GAME_STATE_SPLASH;
+    s_sub                 = GAMEPLAY_SUB_EXPLORANDO;
+    s_sala                = GAMEPLAY_SALA_RECEPCAO;
+    s_sala_prev           = GAMEPLAY_SALA_RECEPCAO;
+    s_phase_ms            = 0;
+    s_player_at_equipment = false;
     ESP_LOGI(TAG, "fsm init -> %s", state_name(s_current));
     return ESP_OK;
 }
@@ -99,14 +108,22 @@ void fsm_set_state(game_state_t new_state)
     ESP_LOGI(TAG, "transicao %s -> %s", state_name(s_current), state_name(new_state));
     const game_state_t prev = s_current;
     s_current = new_state;
-    /* Entrada em GAMEPLAY reseta sub-FSM. Sala so reseta pra RECEPCAO
-     * se veio de MENU/SPLASH; se veio de PAUSE, preserva sala atual. */
-    if (new_state == GAME_STATE_GAMEPLAY) {
-        s_sub      = GAMEPLAY_SUB_EXPLORANDO;
+    /* Entrada em GAMEPLAY vinda de MENU/SPLASH/GAME_OVER e uma run nova:
+     * zera tudo. Vinda de PAUSE e retomada: preserva sub-FSM, phase_ms e
+     * sala — o jogador continua exatamente de onde pausou. */
+    if (new_state == GAME_STATE_GAMEPLAY &&
+        (prev == GAME_STATE_MENU ||
+         prev == GAME_STATE_SPLASH ||
+         prev == GAME_STATE_GAME_OVER)) {
+        s_sub                 = GAMEPLAY_SUB_EXPLORANDO;
+        s_phase_ms            = 0;
+        s_sala                = GAMEPLAY_SALA_RECEPCAO;
+        s_player_at_equipment = false;
+    }
+
+    /* Entrada em GAME_OVER zera phase_ms pra contar o timeout de 30s. */
+    if (new_state == GAME_STATE_GAME_OVER) {
         s_phase_ms = 0;
-        if (prev == GAME_STATE_MENU || prev == GAME_STATE_SPLASH) {
-            s_sala = GAMEPLAY_SALA_RECEPCAO;
-        }
     }
 }
 
@@ -119,12 +136,12 @@ static void gameplay_handle_event(const fsm_event_t *evt)
         s_phase_ms += evt->payload.tick.dt_ms;
         switch (s_sub) {
             case GAMEPLAY_SUB_ACTION_LOCK:
-                if (s_phase_ms >= FSM_ACTION_LOCK_MS) {
+                if (s_phase_ms >= ACTION_LOCK_MS) {
                     set_sub(GAMEPLAY_SUB_SYSTEM_DEPLOY);
                 }
                 break;
             case GAMEPLAY_SUB_SYSTEM_DEPLOY:
-                if (s_phase_ms >= FSM_SYSTEM_DEPLOY_MS) {
+                if (s_phase_ms >= SYSTEM_DEPLOY_MS) {
                     set_sub(GAMEPLAY_SUB_EXPLORANDO);
                 }
                 break;
@@ -146,7 +163,10 @@ static void gameplay_handle_event(const fsm_event_t *evt)
 
     switch (s_sub) {
         case GAMEPLAY_SUB_EXPLORANDO:
-            if (btn == BTN_Y) set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
+            /* Y so abre o terminal se o player estiver encostado em um
+             * gatilho de equipamento. Quem mantem a flag e o tick do screen
+             * ativo via fsm_set_player_at_equipment(). */
+            if (btn == BTN_Y && s_player_at_equipment) set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
             else if (btn == BTN_B) fsm_set_state(GAME_STATE_MENU);
             break;
         case GAMEPLAY_SUB_TERMINAL_ABERTO:
@@ -154,9 +174,23 @@ static void gameplay_handle_event(const fsm_event_t *evt)
             else if (btn == BTN_B) set_sub(GAMEPLAY_SUB_EXPLORANDO);
             break;
         case GAMEPLAY_SUB_WAITING_CARD:
-            /* X = mock de leitura NFC enquanto nfc_config.h nao tem UIDs reais. */
-            if (btn == BTN_X) set_sub(GAMEPLAY_SUB_ACTION_LOCK);
-            else if (btn == BTN_B) set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
+            /* X = mock de leitura NFC com carta CORRETA — segue pra ACTION_LOCK.
+             * Y = mock de carta ERRADA — perde 1 vida e fica em WAITING_CARD
+             *     (tenta de novo). Substituir pela validacao real UID-vs-ameaca
+             *     quando a logica de ameacas existir.
+             * B = abortar / voltar pro terminal. */
+            if (btn == BTN_X) {
+                set_sub(GAMEPLAY_SUB_ACTION_LOCK);
+            } else if (btn == BTN_Y) {
+                ESP_LOGW(TAG, "[GAMEPLAY] carta errada -> -1 vida");
+                gamestate_perder_vida();
+                if (gamestate_get_vidas() == 0) {
+                    fsm_set_state(GAME_STATE_GAME_OVER);
+                    return;
+                }
+            } else if (btn == BTN_B) {
+                set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
+            }
             break;
         case GAMEPLAY_SUB_ACTION_LOCK:
         case GAMEPLAY_SUB_SYSTEM_DEPLOY:
@@ -178,6 +212,24 @@ static void pause_handle_event(const fsm_event_t *evt)
     else if (btn == BTN_B) fsm_set_state(GAME_STATE_MENU);
 }
 
+/* Handler de GAME_OVER (Tela de Demissao): A tenta de novo, B vai pro menu,
+ * 30s ocioso -> volta pra splash automaticamente. */
+static void gameover_handle_event(const fsm_event_t *evt)
+{
+    if (evt->kind == FSM_EVT_TICK) {
+        s_phase_ms += evt->payload.tick.dt_ms;
+        if (s_phase_ms >= TIMEOUT_TELA_FINAL_MS) {
+            fsm_set_state(GAME_STATE_SPLASH);
+        }
+        return;
+    }
+    if (evt->kind != FSM_EVT_BUTTON) return;
+    if (evt->payload.button.state != BTN_PRESSED) return;
+    const uint8_t btn = evt->payload.button.id;
+    if (btn == BTN_A) fsm_set_state(GAME_STATE_GAMEPLAY);  /* retry */
+    else if (btn == BTN_B) fsm_set_state(GAME_STATE_MENU); /* sair */
+}
+
 void fsm_handle_event(const fsm_event_t *evt)
 {
     if (evt == NULL) return;
@@ -187,6 +239,9 @@ void fsm_handle_event(const fsm_event_t *evt)
             break;
         case GAME_STATE_PAUSE:
             pause_handle_event(evt);
+            break;
+        case GAME_STATE_GAME_OVER:
+            gameover_handle_event(evt);
             break;
         default:
             /* SPLASH/MENU/RANKING/CREDITOS: por enquanto a UI dirige a

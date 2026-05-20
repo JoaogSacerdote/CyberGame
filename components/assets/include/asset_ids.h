@@ -23,4 +23,5 @@ enum {
     ASSET_EMP_NPC_TI_DIREITA = 14,
     ASSET_EMP_NPC_TI_BAIXO   = 15,
     ASSET_PLAYER             = 16,
+    ASSET_DIALOG_RECEP       = 17,
 };
