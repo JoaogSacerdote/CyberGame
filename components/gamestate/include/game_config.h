@@ -1,12 +1,14 @@
 #pragma once
 
-/* Constantes parametrizaveis do gameplay. Defaults ratificados em
- * RESPOSTAS.txt (2026-05-12). Pode ajustar sem mexer na FSM. */
+/* Constantes parametrizaveis do gameplay. Pode ajustar sem mexer na FSM. */
 
 /* === Tempos do expediente === */
 #define EXPEDIENTE_DURACAO_MS         (3 * 60 * 1000)   /* 3 min reais = 08h-18h no jogo */
 #define HORA_INICIO_JOGO_MIN          (8 * 60)          /* expediente comeca 08:00 */
 #define HORA_FIM_JOGO_MIN             (18 * 60)         /* expediente termina 18:00 (hard stop) */
+
+/* === Vidas === */
+#define VIDAS_INICIAIS                3
 
 /* === Intervalos de spawn (Etapa C+) === */
 #define EVENTO_VERDE_INTERVALO_MS     (30 * 1000)
@@ -37,3 +39,25 @@
 
 /* === Ticks === */
 #define ENGINE_TICK_PERIOD_MS         100               /* ticks da FSM */
+
+/* === Player (sprite e movimento) ===
+ * Todos os personagens-player do MVP usam o mesmo sprite-sheet 32x48 (4
+ * linhas DOWN/LEFT/RIGHT/UP x 3 frames). Se aparecer um personagem com
+ * sheet diferente, parametrizar no screen_room. */
+#define PLAYER_FRAME_W                32
+#define PLAYER_FRAME_H                48
+
+/* Animacao walk: ~8 fps (4 frames a cada 500 ms). */
+#define PLAYER_WALK_PERIOD_MS         125
+
+/* Curva de velocidade do joystick (px/tick em funcao da deflexao). */
+#define PLAYER_JOY_DEADZONE           30                /* |eixo| <= 30 -> parado */
+#define PLAYER_STEP_MIN_PX            2                 /* px/tick com deflexao minima */
+#define PLAYER_STEP_MAX_PX            6                 /* px/tick com deflexao maxima */
+
+/* Margem de seguranca alem de PLAYER_FRAME_W quando o spawn nasce ao lado
+ * de um gatilho de porta — evita loop de troca de sala no 1o tick. */
+#define SPAWN_DOOR_MARGIN_PX          16
+
+/* === Dialogo (typewriter) === */
+#define DIALOG_TYPE_PERIOD_MS         30                /* ~33 cps */

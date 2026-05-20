@@ -33,26 +33,18 @@ static esp_timer_handle_t s_lv_tick_timer = NULL;
 static void              *s_buf1          = NULL;
 static void              *s_buf2          = NULL;
 
-/* Calibracao 2026-05-13: RGB565 e armazenado como uint16_t little-endian
- * na memoria do ESP32, mas o ST7796 espera os bytes em ordem big-endian
- * via SPI. Combinado com BGR mode no display_hal, fecha o pipeline.
- *
- * Adicionalmente, os LEDs vermelhos deste painel ST7796 tem eficiencia
- * luminica menor que verdes/azuis (R aparece ~3x mais escuro que devia).
- * Aplicamos boost 2x no canal R com clamp em 5 bits antes do byte swap.
- * Cores saturadas (R=31) ficam inalteradas. */
-#define HAL_BRIDGE_R_BOOST_MULT  2u
+/* Pipeline de pixel pro ST7796: RGB565 little-endian em memoria, byte swap
+ * pra big-endian via SPI + BGR mode do display_hal + boost de canal R
+ * (DISPLAY_HAL_R_BOOST_MULT — calibracao do painel, ver display_hal.h). */
 
 static inline void rb_boost_and_byte_swap_inplace(uint16_t *pixels, size_t count)
 {
     for (size_t i = 0; i < count; ++i) {
         uint16_t p = pixels[i];
 
-        /* Boost canal R (bits 15-11 do pixel em RGB565). Empiricamente
-         * confirmado: esses bits geram o canal R visual no display em
-         * BGR mode + byte swap. */
+        /* Boost canal R (bits 15-11 do pixel em RGB565). */
         uint16_t r = (p >> 11) & 0x1Fu;
-        uint16_t boosted = r * HAL_BRIDGE_R_BOOST_MULT;
+        uint16_t boosted = r * DISPLAY_HAL_R_BOOST_MULT;
         if (boosted > 31u) boosted = 31u;
         p = (uint16_t)((p & 0x07FFu) | (boosted << 11));
 

@@ -17,8 +17,9 @@ static const char *TAG = "STORAGE_HAL";
 #define STORAGE_PIN_CS         10
 
 #define STORAGE_SPI_HOST       SPI2_HOST
-/* 10 MHz conservador para bring-up em protoboard. NAND aguenta 104 MHz, mas
- * fios longos / sem decoupling sao sensiveis. Quando estabilizar, subir. */
+/* SPI a 50 MHz — operacao estavel no protoboard atual. A NAND aguenta
+ * 104 MHz, mas signal integrity em solda manual nao permite. Se mudar de
+ * hardware (PCB final), revalidar com sprites carregando sem chuvisco. */
 #define STORAGE_SPI_HZ         (50 * 1000 * 1000)
 
 /* W25N01GV NAND commands */
@@ -60,8 +61,25 @@ static const char *TAG = "STORAGE_HAL";
 static spi_device_handle_t s_spi = NULL;
 
 /* Buffer de transferencia para read/write de pagina inteira. ~2 KB em BSS.
- * Nao reentrante — storage_hal nao eh chamado por multiplas tarefas. */
-static uint8_t s_xfer_buf[STORAGE_PAGE_SIZE + 4];
+ * NAO eh reentrante — operacoes de pagina assumem que apenas uma task usa
+ * o buffer por vez. s_xfer_busy detecta violacao desse contrato e loga
+ * ERROR (ver storage_hal_read_page / _write_page). */
+static uint8_t            s_xfer_buf[STORAGE_PAGE_SIZE + 4];
+static volatile bool      s_xfer_busy;
+
+/* Test-and-set atomico. Se ja estava em uso, loga e retorna false. */
+static inline bool storage_xfer_try_acquire(const char *fn)
+{
+    if (__atomic_exchange_n(&s_xfer_busy, true, __ATOMIC_ACQUIRE)) {
+        ESP_LOGE(TAG, "REENTRANCIA em %s — s_xfer_buf ja em uso (varias tasks?)", fn);
+        return false;
+    }
+    return true;
+}
+static inline void storage_xfer_release(void)
+{
+    __atomic_store_n(&s_xfer_busy, false, __ATOMIC_RELEASE);
+}
 
 static esp_err_t storage_spi_init(void)
 {
@@ -240,6 +258,7 @@ esp_err_t storage_hal_read_page(uint32_t page, uint8_t *buf)
 {
     if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
     if (buf == NULL || page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
+    if (!storage_xfer_try_acquire("read_page")) return ESP_ERR_INVALID_STATE;
 
     /* Step 1: Page Data Read — array NAND -> cache interna do chip.
      * Formato: cmd(0x13) + 1 dummy + 16-bit page address. */
@@ -249,8 +268,10 @@ esp_err_t storage_hal_read_page(uint32_t page, uint8_t *buf)
         .length    = 24,
         .tx_buffer = prefix,
     };
-    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t1), TAG, "page read cmd failed");
-    ESP_RETURN_ON_ERROR(nand_wait_oip(50), TAG, "page read OIP timeout");
+    esp_err_t err = spi_device_polling_transmit(s_spi, &t1);
+    if (err != ESP_OK) goto done;
+    err = nand_wait_oip(50);
+    if (err != ESP_OK) goto done;
 
     /* Step 2: Read From Cache — cache do chip -> host.
      * Formato: cmd(0x03) + 16-bit column + 8 dummy + N bytes data. */
@@ -261,18 +282,23 @@ esp_err_t storage_hal_read_page(uint32_t page, uint8_t *buf)
         .tx_buffer = s_xfer_buf,
         .rx_buffer = s_xfer_buf,
     };
-    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t2), TAG, "read from cache failed");
+    err = spi_device_polling_transmit(s_spi, &t2);
+    if (err != ESP_OK) goto done;
 
     memcpy(buf, &s_xfer_buf[3], STORAGE_PAGE_SIZE);
-    return ESP_OK;
+done:
+    storage_xfer_release();
+    return err;
 }
 
 esp_err_t storage_hal_write_page(uint32_t page, const uint8_t *buf)
 {
     if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
     if (buf == NULL || page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
+    if (!storage_xfer_try_acquire("write_page")) return ESP_ERR_INVALID_STATE;
 
-    ESP_RETURN_ON_ERROR(nand_write_enable(), TAG, "write enable failed");
+    esp_err_t err = nand_write_enable();
+    if (err != ESP_OK) goto done;
 
     /* Step 1: Load Program Data — host -> cache interna do chip.
      * Formato: cmd(0x02) + 16-bit column + N bytes data. */
@@ -284,7 +310,8 @@ esp_err_t storage_hal_write_page(uint32_t page, const uint8_t *buf)
         .length    = (2 + STORAGE_PAGE_SIZE) * 8,
         .tx_buffer = s_xfer_buf,
     };
-    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t1), TAG, "program load failed");
+    err = spi_device_polling_transmit(s_spi, &t1);
+    if (err != ESP_OK) goto done;
 
     /* Step 2: Program Execute — commita cache para o array NAND.
      * Formato: cmd(0x10) + 1 dummy + 16-bit page address. */
@@ -294,17 +321,22 @@ esp_err_t storage_hal_write_page(uint32_t page, const uint8_t *buf)
         .length    = 24,
         .tx_buffer = exec,
     };
-    ESP_RETURN_ON_ERROR(spi_device_polling_transmit(s_spi, &t2), TAG, "program exec failed");
+    err = spi_device_polling_transmit(s_spi, &t2);
+    if (err != ESP_OK) goto done;
 
-    ESP_RETURN_ON_ERROR(nand_wait_oip(10), TAG, "program OIP timeout");
+    err = nand_wait_oip(10);
+    if (err != ESP_OK) goto done;
 
     uint8_t status = 0;
-    ESP_RETURN_ON_ERROR(nand_get_feature(NAND_REG_STATUS, &status), TAG, "status read failed");
+    err = nand_get_feature(NAND_REG_STATUS, &status);
+    if (err != ESP_OK) goto done;
     if (status & NAND_STATUS_P_FAIL) {
         ESP_LOGE(TAG, "Program FAIL na pagina %u (status=0x%02X)", (unsigned)page, status);
-        return ESP_FAIL;
+        err = ESP_FAIL;
     }
-    return ESP_OK;
+done:
+    storage_xfer_release();
+    return err;
 }
 
 esp_err_t storage_hal_erase_block(uint32_t block)

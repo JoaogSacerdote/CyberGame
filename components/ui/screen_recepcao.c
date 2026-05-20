@@ -1,7 +1,6 @@
 #include "ui.h"
 #include "ui_internal.h"
 
-#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -9,35 +8,16 @@
 #include "lvgl.h"
 #include "asset_loader.h"
 #include "asset_ids.h"
+#include "dialog_loader.h"
 #include "collision_data.h"
 #include "joystick_hal.h"
 #include "button_hal.h"
 #include "fsm_gameplay.h"
 #include "fsm.h"
+#include "screen_room.h"
+#include "game_config.h"
 
 static const char *TAG = "UI_RECEPCAO";
-
-/* Cada frame do sprite-sheet */
-#define PFRAME_W   32
-#define PFRAME_H   48
-#define J_DEADZONE 30               /* fora do +-30 considera deflexao */
-#define PSTEP_MIN  2                /* px/tick com deflexao minima (-20% do valor anterior) */
-#define PSTEP_MAX  6                /* px/tick com deflexao maxima (-20% do valor anterior) */
-
-/* Velocidade proporcional a deflexao do joystick (RESPOSTAS.txt 9):
- * mag = |eixo| em 0..100 -> step em PSTEP_MIN..PSTEP_MAX px/tick. */
-static int speed_from_mag(int mag)
-{
-    if (mag <= J_DEADZONE) return 0;
-    int s = PSTEP_MIN + (mag - J_DEADZONE) * (PSTEP_MAX - PSTEP_MIN) / (100 - J_DEADZONE);
-    if (s < PSTEP_MIN) s = PSTEP_MIN;
-    if (s > PSTEP_MAX) s = PSTEP_MAX;
-    return s;
-}
-
-/* Anim walk: ordem das colunas (3 valida frames + idle de volta) */
-static const int8_t WALK_SEQ[] = { 0, 1, 2, 1 };
-#define WALK_PERIOD_MS 125          /* ~8 fps */
 
 /* Spawn — meio da sala, em cima do tapete, LONGE das areas de gatilho
  * (PORTA_EMPRESA em 135,254 e INTERACAO_NPC em 137,261). Anteriormente
@@ -47,20 +27,9 @@ static const int8_t WALK_SEQ[] = { 0, 1, 2, 1 };
 #define SPAWN_Y 200
 
 /* === Dialogo do recepcionista ===
- * Textos em PT-BR (sem acentos enquanto a fonte padrao do LVGL nao
- * suporta — quando trocar pra pixel art PT-BR, posso reverter aos
- * acentos do DIALOGO.txt original). */
-static const char *DIALOGO[] = {
-    "Bom dia! Voce deve ser o novo analista de ciberseguranca contratado, correto? Bem-vindo a empresa.",
-    "Seu turno e das 10h as 18h. Durante esse periodo voce vai encontrar 3 tipos de tarefas.",
-    "As tarefas VERDES sao de prevencao. Sao opcionais e tranquilas.",
-    "Eu recomendo sempre fazer-las, isso evita problemas maiores no futuro.",
-    "As tarefas AMARELAS sao anomalias. Elas podem evoluir para algo pior, se ignoradas.",
-    "As tarefas VERMELHAS sao ataques ativos. Quando aparecerem, aja imediatamente.",
-    "Isso e tudo, verifique se ha mais ocorrencias pelo andar, a sala 2 fica logo ao seu lado esquerdo.",
-};
-#define DIALOGO_N (sizeof(DIALOGO) / sizeof(DIALOGO[0]))
-#define TYPE_PERIOD_MS 30   /* 1 caractere a cada 30ms = ~33 cps */
+ * Carregado da NAND no build (assets/dialogos/recepcionista.txt -> blob).
+ * Edicao do texto vive em arquivo .txt + upload, sem rebuild do firmware. */
+static dialog_t s_dialogo;
 
 typedef enum {
     DLG_INACTIVE = 0,
@@ -72,15 +41,10 @@ typedef enum {
  * de sala e volta) — opcional. Por enquanto reset no build. */
 static int16_t s_px = SPAWN_X;
 static int16_t s_py = SPAWN_Y;
-static int8_t  s_dir = 0;           /* linha do sheet: 0=DOWN, 1=LEFT, 2=RIGHT, 3=UP */
-static uint8_t s_walk_idx = 1;      /* indice em WALK_SEQ */
-static uint32_t s_walk_ms = 0;
+static room_player_anim_t s_anim = { .dir = 0, .walk_idx = 1, .walk_ms = 0 };
 static bool    s_npc_facing = false;
 static bool    s_icon_visible = true;
 static uint32_t s_icon_blink_ms = 0;
-/* Anti-loop: ao spawnar em cima de uma porta (retorno da Empresa), a troca
- * de sala fica "desarmada" ate o player SAIR da area da porta. */
-static bool    s_porta_armed = false;
 
 static lv_obj_t   *s_root        = NULL;
 static lv_obj_t   *s_player      = NULL;
@@ -122,68 +86,15 @@ static button_state_t s_a_cache = BTN_RELEASED;
 static button_state_t s_b_cache = BTN_RELEASED;
 
 /* Player bbox para colisao: pes (16x12 na base) — o sprite e 32x48 mas o "pe"
- * que toca o chao e bem menor. Usamos 16x12 centralizado em (off_x+16, off_y+36). */
-#define PCOL_OFF_X 8
-#define PCOL_OFF_Y 36
-#define PCOL_W     16
-#define PCOL_H     12
+ * que toca o chao e bem menor. Usamos 16x12 com offset (8, 36) no frame. */
+static const room_player_box_t s_player_box = {
+    .off_x = 8, .off_y = 36, .w = 16, .h = 12,
+};
 
-static bool rects_overlap(int ax, int ay, int aw, int ah,
-                          int bx, int by, int bw, int bh)
-{
-    return (ax < bx + bw) && (ax + aw > bx) &&
-           (ay < by + bh) && (ay + ah > by);
-}
-
-static bool collides_at(int px, int py)
-{
-    const int cx = px + PCOL_OFF_X;
-    const int cy = py + PCOL_OFF_Y;
-    for (size_t i = 0; i < collision_recepcao_obstaculos_count; ++i) {
-        const collision_rect_t *r = &collision_recepcao_obstaculos[i];
-        if (rects_overlap(cx, cy, PCOL_W, PCOL_H, r->x, r->y, r->w, r->h)) {
-            return true;
-        }
-    }
-    /* Mantem player dentro da tela */
-    if (cx < 0 || cy < 0 || cx + PCOL_W > 480 || cy + PCOL_H > 320) return true;
-    return false;
-}
-
-static const collision_rect_t *gatilho_at(int px, int py)
-{
-    const int cx = px + PCOL_OFF_X;
-    const int cy = py + PCOL_OFF_Y;
-    for (size_t i = 0; i < collision_recepcao_gatilhos_count; ++i) {
-        const collision_rect_t *r = &collision_recepcao_gatilhos[i];
-        if (rects_overlap(cx, cy, PCOL_W, PCOL_H, r->x, r->y, r->w, r->h)) {
-            return r;
-        }
-    }
-    return NULL;
-}
-
-static const collision_rect_t *find_gatilho(collision_kind_t kind)
-{
-    for (size_t i = 0; i < collision_recepcao_gatilhos_count; ++i) {
-        if (collision_recepcao_gatilhos[i].kind == kind) {
-            return &collision_recepcao_gatilhos[i];
-        }
-    }
-    return NULL;
-}
-
-static bool is_porta(collision_kind_t k)
-{
-    return k == AREA_PORTA_EMPRESA || k == AREA_PORTA_RECEPCAO;
-}
-
-static void apply_player_frame(void)
-{
-    const int8_t col = WALK_SEQ[s_walk_idx];
-    lv_image_set_offset_x(s_player, -col * PFRAME_W);
-    lv_image_set_offset_y(s_player, -s_dir * PFRAME_H);
-}
+/* Dados de colisao da sala — preenchidos no build apontando para as tabelas
+ * em collision_data.h. Como obstaculos_count e variavel const externa, nao da
+ * pra inicializar como const literal aqui. */
+static room_collision_t s_room_col;
 
 static void dlg_show_box(bool show)
 {
@@ -211,8 +122,8 @@ static void dlg_start(void)
 
 static void dlg_complete_line(void)
 {
-    lv_label_set_text(s_dlg_text, DIALOGO[s_dlg_line]);
-    s_dlg_char = strlen(DIALOGO[s_dlg_line]);
+    lv_label_set_text(s_dlg_text, s_dialogo.lines[s_dlg_line]);
+    s_dlg_char = strlen(s_dialogo.lines[s_dlg_line]);
     s_dlg_state = DLG_WAITING;
     lv_obj_remove_flag(s_dlg_hint, LV_OBJ_FLAG_HIDDEN);
 }
@@ -220,7 +131,7 @@ static void dlg_complete_line(void)
 static void dlg_next_line(void)
 {
     s_dlg_line++;
-    if (s_dlg_line >= DIALOGO_N) {
+    if (s_dlg_line >= s_dialogo.num_lines) {
         s_dlg_state = DLG_INACTIVE;
         s_dlg_played = true;
         dlg_show_box(false);
@@ -260,9 +171,9 @@ static void dlg_tick(uint32_t dt_ms)
     if (s_dlg_state != DLG_TYPING) return;
 
     s_dlg_typewriter_ms += dt_ms;
-    while (s_dlg_typewriter_ms >= TYPE_PERIOD_MS && s_dlg_state == DLG_TYPING) {
-        s_dlg_typewriter_ms -= TYPE_PERIOD_MS;
-        const char *full = DIALOGO[s_dlg_line];
+    while (s_dlg_typewriter_ms >= DIALOG_TYPE_PERIOD_MS && s_dlg_state == DLG_TYPING) {
+        s_dlg_typewriter_ms -= DIALOG_TYPE_PERIOD_MS;
+        const char *full = s_dialogo.lines[s_dlg_line];
         const size_t total = strlen(full);
         if (s_dlg_char >= total) {
             s_dlg_state = DLG_WAITING;
@@ -270,12 +181,10 @@ static void dlg_tick(uint32_t dt_ms)
             break;
         }
         s_dlg_char++;
-        /* Atualiza label com substring [0..s_dlg_char] */
-        char buf[256];
-        size_t n = (s_dlg_char < sizeof(buf) - 1) ? s_dlg_char : sizeof(buf) - 1;
-        memcpy(buf, full, n);
-        buf[n] = '\0';
-        lv_label_set_text(s_dlg_text, buf);
+        /* Atualiza label com substring [0..s_dlg_char]. lv_label_set_text_fmt
+         * aloca interno conforme o tamanho — elimina o limite arbitrario de
+         * buffer estatico (truncamento silencioso anterior em falas >255). */
+        lv_label_set_text_fmt(s_dlg_text, "%.*s", (int)s_dlg_char, full);
     }
 }
 
@@ -287,59 +196,46 @@ static void recepcao_tick(lv_timer_t *t)
      * disparou, aborta. */
     if (!s_root || !s_player) return;
 
+    /* PAUSE como overlay: a tela continua viva por baixo, mas o tick
+     * congela. Nem movimento nem animacao nem leitura de entrada — assim
+     * o estado da tela e identico antes/depois do pause. */
+    if (fsm_get_state() == GAME_STATE_PAUSE) return;
+
+    /* Atualiza HUD (clock). Diff-gated internamente — barato. */
+    screen_hud_tick();
+
     /* Se dialogo ativo, processa input do dialogo e BLOQUEIA movimento. */
     if (s_dlg_state != DLG_INACTIVE) {
         dlg_tick(UI_TICK_MS);
         return;
     }
 
-    /* Leitura do joystick — o eixo X chega do joystick_hal com sinal trocado
-     * em relacao a tela; invertemos so o X. jx>0=direita, jy>0=baixo.
-     * Velocidade proporcional a deflexao. */
+    /* HAL devolve jx+ = direita, jy+ = baixo (casa com coords LVGL). */
     const joystick_data_t j = joystick_hal_get_state();
-    const int jx = -j.x;
+    const int jx = j.x;
     const int jy = j.y;
-    int dx = 0, dy = 0, sx = 0, sy = 0;
-    if (jx >  J_DEADZONE) { dx = +1; sx = speed_from_mag(jx); }
-    else if (jx < -J_DEADZONE) { dx = -1; sx = speed_from_mag(-jx); }
-    if (jy >  J_DEADZONE) { dy = +1; sy = speed_from_mag(jy); }
-    else if (jy < -J_DEADZONE) { dy = -1; sy = speed_from_mag(-jy); }
+    const int sx_mag = room_speed_from_mag(jx < 0 ? -jx : jx);
+    const int sy_mag = room_speed_from_mag(jy < 0 ? -jy : jy);
+    const int dx = (sx_mag == 0) ? 0 : (jx > 0 ? +1 : -1);
+    const int dy = (sy_mag == 0) ? 0 : (jy > 0 ? +1 : -1);
 
-    /* Atualiza direcao do sprite — eixo dominante.
-     * Linhas do sheet: 0=DOWN, 1=LEFT, 2=RIGHT, 3=UP. */
-    if (abs(jx) > abs(jy)) {
-        if (dx != 0) s_dir = (dx > 0) ? 2 /*RIGHT*/ : 1 /*LEFT*/;
-    } else if (dy != 0) {
-        s_dir = (dy > 0) ? 0 /*DOWN*/ : 3 /*UP*/;
-    }
+    room_anim_update_dir(&s_anim, jx, jy);
 
     /* Move com colisao por eixo separado (raspar parede) */
     if (dx != 0) {
-        const int nx = s_px + dx * sx;
-        if (!collides_at(nx, s_py)) s_px = nx;
+        const int nx = s_px + dx * sx_mag;
+        if (!room_collides_at(&s_room_col, &s_player_box, nx, s_py)) s_px = nx;
     }
     if (dy != 0) {
-        const int ny = s_py + dy * sy;
-        if (!collides_at(s_px, ny)) s_py = ny;
-    }
-
-    /* Anim walk */
-    if (dx != 0 || dy != 0) {
-        s_walk_ms += UI_TICK_MS;
-        if (s_walk_ms >= WALK_PERIOD_MS) {
-            s_walk_ms = 0;
-            s_walk_idx = (s_walk_idx + 1) % (sizeof(WALK_SEQ) / sizeof(WALK_SEQ[0]));
-        }
-    } else {
-        s_walk_idx = 1;  /* idle */
-        s_walk_ms = 0;
+        const int ny = s_py + dy * sy_mag;
+        if (!room_collides_at(&s_room_col, &s_player_box, s_px, ny)) s_py = ny;
     }
 
     lv_obj_set_pos(s_player, s_px, s_py);
-    apply_player_frame();
+    room_anim_step(&s_anim, s_player, dx, dy, UI_TICK_MS, PLAYER_FRAME_W, PLAYER_FRAME_H);
 
     /* Gatilho sob o player */
-    const collision_rect_t *g = gatilho_at(s_px, s_py);
+    const collision_rect_t *g = room_gatilho_at(&s_room_col, &s_player_box, s_px, s_py);
 
     /* NPC muda de pose por proximidade (feedback visual — automatico). */
     const bool near_npc = (g && g->kind == AREA_INTERACAO_NPC);
@@ -356,21 +252,18 @@ static void recepcao_tick(lv_timer_t *t)
         }
     }
 
-    /* Porta: troca de sala por CONTATO (sem precisar apertar A). O
-     * s_porta_armed evita loop quando o player spawna em cima da porta. */
-    if (g && is_porta(g->kind)) {
-        if (s_porta_armed && g->kind == AREA_PORTA_EMPRESA) {
-            ESP_LOGI(TAG, "porta empresa (contato) -> trocando sala");
-            fsm_set_gameplay_sala(GAMEPLAY_SALA_EMPRESA);
-            return;
-        }
-    } else {
-        s_porta_armed = true;  /* saiu de qualquer porta -> rearma */
+    /* Porta: troca de sala por CONTATO (sem precisar apertar A). Spawn ja
+     * nasce afastado dos gatilhos de porta (ver SPAWN_DOOR_MARGIN_PX), entao
+     * nao precisa de flag de armado. */
+    if (g && g->kind == AREA_PORTA_EMPRESA) {
+        ESP_LOGI(TAG, "porta empresa (contato) -> trocando sala");
+        fsm_set_gameplay_sala(GAMEPLAY_SALA_EMPRESA);
+        return;
     }
 
     /* Prompt "[A]": aparece sobre o player so para gatilhos INTERATIVOS
      * (NPC, tarefas) — portas trocam por contato, sem prompt. */
-    if (g && !is_porta(g->kind)) {
+    if (g && !room_is_porta(g->kind)) {
         lv_obj_set_pos(s_prompt, s_px + 8, s_py - 17);
         lv_obj_remove_flag(s_prompt, LV_OBJ_FLAG_HIDDEN);
     } else {
@@ -427,8 +320,8 @@ static void free_all_assets(void)
     }
 }
 
-/* Carrega da NAND todos os assets da tela. Em falha, desfaz os que ja
- * subiram e retorna false. */
+/* Carrega da NAND todos os assets da tela + dialogo. Em falha, desfaz os
+ * que ja subiram e retorna false. */
 static bool load_all_assets(void)
 {
     for (int i = 0; i < A_COUNT; ++i) {
@@ -441,11 +334,25 @@ static bool load_all_assets(void)
             return false;
         }
     }
+    const esp_err_t derr = dialog_loader_load(ASSET_DIALOG_RECEP, &s_dialogo);
+    if (derr != ESP_OK) {
+        ESP_LOGE(TAG, "dialog_loader_load falhou: %s", esp_err_to_name(derr));
+        free_all_assets();
+        return false;
+    }
     return true;
 }
 
 void screen_recepcao_build(void)
 {
+    /* Aponta os helpers de colisao pras tabelas da Recepcao. */
+    s_room_col.obstaculos       = collision_recepcao_obstaculos;
+    s_room_col.obstaculos_count = collision_recepcao_obstaculos_count;
+    s_room_col.gatilhos         = collision_recepcao_gatilhos;
+    s_room_col.gatilhos_count   = collision_recepcao_gatilhos_count;
+    s_room_col.screen_w         = 480;
+    s_room_col.screen_h         = 320;
+
     if (!load_all_assets()) {
         ESP_LOGE(TAG, "build abortado — assets da NAND indisponiveis "
                       "(rodou o upload via recovery?)");
@@ -471,20 +378,20 @@ void screen_recepcao_build(void)
      * do sheet 96x192 via offset_x/y. */
     s_player = lv_image_create(s_root);
     lv_image_set_src(s_player, &s_assets[A_PLAYER].dsc);
-    lv_obj_set_size(s_player, PFRAME_W, PFRAME_H);
+    lv_obj_set_size(s_player, PLAYER_FRAME_W, PLAYER_FRAME_H);
     lv_image_set_inner_align(s_player, LV_IMAGE_ALIGN_TOP_LEFT);
     no_scroll(s_player);
 
-    /* Spawn: se voltou da Empresa, nasce A ESQUERDA da porta (fora da area
-     * de gatilho, pra nao re-disparar a troca de sala); caso contrario
-     * (entrada inicial), usa o ponto fixo. */
+    /* Spawn: se voltou da Empresa, nasce A ESQUERDA da porta com margem
+     * suficiente pra hitbox do player NAO tocar o gatilho da porta nem
+     * mesmo com o passo maximo do joystick no primeiro tick. */
     if (fsm_get_gameplay_sala_prev() == GAMEPLAY_SALA_EMPRESA) {
-        const collision_rect_t *porta = find_gatilho(AREA_PORTA_EMPRESA);
+        const collision_rect_t *porta = room_find_gatilho(&s_room_col, AREA_PORTA_EMPRESA);
         if (porta) {
-            s_px = porta->x - PFRAME_W;
-            s_py = porta->y + porta->h / 2 - PFRAME_H / 2;
-            if (collides_at(s_px, s_py)) {
-                s_px = porta->x - PFRAME_W - 12;
+            s_px = porta->x - PLAYER_FRAME_W - SPAWN_DOOR_MARGIN_PX;
+            s_py = porta->y + porta->h / 2 - PLAYER_FRAME_H / 2;
+            if (room_collides_at(&s_room_col, &s_player_box, s_px, s_py)) {
+                s_px -= 12;
             }
         } else {
             s_px = SPAWN_X; s_py = SPAWN_Y;
@@ -492,11 +399,18 @@ void screen_recepcao_build(void)
     } else {
         s_px = SPAWN_X; s_py = SPAWN_Y;
     }
-    /* Nasce fora de qualquer porta — rearma no 1o tick que estiver livre. */
-    s_porta_armed = false;
-    s_dir = 1; s_walk_idx = 1; s_walk_ms = 0;   /* olhando pra LEFT (saiu da porta) */
+    /* Sanity: se o spawn cair em gatilho de porta (mapa mal configurado),
+     * vamos logar — sem isso, vira loop silencioso. */
+    {
+        const collision_rect_t *g = room_gatilho_at(&s_room_col, &s_player_box, s_px, s_py);
+        if (g && room_is_porta(g->kind)) {
+            ESP_LOGW(TAG, "spawn (%d,%d) caiu em gatilho de porta — risco de loop", s_px, s_py);
+        }
+    }
+    s_anim.dir = 1; s_anim.walk_idx = 1; s_anim.walk_ms = 0;   /* LEFT (saiu da porta) */
     lv_obj_set_pos(s_player, s_px, s_py);
-    apply_player_frame();
+    /* Aplica frame inicial parado — passa dx=dy=0 pra forcar idle. */
+    room_anim_step(&s_anim, s_player, 0, 0, 0, PLAYER_FRAME_W, PLAYER_FRAME_H);
 
     /* L3 — complemento (em cima do player; cropado, posicao via meta) */
     layer_full(s_root, &s_assets[A_COMPLEMENTO].dsc,
@@ -566,6 +480,9 @@ void screen_recepcao_build(void)
     s_dlg_line = 0;
     s_dlg_char = 0;
 
+    /* HUD persistente no topo. Eh filho de s_root pra cair junto no destroy. */
+    screen_hud_build(s_root);
+
     s_timer = lv_timer_create(recepcao_tick, UI_TICK_MS, NULL);
     ESP_LOGI(TAG, "recepcao built (player @ %d,%d)", s_px, s_py);
 }
@@ -573,6 +490,9 @@ void screen_recepcao_build(void)
 void screen_recepcao_destroy(void)
 {
     if (s_timer) { lv_timer_delete(s_timer); s_timer = NULL; }
+    /* HUD primeiro (filho de s_root) — nullifica os ponteiros internos
+     * antes que o delete cascateado do parent invalide os handles. */
+    screen_hud_destroy();
     if (s_root)  {
         lv_obj_delete(s_root);
         s_root = NULL;
@@ -582,4 +502,5 @@ void screen_recepcao_destroy(void)
     /* Libera os pixels da PSRAM DEPOIS de deletar os objetos LVGL que
      * apontavam para eles. */
     free_all_assets();
+    dialog_loader_free(&s_dialogo);
 }

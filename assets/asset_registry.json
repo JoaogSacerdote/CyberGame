@@ -19,6 +19,8 @@
     { "file": "empresa/NPC_TI_TAREFA_AMARELA_PARA_DIREITA_07.png",                     "type": "sprite", "id": 14, "name": "emp_npc_ti_direita","crop": true },
     { "file": "empresa/NPC_TI_TAREFA_AMARELA_PARA_BAIXO_08.png",                       "type": "sprite", "id": 15, "name": "emp_npc_ti_baixo",  "crop": true },
 
-    { "file": "Sprite_PLAYER.png",                                                     "type": "sprite", "id": 16, "name": "player",            "crop": false }
+    { "file": "Sprite_PLAYER.png",                                                     "type": "sprite", "id": 16, "name": "player",            "crop": false },
+
+    { "file": "recepcionista.txt",                                                     "type": "sprite", "id": 17, "name": "dialog_recep" }
   ]
 }
