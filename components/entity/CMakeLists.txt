@@ -3,6 +3,7 @@ idf_component_register(
         "entity_pool.c"
         "movement.c"
         "y_sort.c"
+        "debug_overlay.c"
     INCLUDE_DIRS "include"
     REQUIRES
         "lvgl__lvgl"
