@@ -2,6 +2,7 @@
 #include "board_pins.h"
 #include "hal_common.h"
 
+#include <assert.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -325,7 +326,8 @@ esp_err_t nfc_hal_stop_scanning(void)
 
 bool nfc_hal_wait_card(nfc_card_t *card, uint32_t timeout_ms)
 {
-    if (s_queue == NULL || card == NULL) return false;
+    assert(card != NULL);
+    if (s_queue == NULL) return false;
     const TickType_t ticks = (timeout_ms == UINT32_MAX) ? portMAX_DELAY
                                                         : pdMS_TO_TICKS(timeout_ms);
     return xQueueReceive(s_queue, card, ticks) == pdTRUE;

@@ -1,6 +1,7 @@
 #include "display_hal.h"
 #include "board_pins.h"
 
+#include <assert.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/gpio.h"
@@ -208,6 +209,13 @@ esp_err_t display_hal_draw_bitmap(int x_start, int y_start,
                                   int x_end,   int y_end,
                                   const void *pixel_data)
 {
+    /* Design-by-contract: violacoes abaixo sao bugs de quem chamou. */
+    assert(pixel_data != NULL);
+    assert(x_end > x_start);
+    assert(y_end > y_start);
+    assert(x_start >= 0 && x_end <= DISPLAY_HAL_WIDTH);
+    assert(y_start >= 0 && y_end <= DISPLAY_HAL_HEIGHT);
+
     if (!s_inited || !s_panel) {
         return ESP_ERR_INVALID_STATE;
     }
@@ -223,6 +231,8 @@ esp_err_t display_hal_register_trans_done_cb(display_hal_trans_done_cb_t cb, voi
 
 esp_err_t display_hal_set_backlight_percent(uint8_t pct)
 {
+    /* pct > 100 e bug de chamador. Em release (NDEBUG) clampamos. */
+    assert(pct <= 100);
     if (pct > 100) pct = 100;
     const uint32_t duty = ((uint32_t)pct * DISP_BL_DUTY_MAX) / 100U;
     ESP_RETURN_ON_ERROR(ledc_set_duty(DISP_BL_LEDC_MODE, DISP_BL_LEDC_CHANNEL, duty),
