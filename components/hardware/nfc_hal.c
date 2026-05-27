@@ -1,4 +1,5 @@
 #include "nfc_hal.h"
+#include "board_pins.h"
 #include "hal_common.h"
 
 #include <string.h>
@@ -12,10 +13,6 @@
 #include "esp_log.h"
 
 static const char *TAG = "NFC_HAL";
-
-#define NFC_PIN_SDA             GPIO_NUM_5
-#define NFC_PIN_SCL             GPIO_NUM_6
-#define NFC_PIN_IRQ             GPIO_NUM_16
 
 #define NFC_I2C_PORT            I2C_NUM_0
 #define NFC_I2C_FREQ_HZ         100000
@@ -256,8 +253,8 @@ esp_err_t nfc_hal_init(void)
 
     const i2c_master_bus_config_t bus_cfg = {
         .i2c_port                     = NFC_I2C_PORT,
-        .sda_io_num                   = NFC_PIN_SDA,
-        .scl_io_num                   = NFC_PIN_SCL,
+        .sda_io_num                   = BOARD_PIN_NFC_SDA,
+        .scl_io_num                   = BOARD_PIN_NFC_SCL,
         .clk_source                   = I2C_CLK_SRC_DEFAULT,
         .glitch_ignore_cnt            = 7,
         .flags.enable_internal_pullup = true,
@@ -273,7 +270,7 @@ esp_err_t nfc_hal_init(void)
                         TAG, "i2c device add failed");
 
     const gpio_config_t irq_cfg = {
-        .pin_bit_mask = 1ULL << NFC_PIN_IRQ,
+        .pin_bit_mask = 1ULL << BOARD_PIN_NFC_IRQ,
         .mode         = GPIO_MODE_INPUT,
         .pull_up_en   = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -282,7 +279,7 @@ esp_err_t nfc_hal_init(void)
     ESP_RETURN_ON_ERROR(gpio_config(&irq_cfg), TAG, "irq pin config failed");
 
     ESP_RETURN_ON_ERROR(hal_isr_service_install_once(), TAG, "isr service install failed");
-    ESP_RETURN_ON_ERROR(gpio_isr_handler_add(NFC_PIN_IRQ, nfc_irq_isr, NULL),
+    ESP_RETURN_ON_ERROR(gpio_isr_handler_add(BOARD_PIN_NFC_IRQ, nfc_irq_isr, NULL),
                         TAG, "isr handler add failed");
 
     /* PN532 acorda na primeira atividade I2C — espera estabilizar antes do handshake. */
@@ -307,7 +304,7 @@ esp_err_t nfc_hal_init(void)
     ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "task create failed");
 
     ESP_LOGI(TAG, "nfc_hal initialized (SDA=GPIO%d SCL=GPIO%d IRQ=GPIO%d, %d kHz, poll %d ms, scan OFF)",
-             NFC_PIN_SDA, NFC_PIN_SCL, NFC_PIN_IRQ, NFC_I2C_FREQ_HZ / 1000, NFC_POLL_PERIOD_MS);
+             BOARD_PIN_NFC_SDA, BOARD_PIN_NFC_SCL, BOARD_PIN_NFC_IRQ, NFC_I2C_FREQ_HZ / 1000, NFC_POLL_PERIOD_MS);
     return ESP_OK;
 }
 

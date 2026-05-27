@@ -2,10 +2,11 @@
 
 #include <stdbool.h>
 #include "esp_err.h"
-#include "driver/gpio.h"
 
-#define PMU_PIN_PWR             GPIO_NUM_4
-#define PMU_PIN_REC             GPIO_NUM_3
+/* Pinos do PMU agora vivem em components/hardware/include/board_pins.h
+ * (BOARD_PIN_PMU_PWR, BOARD_PIN_PMU_REC). Header publico do PMU nao
+ * precisa expor GPIOs — esses sao detalhes de implementacao. */
+
 #define PMU_HOLD_BOOT_MS        2000
 #define PMU_HOLD_SHUTDOWN_MS    4000
 

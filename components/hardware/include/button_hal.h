@@ -13,7 +13,7 @@ typedef enum {
     BTN_B,
     BTN_X,
     BTN_Y,
-    BTN_START,    /* GPIO 3 dual-use: PMU le como REC durante boot, button_hal claim como START apos */
+    BTN_START,    /* GPIO 13 dual-use: PMU le como REC durante boot, button_hal claim como START apos */
     BTN_MAX_COUNT,
 } button_id_t;
 

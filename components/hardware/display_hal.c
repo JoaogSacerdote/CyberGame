@@ -1,4 +1,5 @@
 #include "display_hal.h"
+#include "board_pins.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -10,14 +11,6 @@
 #include "esp_lcd_st7796.h"
 #include "esp_check.h"
 #include "esp_log.h"
-
-#define DISP_PIN_MOSI       7
-#define DISP_PIN_SCK        8
-#define DISP_PIN_CS         17
-#define DISP_PIN_DC         18
-#define DISP_PIN_RST        21
-#define DISP_PIN_BL         38
-#define DISP_PIN_PWR_EN     42      /* NPN (driver de gate): 1 = LIGA VCC, 0 = CORTA VCC */
 
 #define DISP_PWR_STABILIZE_MS   50
 
@@ -61,8 +54,8 @@ static void display_hal_release_pin_holds(void)
        feito no display_hal_sleep(). Liberar e best-effort: falha aqui nao deve abortar
        o boot do display. */
     static const gpio_num_t pins[] = {
-        DISP_PIN_PWR_EN, DISP_PIN_BL, DISP_PIN_MOSI, DISP_PIN_SCK,
-        DISP_PIN_CS, DISP_PIN_DC, DISP_PIN_RST,
+        BOARD_PIN_DISP_PWR_EN, BOARD_PIN_DISP_BL, BOARD_PIN_DISP_MOSI, BOARD_PIN_DISP_SCK,
+        BOARD_PIN_DISP_CS, BOARD_PIN_DISP_DC, BOARD_PIN_DISP_RST,
     };
     for (size_t i = 0; i < sizeof(pins) / sizeof(pins[0]); ++i) {
         esp_err_t err = gpio_hold_dis(pins[i]);
@@ -75,7 +68,7 @@ static void display_hal_release_pin_holds(void)
 static void display_hal_power_on(void)
 {
     const gpio_config_t cfg = {
-        .pin_bit_mask = (1ULL << DISP_PIN_PWR_EN),
+        .pin_bit_mask = (1ULL << BOARD_PIN_DISP_PWR_EN),
         .mode         = GPIO_MODE_OUTPUT,
         .pull_up_en   = GPIO_PULLUP_DISABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -86,12 +79,12 @@ static void display_hal_power_on(void)
         ESP_LOGW(TAG, "pwr_en gpio_config failed: %s", esp_err_to_name(err));
         return;
     }
-    /** err = gpio_set_level(DISP_PIN_PWR_EN, 0);
+    /** err = gpio_set_level(BOARD_PIN_DISP_PWR_EN, 0);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "pwr_en set 0 failed: %s", esp_err_to_name(err));
         return;
     } **/
-   err = gpio_set_level(DISP_PIN_PWR_EN, 1); // <-- Alterado para 1 (NPN LIGA com HIGH)
+   err = gpio_set_level(BOARD_PIN_DISP_PWR_EN, 1); // <-- Alterado para 1 (NPN LIGA com HIGH)
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "pwr_en set 1 failed: %s", esp_err_to_name(err));
         return;
@@ -111,7 +104,7 @@ static esp_err_t display_hal_backlight_init(void)
     ESP_RETURN_ON_ERROR(ledc_timer_config(&timer_cfg), TAG, "ledc_timer_config failed");
 
     const ledc_channel_config_t ch_cfg = {
-        .gpio_num   = DISP_PIN_BL,
+        .gpio_num   = BOARD_PIN_DISP_BL,
         .speed_mode = DISP_BL_LEDC_MODE,
         .channel    = DISP_BL_LEDC_CHANNEL,
         .timer_sel  = DISP_BL_LEDC_TIMER,
@@ -131,9 +124,9 @@ static esp_err_t display_hal_spi_bus_init(void)
      * sem precisar reinicializar o bus. Display eh dono do bus por exigir
      * max_transfer_sz muito maior. */
     const spi_bus_config_t bus_cfg = {
-        .mosi_io_num     = DISP_PIN_MOSI,
-        .miso_io_num     = 9,
-        .sclk_io_num     = DISP_PIN_SCK,
+        .mosi_io_num     = BOARD_PIN_DISP_MOSI,
+        .miso_io_num     = 18,  /* MISO compartilhado SPI2: tela (write-only) + NAND (read) */
+        .sclk_io_num     = BOARD_PIN_DISP_SCK,
         .quadwp_io_num   = -1,
         .quadhd_io_num   = -1,
         .max_transfer_sz = DISPLAY_HAL_WIDTH * 80 * DISPLAY_HAL_BYTES_PER_PIXEL,
@@ -154,8 +147,8 @@ esp_err_t display_hal_init(void)
     ESP_RETURN_ON_ERROR(display_hal_spi_bus_init(),   TAG, "spi bus init failed");
 
     const esp_lcd_panel_io_spi_config_t io_cfg = {
-        .cs_gpio_num         = DISP_PIN_CS,
-        .dc_gpio_num         = DISP_PIN_DC,
+        .cs_gpio_num         = BOARD_PIN_DISP_CS,
+        .dc_gpio_num         = BOARD_PIN_DISP_DC,
         .spi_mode            = 0,
         .pclk_hz             = DISP_SPI_HZ,
         .trans_queue_depth   = 10,
@@ -169,7 +162,7 @@ esp_err_t display_hal_init(void)
         TAG, "panel_io_spi failed");
 
     const esp_lcd_panel_dev_config_t panel_cfg = {
-        .reset_gpio_num = DISP_PIN_RST,
+        .reset_gpio_num = BOARD_PIN_DISP_RST,
         /* BGR mode + byte_swap_inplace no hal_bridge = pipeline de cor
          * correto pra este painel ST7796. */
         .rgb_ele_order  = LCD_RGB_ELEMENT_ORDER_BGR,

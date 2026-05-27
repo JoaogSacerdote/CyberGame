@@ -1,4 +1,5 @@
 #include "storage_hal.h"
+#include "board_pins.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -10,11 +11,6 @@
 #include "esp_log.h"
 
 static const char *TAG = "STORAGE_HAL";
-
-#define STORAGE_PIN_MOSI       7
-#define STORAGE_PIN_SCK        8
-#define STORAGE_PIN_MISO       9
-#define STORAGE_PIN_CS         10
 
 #define STORAGE_SPI_HOST       SPI2_HOST
 /* SPI a 50 MHz — operacao estavel no protoboard atual. A NAND aguenta
@@ -84,9 +80,9 @@ static inline void storage_xfer_release(void)
 static esp_err_t storage_spi_init(void)
 {
     const spi_bus_config_t bus_cfg = {
-        .mosi_io_num     = STORAGE_PIN_MOSI,
-        .miso_io_num     = STORAGE_PIN_MISO,
-        .sclk_io_num     = STORAGE_PIN_SCK,
+        .mosi_io_num     = BOARD_PIN_NAND_MOSI,
+        .miso_io_num     = BOARD_PIN_NAND_MISO,
+        .sclk_io_num     = BOARD_PIN_NAND_SCK,
         .quadwp_io_num   = -1,
         .quadhd_io_num   = -1,
         .max_transfer_sz = 4096,
@@ -101,7 +97,7 @@ static esp_err_t storage_spi_init(void)
     const spi_device_interface_config_t dev_cfg = {
         .clock_speed_hz = STORAGE_SPI_HZ,
         .mode           = 0,
-        .spics_io_num   = STORAGE_PIN_CS,
+        .spics_io_num   = BOARD_PIN_NAND_CS,
         .queue_size     = 4,
         .command_bits   = 8,
         .address_bits   = 0,
@@ -227,7 +223,7 @@ esp_err_t storage_hal_init(void)
     const esp_err_t ret = storage_hal_read_jedec_id(&manuf, &device);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "JEDEC ID nao reconhecido (chip nao respondeu ou modelo diferente).");
-        ESP_LOGE(TAG, "Verificar fios: CS=GPIO10, MISO=GPIO9, MOSI=GPIO7, SCK=GPIO8, /WP e /HOLD em 3.3V");
+        ESP_LOGE(TAG, "Verificar fios: CS=GPIO41, MISO=GPIO18, MOSI=GPIO15, SCK=GPIO16, /WP e /HOLD em 3.3V");
         return ret;
     }
 

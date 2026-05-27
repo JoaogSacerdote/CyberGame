@@ -1,4 +1,5 @@
 #include "joystick_hal.h"
+#include "board_pins.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -9,10 +10,18 @@
 
 static const char *TAG = "JOYSTICK_HAL";
 
-/* No ESP32-S3, ADC1 canais 0 e 1 sao GPIO 1 e GPIO 2 respectivamente. */
+/* No ESP32-S3, ADC1_CH0 = GPIO1 e ADC1_CH1 = GPIO2.
+ * O driver ADC oneshot opera em termos de canal (nao de GPIO), mas os
+ * BOARD_PIN_JOY_*_ADC em board_pins.h apontam exatamente para esses pinos.
+ * Os asserts abaixo travam o build se alguem mudar o pinout sem mudar o canal. */
 #define JOY_ADC_UNIT            ADC_UNIT_1
 #define JOY_X_CHANNEL           ADC_CHANNEL_0
 #define JOY_Y_CHANNEL           ADC_CHANNEL_1
+
+_Static_assert(BOARD_PIN_JOY_X_ADC == GPIO_NUM_1,
+               "BOARD_PIN_JOY_X_ADC nao bate com ADC1_CH0 (GPIO1) no ESP32-S3");
+_Static_assert(BOARD_PIN_JOY_Y_ADC == GPIO_NUM_2,
+               "BOARD_PIN_JOY_Y_ADC nao bate com ADC1_CH1 (GPIO2) no ESP32-S3");
 
 #define JOY_ADC_BITWIDTH        ADC_BITWIDTH_12
 #define JOY_ADC_ATTEN           ADC_ATTEN_DB_12     /* full-scale 0–3.3V */
