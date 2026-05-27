@@ -2,6 +2,7 @@
 #include "board_pins.h"
 #include "hal_common.h"
 
+#include <assert.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/timers.h"
@@ -109,7 +110,9 @@ esp_err_t button_hal_init(void)
 
 bool button_hal_get_event(button_event_t *event, uint32_t timeout_ms)
 {
-    if (s_queue == NULL || event == NULL) {
+    /* event NULL e bug de chamador; queue NULL e estado de runtime (sem init). */
+    assert(event != NULL);
+    if (s_queue == NULL) {
         return false;
     }
     const TickType_t ticks = (timeout_ms == UINT32_MAX)
@@ -120,8 +123,6 @@ bool button_hal_get_event(button_event_t *event, uint32_t timeout_ms)
 
 button_state_t button_hal_peek(button_id_t id)
 {
-    if (id >= BTN_MAX_COUNT) {
-        return BTN_RELEASED;
-    }
+    assert(id < BTN_MAX_COUNT);
     return s_last_stable[id];
 }

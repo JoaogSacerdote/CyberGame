@@ -1,6 +1,7 @@
 #include "storage_hal.h"
 #include "board_pins.h"
 
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
@@ -167,8 +168,8 @@ static esp_err_t nand_write_enable(void)
 
 esp_err_t storage_hal_read_jedec_id(uint8_t *manuf, uint16_t *device)
 {
+    assert(manuf != NULL && device != NULL);
     if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
-    if (manuf == NULL || device == NULL) return ESP_ERR_INVALID_ARG;
 
     /* Comando 0x9F — sequencia exata varia entre variantes do W25N:
      *   sem dummy: cmd + 3 ID bytes (manuf + dev_hi + dev_lo)
@@ -252,8 +253,9 @@ esp_err_t storage_hal_init(void)
 
 esp_err_t storage_hal_read_page(uint32_t page, uint8_t *buf)
 {
+    assert(buf != NULL);
     if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
-    if (buf == NULL || page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
+    if (page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
     if (!storage_xfer_try_acquire("read_page")) return ESP_ERR_INVALID_STATE;
 
     /* Step 1: Page Data Read — array NAND -> cache interna do chip.
@@ -289,8 +291,9 @@ done:
 
 esp_err_t storage_hal_write_page(uint32_t page, const uint8_t *buf)
 {
+    assert(buf != NULL);
     if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
-    if (buf == NULL || page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
+    if (page >= STORAGE_TOTAL_PAGES) return ESP_ERR_INVALID_ARG;
     if (!storage_xfer_try_acquire("write_page")) return ESP_ERR_INVALID_STATE;
 
     esp_err_t err = nand_write_enable();
@@ -337,8 +340,8 @@ done:
 
 esp_err_t storage_hal_erase_block(uint32_t block)
 {
+    assert(block < STORAGE_BLOCK_COUNT);
     if (s_spi == NULL) return ESP_ERR_INVALID_STATE;
-    if (block >= STORAGE_BLOCK_COUNT) return ESP_ERR_INVALID_ARG;
 
     ESP_RETURN_ON_ERROR(nand_write_enable(), TAG, "write enable failed");
 
