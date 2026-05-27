@@ -6,6 +6,7 @@
 #include "freertos/queue.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_task_wdt.h"
 
 #include "fsm.h"
 #include "fsm_gameplay.h"
@@ -65,6 +66,13 @@ static void sync_ui_to_macro(game_state_t macro)
 static void engine_task(void *pv)
 {
     (void)pv;
+
+    /* Subscreve esta task ao Task WDT (configurado em sdkconfig com timeout
+     * 5s). engine_task pode bloquear em xQueueReceive por ENGINE_TICK_PERIOD_MS
+     * (100ms), entao o reset a cada iteracao da folga gigante (50x). Se a FSM
+     * travar em um handler, WDT panic deixa rastro no log. */
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+
     TickType_t last_tick = xTaskGetTickCount();
     fsm_event_t evt;
 
@@ -72,6 +80,8 @@ static void engine_task(void *pv)
     gameplay_sala_t last_sala  = fsm_get_gameplay_sala();
 
     while (1) {
+        esp_task_wdt_reset();
+
         /* Consome eventos com timeout pequeno; se nao houver, emite tick. */
         const TickType_t wait_ticks = pdMS_TO_TICKS(ENGINE_TICK_PERIOD_MS);
         if (xQueueReceive(s_event_queue, &evt, wait_ticks)) {
