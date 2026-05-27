@@ -8,4 +8,5 @@ idf_component_register(
         "log"
     PRIV_REQUIRES
         "ui"
+        "esp_system"     # esp_task_wdt
 )
