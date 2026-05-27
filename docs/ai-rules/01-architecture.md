@@ -13,6 +13,8 @@ Da mais baixa para a mais alta. **Dependência só desce.**
 ├─────────────────────────────────────────┤
 │ engine, ui, ui_debug, recovery          │   app + telas
 ├─────────────────────────────────────────┤
+│ entity                                  │   pool + movement + y_sort (LVGL)
+├─────────────────────────────────────────┤
 │ fsm, gamestate                          │   regras puras de gameplay
 ├─────────────────────────────────────────┤
 │ assets, asset_store                     │   services (sprites, dialog)
@@ -30,19 +32,23 @@ Da mais baixa para a mais alta. **Dependência só desce.**
 Coluna = quem inclui; linha = quem é incluído.
 ✅ permitido, ❌ proibido (viola camada), ⚠️ permitido com cautela.
 
-| ↓ inclui · → | main | engine | ui | ui_debug | recovery | fsm | gamestate | assets | asset_store | hal_bridge | hardware |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| main           | -  | ✅ | ⚠️ | ✅ | ✅ | ⚠️ | ⚠️ | ⚠️ | ✅ | ✅ | ✅ |
-| engine         | ❌ | -  | ✅ | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ⚠️* |
-| ui             | ❌ | ❌ | -  | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ | ⚠️* |
-| ui_debug       | ❌ | ❌ | ❌ | -  | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ⚠️* |
-| recovery       | ❌ | ❌ | ❌ | ❌ | -  | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
-| fsm            | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ✅ | ❌ | ❌ | ❌ | ⚠️* |
-| gamestate      | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ❌ | ❌ | ❌ | ❌ |
-| assets         | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ✅ | ❌ | ❌ |
-| asset_store    | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ❌ | ✅ |
-| hal_bridge     | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ✅ |
-| hardware       | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  |
+| ↓ inclui · → | main | engine | ui | ui_debug | recovery | entity | fsm | gamestate | assets | asset_store | hal_bridge | hardware |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| main           | -  | ✅ | ⚠️ | ✅ | ✅ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ✅ | ✅ | ✅ |
+| engine         | ❌ | -  | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ⚠️* |
+| ui             | ❌ | ❌ | -  | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ⚠️* |
+| ui_debug       | ❌ | ❌ | ❌ | -  | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ⚠️* |
+| recovery       | ❌ | ❌ | ❌ | ❌ | -  | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| entity         | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| fsm            | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ✅ | ❌ | ❌ | ❌ | ⚠️* |
+| gamestate      | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ❌ | ❌ | ❌ | ❌ |
+| assets         | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ✅ | ❌ | ❌ |
+| asset_store    | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ❌ | ✅ |
+| hal_bridge     | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  | ✅ |
+| hardware       | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | -  |
+
+`entity` deps: apenas `lvgl__lvgl` + `log` (intencional — auto-contido,
+nenhuma regra de jogo, nenhum HAL).
 
 \* **⚠️ ATENÇÃO — gap conhecido**: hoje `engine`, `fsm`, `ui` e `ui_debug`
 importam `button_hal.h` / `joystick_hal.h` diretamente. Isso é uma
@@ -90,10 +96,11 @@ Pergunte na ordem:
 4. **Carrega sprite/diálogo/colisão de arquivo?** → `components/assets/`
 5. **Regra pura de gameplay (puro C)?** → `components/gamestate/`
 6. **Estado/transição de estados?** → `components/fsm/`
-7. **Tela LVGL?** → `components/ui/` (ou `components/ui_debug/` para modo dev)
-8. **Loop principal de jogo, scheduler de eventos?** → `components/engine/`
-9. **USB CDC, OTA, modo manutenção?** → `components/recovery/`
-10. **Bootstrap do firmware?** → `main/`
+7. **Entidade do mundo (player/NPC/móvel) + movimento + Y-sort?** → `components/entity/`
+8. **Tela LVGL?** → `components/ui/` (ou `components/ui_debug/` para modo dev)
+9. **Loop principal de jogo, scheduler de eventos?** → `components/engine/`
+10. **USB CDC, OTA, modo manutenção?** → `components/recovery/`
+11. **Bootstrap do firmware?** → `main/`
 
 Se nenhuma resposta serve, é **provavelmente** um novo serviço — abra
 discussão antes de criar componente novo.
