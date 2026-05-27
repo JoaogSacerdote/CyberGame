@@ -2,8 +2,11 @@
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_idf_version.h"
 #include "esp_log.h"
+#include "esp_system.h"
 
+#include "version.h"
 #include "pmu.h"
 #include "button_hal.h"
 #include "joystick_hal.h"
@@ -47,8 +50,36 @@ static bool detect_dev_combo(void)
     return true;
 }
 
+static const char *reset_reason_name(esp_reset_reason_t r)
+{
+    switch (r) {
+        case ESP_RST_POWERON:    return "POWERON";
+        case ESP_RST_EXT:        return "EXT";
+        case ESP_RST_SW:         return "SW";
+        case ESP_RST_PANIC:      return "PANIC";
+        case ESP_RST_INT_WDT:    return "INT_WDT";
+        case ESP_RST_TASK_WDT:   return "TASK_WDT";
+        case ESP_RST_WDT:        return "OTHER_WDT";
+        case ESP_RST_DEEPSLEEP:  return "DEEPSLEEP_WAKE";
+        case ESP_RST_BROWNOUT:   return "BROWNOUT";
+        case ESP_RST_SDIO:       return "SDIO";
+        default:                 return "UNKNOWN";
+    }
+}
+
+static void log_boot_banner(void)
+{
+    const esp_reset_reason_t r = esp_reset_reason();
+    ESP_LOGI(TAG, "======================================================");
+    ESP_LOGI(TAG, "  CyberGame v" CYBERGAME_VERSION_STR " (idf %s)", IDF_VER);
+    ESP_LOGI(TAG, "  reset reason: %s", reset_reason_name(r));
+    ESP_LOGI(TAG, "======================================================");
+}
+
 void app_main(void)
 {
+    log_boot_banner();
+
     ESP_ERROR_CHECK(pmu_init());
 
     ESP_LOGI(TAG, "Avaliando Power Latch...");
@@ -100,34 +131,54 @@ void app_main(void)
     /* PMU_BOOT_NORMAL daqui em diante. */
     ESP_LOGI(TAG, "Boot NORMAL confirmado! Iniciando sistema...");
 
-    /* HALs de input — button_hal claim do GPIO 3 (REC -> START) com settle interno. */
-    ESP_ERROR_CHECK(button_hal_init());
-    ESP_ERROR_CHECK(joystick_hal_init());
-    ESP_ERROR_CHECK(nfc_hal_init());
+    /* ============================================================
+     * === MODO BRING-UP TEMPORARIO (2026-05-26) — INICIO ===
+     * Todos os HALs de hardware aqui tolerantes a falha: log + segue.
+     * Para reverter: ver CyberGameCore/CHANGELOG/entries/2026-05-26T1945-bring-up-mode-completo.md
+     * Bloco original preservado integralmente nessa entrada.
+     * ============================================================ */
 
-    /* Display antes do storage: ele eh o dono do SPI2 (precisa de max_transfer_sz
-     * grande para framebuffer). Storage anexa depois via spi_bus_add_device,
-     * tolerando ESP_ERR_INVALID_STATE no spi_bus_initialize dele. */
+    if (button_hal_init() != ESP_OK) {
+        ESP_LOGW(TAG, "[BRING-UP] buttons ausentes — boot continua sem input de botoes.");
+    }
+    if (joystick_hal_init() != ESP_OK) {
+        ESP_LOGW(TAG, "[BRING-UP] joystick ausente — boot continua sem ADC do analog.");
+    }
+    if (nfc_hal_init() != ESP_OK) {
+        ESP_LOGW(TAG, "[BRING-UP] NFC ausente — boot continua sem leitura de cartao.");
+    }
+
+    /* Display: sem ele nao tem como rodar LVGL/engine/ui_debug. Marca flag. */
+    bool ui_ok = true;
     if (display_hal_init() != ESP_OK) {
-        ESP_LOGE(TAG, "display_hal_init falhou — sem video. Idle.");
-        while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGW(TAG, "[BRING-UP] display ausente — boot continua mas sem video.");
+        ui_ok = false;
+    } else if (hal_bridge_init() != ESP_OK) {
+        ESP_LOGW(TAG, "[BRING-UP] hal_bridge falhou — boot continua mas sem UI.");
+        ui_ok = false;
+    } else {
+        display_hal_set_backlight_percent(70);
     }
-    if (hal_bridge_init() != ESP_OK) {
-        ESP_LOGE(TAG, "hal_bridge_init falhou — sem UI. Idle.");
-        while (1) vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    display_hal_set_backlight_percent(70);
 
-    /* Storage: nao usa ESP_ERROR_CHECK — se a NAND nao responder, queremos
-     * que o resto do sistema continue funcional para diagnostico via UART. */
+    /* Storage: se a NAND nao responder, segue (ja era tolerante). */
     if (storage_hal_init() != ESP_OK) {
-        ESP_LOGE(TAG, "storage_hal_init falhou — NAND inacessivel. Boot continua.");
+        ESP_LOGW(TAG, "[BRING-UP] NAND ausente — boot continua sem asset_store.");
     } else if (asset_store_init() != ESP_OK) {
-        ESP_LOGE(TAG, "asset_store_init falhou — assets indisponiveis. Boot continua.");
+        ESP_LOGW(TAG, "[BRING-UP] asset_store_init falhou — boot continua sem assets.");
     } else {
         size_t n = 0;
         asset_store_count(&n);
         ESP_LOGI(TAG, "asset_store pronto: %u entries", (unsigned)n);
+    }
+
+    /* Sem UI nao tem como rodar engine nem ui_debug (ambos chamam LVGL).
+     * Idle com heartbeat de 5s pra deixar UART respirar e mostrar que vive. */
+    if (!ui_ok) {
+        ESP_LOGW(TAG, "[BRING-UP] UI indisponivel — pulando engine/ui_debug. Heartbeat a cada 5s.");
+        while (1) {
+            ESP_LOGW(TAG, "[BRING-UP] alive — sem UI");
+            vTaskDelay(pdMS_TO_TICKS(5000));
+        }
     }
 
     /* Combo dev: Y+START segurados juntos por 2s -> ui_debug.
@@ -148,6 +199,7 @@ void app_main(void)
     if (engine_start() != ESP_OK) {
         ESP_LOGE(TAG, "engine_start falhou — engine nao recebera eventos.");
     }
+    /* === MODO BRING-UP TEMPORARIO (2026-05-26) — FIM === */
 
     while (1) {
         vTaskDelay(pdMS_TO_TICKS(1000));
