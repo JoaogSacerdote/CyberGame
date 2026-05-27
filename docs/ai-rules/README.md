@@ -20,6 +20,8 @@ escrever código neste projeto. Se você quer mudar uma regra, abra PR
 
 ## Arquivos
 
+### Firmware (01-06)
+
 | # | Arquivo | Cobre |
 |---|---|---|
 | 01 | [`01-architecture.md`](01-architecture.md) | Camadas (hardware → hal_bridge → engine/ui → main), regras de dependência |
@@ -28,6 +30,14 @@ escrever código neste projeto. Se você quer mudar uma regra, abra PR
 | 04 | [`04-hal-contract.md`](04-hal-contract.md) | Interface entre firmware e hardware (`components/hardware/`) |
 | 05 | [`05-freertos-rules.md`](05-freertos-rules.md) | Tasks, filas, notificações, ISR, watchdog |
 | 06 | [`06-coding-standard.md`](06-coding-standard.md) | Convenções alinhadas ao ESP-IDF style guide oficial |
+
+### Gameplay (07-09)
+
+| # | Arquivo | Cobre |
+|---|---|---|
+| 07 | [`07-entity-system.md`](07-entity-system.md) | struct Entity (wrapper de `lv_obj_t`), pool estático, pivot bottom-center, flags |
+| 08 | [`08-y-sort-and-collision.md`](08-y-sort-and-collision.md) | Insertion sort, AABB com separação X/Y, camadas, tilemap, debug visual |
+| 09 | [`09-asset-pipeline.md`](09-asset-pipeline.md) | PNG → bin RGB565 → NAND; mapas Tiled JSON → arrays C pré-compilados |
 
 ## Ordem de leitura
 
@@ -40,6 +50,9 @@ Para resolver uma **dúvida pontual**, vá direto ao arquivo:
 - "como expor este periférico?" → 04
 - "que prioridade dar à task?" → 05
 - "como nomear esta função?" → 06
+- "como representar player, NPC ou móvel?" → 07
+- "como funciona Y-sort e colisão?" → 08
+- "como sprites e mapas chegam ao firmware?" → 09
 
 ## Hierarquia de autoridade
 
