@@ -238,3 +238,9 @@ void asset_loader_free(loaded_asset_t *a)
      * pelo resto da sessao. Funcao existe por simetria com load(). */
     (void)a;
 }
+
+const lv_image_dsc_t *asset_loader_get_dsc(asset_type_t type, uint16_t id)
+{
+    asset_cache_entry_t *c = cache_find(type, id);
+    return c ? &c->dsc : NULL;
+}

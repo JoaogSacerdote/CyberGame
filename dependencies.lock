@@ -1,6 +1,6 @@
 dependencies:
   espressif/cjson:
-    component_hash: 4b7cc2431072dc728f6b0a93859e433b563955487f85df594ab53008c0e49c11
+    component_hash: 002c6d1872ee4c97d333938ebe107a29841cc847f9de89e676714bd2844057ea
     dependencies:
     - name: idf
       require: private
@@ -66,6 +66,6 @@ direct_dependencies:
 - espressif/led_strip
 - idf
 - lvgl/lvgl
-manifest_hash: 9e6f0459109b4b6a8929536771dc431f344763cbc2fe3ebfbc642d988ae0d8c5
+manifest_hash: 90d28085aa5b9d3666eac82b47e4821951f859c67b20efa82ec8bed61f6f8279
 target: esp32s3
 version: 3.0.0
