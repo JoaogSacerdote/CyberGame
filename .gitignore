@@ -1,12 +1,12 @@
-build/ 
-build_*/ 
-*.o 
-*.out 
-*.map 
-*.elf 
-*.bin 
-.vscode/ 
-.DS_Store 
+build/
+build_*/
+*.o
+*.out
+*.map
+*.elf
+*.bin
+.vscode/
+.DS_Store
 
 # Simulation build artifacts
 simulation/lv_port_pc_eclipse/build/
@@ -15,11 +15,37 @@ simulation/lv_port_pc_eclipse/bin/
 # LVGL external library (clone via COMPILAR.bat)
 simulation/lv_port_pc_eclipse/lvgl/
 
-# CONFIDENCIAL — Segundo Cerebro / Vault Obsidian e biblioteca de consulta
-# NAO COMMITAR: contem artigo cientifico, manuais e notas internas
-CyberGameCore/
 sdkconfig.old
+
+# Pasta gerada pelo pipeline de assets — binarios gerados nao vao para o repo
+sdcard/
+
+# Binarios e midia pesada dentro do vault de consulta (rastreamos texto + PNGs)
+CyberGameCore/CONSULTA/IGNORAR/
+CyberGameCore/CONSULTA/JC4880P443C_I_W/
+CyberGameCore/CONSULTA/musicas/
+CyberGameCore/CONSULTA/imagens_para_sprints/
+CyberGameCore/CONSULTA/Nova pasta/
+CyberGameCore/CONSULTA/*.pdf
+CyberGameCore/CONSULTA/*.exe
+CyberGameCore/CONSULTA/*.avi
+CyberGameCore/CONSULTA/*.aseprite
+CyberGameCore/CONSULTA/*.jpeg
+CyberGameCore/CONSULTA/*.jpg
 
 # Local MCP server config (path absoluto especifico do desenvolvedor)
 .mcp.json
 
+# Tools cache
+tools/__pycache__/
+
+# AI / IDE tool caches (machine-specific)
+.cache/
+.serena/
+.claude/
+
+# Managed components — baixados automaticamente pelo idf component manager
+managed_components/
+
+# Stray root-level image files
+piso.png

@@ -1,37 +1,124 @@
 {
-  "_doc": "Layout de entidades da sala recepcao. Carregado em runtime pelo room_layout_sd.c. bg_asset_id=0=rec_piso. pivot=bottom-center.",
+  "_doc": "Layout sala recepcao. Posicoes do pivot bottom-center extraidas de posicao.txt. Spawns de INTERACOES.txt. Colisoes calibrar em jogo.",
   "room": "recepcao",
   "bg_asset_id": 0,
   "entities": [
     {
       "name": "player_spawn",
-      "asset_type": 0,
-      "asset_id": 16,
+      "asset_type": 0, "asset_id": 28,
       "type": "player",
       "flags": ["solid", "ysorted", "visible"],
-      "x": 240,
-      "y": 232,
-      "coll_w": 16,
-      "coll_h": 12,
-      "coll_offset_x": -8,
-      "coll_offset_y": -12,
-      "sort_offset_y": 0,
-      "from_image": false
+      "x": 161, "y": 83,
+      "coll_w": 16, "coll_h": 12, "coll_offset_x": -8, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
     },
     {
       "name": "recepcionista_01",
-      "asset_type": 0,
-      "asset_id": 4,
+      "asset_type": 0, "asset_id": 14,
       "type": "npc",
       "flags": ["solid", "interactable", "ysorted", "visible"],
-      "x": 0,
-      "y": 0,
-      "coll_w": 24,
-      "coll_h": 12,
-      "coll_offset_x": -12,
-      "coll_offset_y": -12,
-      "sort_offset_y": 0,
-      "from_image": true
+      "x": 86, "y": 306,
+      "coll_w": 24, "coll_h": 12, "coll_offset_x": -12, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "mesa_l_rec_01",
+      "asset_type": 0, "asset_id": 7,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 71, "y": 319,
+      "coll_w": 112, "coll_h": 48, "coll_offset_x": -56, "coll_offset_y": -48,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "cadeira_esq_01",
+      "asset_type": 0, "asset_id": 3,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 127, "y": 319,
+      "coll_w": 28, "coll_h": 16, "coll_offset_x": -14, "coll_offset_y": -16,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "banco_p_01_a",
+      "asset_type": 0, "asset_id": 1,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 399, "y": 233,
+      "coll_w": 32, "coll_h": 16, "coll_offset_x": -16, "coll_offset_y": -16,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "banco_p_01_b",
+      "asset_type": 0, "asset_id": 1,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 351, "y": 233,
+      "coll_w": 32, "coll_h": 16, "coll_offset_x": -16, "coll_offset_y": -16,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "mesa_centro_01",
+      "asset_type": 0, "asset_id": 8,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 415, "y": 232,
+      "coll_w": 80, "coll_h": 32, "coll_offset_x": -40, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "planta_vaso_01",
+      "asset_type": 0, "asset_id": 10,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 442, "y": 309,
+      "coll_w": 16, "coll_h": 12, "coll_offset_x": -8, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "sofa_costa_03",
+      "asset_type": 0, "asset_id": 9,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 375, "y": 319,
+      "coll_w": 80, "coll_h": 24, "coll_offset_x": -40, "coll_offset_y": -24,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_rec_01",
+      "asset_type": 0, "asset_id": 11,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 470, "y": 149,
+      "coll_w": 17, "coll_h": 17, "coll_offset_x": -8, "coll_offset_y": -17,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_rec_02",
+      "asset_type": 0, "asset_id": 12,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 457, "y": 149,
+      "coll_w": 13, "coll_h": 7, "coll_offset_x": -6, "coll_offset_y": -7,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "lixeira_01",
+      "asset_type": 0, "asset_id": 13,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 34, "y": 215,
+      "coll_w": 24, "coll_h": 18, "coll_offset_x": -12, "coll_offset_y": -18,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "bebedouro_01",
+      "asset_type": 0, "asset_id": 2,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 420, "y": 182,
+      "coll_w": 26, "coll_h": 24, "coll_offset_x": -13, "coll_offset_y": -24,
+      "sort_offset_y": 0, "from_image": false
     }
   ]
 }

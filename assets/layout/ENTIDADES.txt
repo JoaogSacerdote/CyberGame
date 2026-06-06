@@ -1,0 +1,38 @@
+# ===========================================================================
+# ENTIDADES — catalogo GLOBAL de tipos reutilizaveis.
+# Cada bloco define UM tipo (o "molde"): asset, tipo, colisao, flags.
+# NAO tem posicao aqui — posicao vai em POSICOES_<TELA>.txt.
+#
+# Campos por bloco:
+#   nome           : nome do TIPO (snake_case). E o que POSICOES referencia.
+#   imagem         : nome do asset no asset_registry.json
+#   tipo           : player | npc | furniture | prop | trigger
+#   colisao_base   : largura=NN, altura=NN   (offsets calculados: -w/2, -h)
+#   flags          : solid, movable, carryable, interactable, trigger, ysorted
+#   sort_offset_y  : opcional, padrao 0
+#   obs            : opcional, comentario livre
+# ===========================================================================
+
+ENTIDADE
+nome: player
+imagem: player
+tipo: player
+colisao_base: largura=16, altura=12
+flags: solid, ysorted
+obs: jogador
+
+ENTIDADE
+nome: npc_ti
+imagem: emp_npc_ti_baixo
+tipo: npc
+colisao_base: largura=24, altura=12
+flags: solid, interactable, ysorted
+obs: NPC de TI na Empresa
+
+ENTIDADE
+nome: recepcionista
+imagem: rec_recep_idle
+tipo: npc
+colisao_base: largura=24, altura=12
+flags: solid, interactable, ysorted
+obs: recepcionista na Recepcao
