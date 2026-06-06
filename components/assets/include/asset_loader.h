@@ -46,6 +46,14 @@ esp_err_t asset_loader_load(asset_type_t type, uint16_t id, loaded_asset_t *out)
  * pelo resto da sessao. */
 void asset_loader_free(loaded_asset_t *a);
 
+/* Retorna ponteiro PERSISTENTE para o lv_image_dsc_t que vive dentro do cache.
+ * Valido enquanto o asset estiver no cache (sessao inteira).
+ * DEVE ser chamado apos asset_loader_load() ter retornado ESP_OK para o mesmo
+ * (type, id) — retorna NULL se o asset nao estiver no cache.
+ * Use este ponteiro em lv_image_set_src() para entidades que sobrevivem alem
+ * da funcao que fez o load(). */
+const lv_image_dsc_t *asset_loader_get_dsc(asset_type_t type, uint16_t id);
+
 #ifdef __cplusplus
 }
 #endif

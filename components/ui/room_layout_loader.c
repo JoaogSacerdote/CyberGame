@@ -72,10 +72,15 @@ size_t room_layout_spawn(lv_obj_t *parent, const char *room_name,
             e->y = d->y;
         }
 
-        /* 5. cria o lv_obj se for visivel (trigger pode ser zona invisivel). */
+        /* 5. cria o lv_obj se for visivel (trigger pode ser zona invisivel).
+         * IMPORTANTE: nao usar &la.dsc (variavel de pilha) como src — LVGL
+         * guarda o ponteiro e dereferencia mais tarde, quando la ja saiu de
+         * escopo. Usar o ponteiro persistente do cache via get_dsc(). */
         if (d->flags & ENTITY_FLAG_VISIBLE) {
             e->lv_obj = lv_image_create(parent);
-            lv_image_set_src(e->lv_obj, &la.dsc);
+            const lv_image_dsc_t *persistent = asset_loader_get_dsc(
+                (asset_type_t)d->asset_type, d->asset_id);
+            lv_image_set_src(e->lv_obj, persistent);
             lv_obj_remove_flag(e->lv_obj, LV_OBJ_FLAG_SCROLLABLE);
             if (d->type == ENTITY_TYPE_PLAYER) {
                 /* janela de 1 frame; a tela anima via offset depois */

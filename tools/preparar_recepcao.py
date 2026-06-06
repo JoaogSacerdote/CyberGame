@@ -90,8 +90,8 @@ NPC_SHEET = SEC / "NPC_01.png"
 FRAME_W, FRAME_H = 48, 48
 
 npc_frames = {
-    "NPC_01_IDLE.png":   (1, 2),   # idle frente (estatico)
-    "NPC_01_DIALOG.png": (1, 0),   # olhando para frente (dialogo)
+    "NPC_01_IDLE.png":   (1, 3),   # idle frente (LPC: row3=down/front, row2=right)
+    "NPC_01_DIALOG.png": (1, 3),   # mesmo frame frontal para o dialogo
 }
 
 if NPC_SHEET.exists():
