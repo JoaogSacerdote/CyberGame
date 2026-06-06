@@ -1,8 +1,9 @@
 #pragma once
 /* Gerado por tools/gen_asset_ids.py — NAO EDITE A MAO.
  * Fonte: assets/asset_registry.json
- * Os valores casam com o campo 'id' do registry e com o manifest do
- * asset_store. Use com asset_loader_load(ASSET_TYPE_*, ASSET_*, ...). */
+ * Os valores casam com o campo 'id' do registry e com o nome do arquivo no
+ * cartao microSD (/sd/assets/<type>_<id>.bin).
+ * Use com asset_loader_load(ASSET_TYPE_*, ASSET_*, ...). */
 
 /* categoria: sprite */
 enum {

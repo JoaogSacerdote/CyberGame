@@ -13,12 +13,20 @@
 # "TinyUSB CDC driver must be enabled in menuconfig".
 CONFIG_TINYUSB_CDC_ENABLED=y
 
-# --- PSRAM Octal 80MHz ---
-# ESP32-S3 N16R8: 8MB Octal PSRAM. Necessario para o framebuffer do display
-# (480x320 RGB565 = ~307KB) — nao cabe na DRAM interna sozinha.
+# --- PSRAM Octal 40MHz ---
+# ESP32-S3 N16R8: 8MB *Octal* PSRAM (o "R8" do part number = Octal 8MB).
+# Necessario para os sprites e framebuffer (recepcao 480x320 RGB565 =
+# ~307KB) — nao cabe na DRAM interna.
+#
+# HISTORICO:
+#   - Octal@80MHz: boot loop na placa nova (2026-05). Sinal nao aguentou.
+#   - Quad@40MHz: chip nao detectado (2026-06-05). Quad nao funciona em
+#     chip Octal-only — modo precisa casar com o chip; so o clock pode
+#     baixar.
+#   - Octal@40MHz: alvo atual. Mesmo modo do chip, clock reduzido.
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
-CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_SPEED_40M=y
 CONFIG_SPIRAM_USE_MALLOC=y
 
 # --- Flash 16MB (ESP32-S3 N16R8) ---

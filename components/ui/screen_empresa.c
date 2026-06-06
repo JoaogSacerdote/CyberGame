@@ -47,7 +47,7 @@ static bool        s_tarefa_open = false; /* label de tarefa verde aberto */
 static button_state_t s_a_cache  = BTN_RELEASED;
 static button_state_t s_b_cache  = BTN_RELEASED;
 
-/* === Assets da tela, carregados da NAND no build e liberados no destroy === */
+/* === Assets da tela, carregados do SD card no build e liberados no destroy === */
 typedef enum {
     A_PISO = 0, A_PAREDES, A_PLAYER, A_COMPLEMENTO,
     A_NPC_BAIXO, A_NPC_DIREITA, A_NPC_CIMA, A_ICONE_AM, A_ICONE_VD,
@@ -238,7 +238,7 @@ static void free_all_assets(void)
     }
 }
 
-/* Carrega da NAND todos os assets da tela. Em falha, desfaz os que ja
+/* Carrega do SD card todos os assets da tela. Em falha, desfaz os que ja
  * subiram e retorna false. */
 static bool load_all_assets(void)
 {
@@ -266,8 +266,8 @@ void screen_empresa_build(void)
     s_room_col.screen_h         = 320;
 
     if (!load_all_assets()) {
-        ESP_LOGE(TAG, "build abortado — assets da NAND indisponiveis "
-                      "(rodou o upload via recovery?)");
+        ESP_LOGE(TAG, "build abortado — assets do cartao SD indisponiveis "
+                      "(cartao montou? arquivos /sd/assets/ copiados?)");
         return;
     }
 

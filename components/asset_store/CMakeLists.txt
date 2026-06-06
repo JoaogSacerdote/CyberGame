@@ -1,4 +1,3 @@
-idf_component_register(SRCS "asset_store.c"
-                       INCLUDE_DIRS "include"
-                       REQUIRES hardware
-                       PRIV_REQUIRES esp_rom log)
+# Componente desativado — dependia da NAND W25N01GV (removida).
+# Arquivos originais preservados em Desativado/.
+idf_component_register()

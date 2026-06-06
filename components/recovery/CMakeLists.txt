@@ -1,8 +1,3 @@
-idf_component_register(SRCS "recovery.c"
-                       INCLUDE_DIRS "include"
-                       REQUIRES freertos
-                                log
-                                esp_tinyusb
-                       PRIV_REQUIRES asset_store
-                                     hardware
-                                     esp_rom)
+# Componente desativado — protocolo de recovery era exclusivo para upload via
+# NAND W25N01GV (removida). Arquivos originais preservados em Desativado/.
+idf_component_register()

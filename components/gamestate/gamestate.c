@@ -1,19 +1,22 @@
 #include "gamestate.h"
 #include "game_config.h"
 
-static uint32_t s_elapsed_ms = 0;
-static uint8_t  s_vidas      = VIDAS_INICIAIS;
+static uint32_t      s_elapsed_ms = 0;
+static uint8_t       s_vidas      = VIDAS_INICIAIS;
+static game_result_t s_result     = RESULT_EM_ANDAMENTO;
 
 void gamestate_init(void)
 {
     s_elapsed_ms = 0;
     s_vidas      = VIDAS_INICIAIS;
+    s_result     = RESULT_EM_ANDAMENTO;
 }
 
 void gamestate_reset(void)
 {
     s_elapsed_ms = 0;
     s_vidas      = VIDAS_INICIAIS;
+    s_result     = RESULT_EM_ANDAMENTO;
 }
 
 void gamestate_tick(uint32_t dt_ms)
@@ -47,4 +50,14 @@ void gamestate_perder_vida(void)
     if (s_vidas > 0) {
         s_vidas--;
     }
+}
+
+void gamestate_set_result(game_result_t r)
+{
+    s_result = r;
+}
+
+game_result_t gamestate_get_result(void)
+{
+    return s_result;
 }

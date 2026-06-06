@@ -27,8 +27,8 @@ static const char *TAG = "UI_RECEPCAO";
 #define SPAWN_Y 200
 
 /* === Dialogo do recepcionista ===
- * Carregado da NAND no build (assets/dialogos/recepcionista.txt -> blob).
- * Edicao do texto vive em arquivo .txt + upload, sem rebuild do firmware. */
+ * Carregado do SD card no build (assets/dialogos/recepcionista.txt -> blob).
+ * Edicao do texto vive em arquivo .txt + regravar o SD, sem rebuild do firmware. */
 static dialog_t s_dialogo;
 
 typedef enum {
@@ -56,7 +56,7 @@ static lv_obj_t   *s_dlg_text    = NULL;   /* texto typewriter */
 static lv_obj_t   *s_dlg_hint    = NULL;   /* "[A] >>  [B] Pular" */
 static lv_timer_t *s_timer       = NULL;
 
-/* === Assets da tela, carregados da NAND no build e liberados no destroy === */
+/* === Assets da tela, carregados do SD card no build e liberados no destroy === */
 typedef enum {
     A_PISO = 0, A_PAREDES, A_PLAYER, A_COMPLEMENTO,
     A_RECEP_IDLE, A_RECEP_DIALOG, A_ICONE, A_CAIXA_DIALOGO, A_CAIXA_TEXTO,
@@ -320,7 +320,7 @@ static void free_all_assets(void)
     }
 }
 
-/* Carrega da NAND todos os assets da tela + dialogo. Em falha, desfaz os
+/* Carrega do SD card todos os assets da tela + dialogo. Em falha, desfaz os
  * que ja subiram e retorna false. */
 static bool load_all_assets(void)
 {
@@ -354,8 +354,8 @@ void screen_recepcao_build(void)
     s_room_col.screen_h         = 320;
 
     if (!load_all_assets()) {
-        ESP_LOGE(TAG, "build abortado — assets da NAND indisponiveis "
-                      "(rodou o upload via recovery?)");
+        ESP_LOGE(TAG, "build abortado — assets do cartao SD indisponiveis "
+                      "(cartao montou? arquivos /sd/assets/ copiados?)");
         return;
     }
 

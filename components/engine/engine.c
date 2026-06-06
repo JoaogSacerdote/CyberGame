@@ -13,6 +13,20 @@
 #include "ui.h"
 #include "button_hal.h"
 #include "joystick_hal.h"
+#include "ws2812_hal.h"
+
+#include "debug_overlay.h"
+#include "entity_pool.h"
+#include "y_sort.h"
+#include "defense_matrix.h"
+#include "threat.h"
+#include "gamestate.h"
+#include "game_config.h"
+
+/* Combo de toggle do debug overlay: X+Y segurados continuamente por
+ * DEBUG_COMBO_HOLD_MS. Botoes opostos, raramente segurados juntos
+ * em gameplay normal. Y+START ja eh usado em main.c para detect_dev_combo. */
+#define DEBUG_COMBO_HOLD_MS   2000
 
 static const char *TAG = "ENGINE";
 
@@ -24,6 +38,9 @@ static const char *TAG = "ENGINE";
 static QueueHandle_t s_event_queue   = NULL;
 static TaskHandle_t  s_task          = NULL;
 static bool          s_initialized   = false;
+static bool          s_test_mode     = false;   /* jogador-fantasma (DEV) */
+
+void engine_set_test_mode(bool enable) { s_test_mode = enable; }
 
 static void button_reader_task(void *pv)
 {
@@ -50,10 +67,24 @@ static void sync_gameplay_sala_to_ui(gameplay_sala_t sala)
     }
 }
 
+/* Antes de qualquer troca de screen LVGL, libera o debug overlay para
+ * nao deixar lv_obj orfao apontando para a screen morta. set_enabled(true)
+ * subsequente re-cria automaticamente na nova screen. */
+static void release_debug_overlay_for_screen_change(void)
+{
+    /* lv_lock interno — ui_router faz o mesmo padrao por dentro. */
+    extern void lv_lock(void);
+    extern void lv_unlock(void);
+    lv_lock();
+    debug_overlay_deinit();
+    lv_unlock();
+}
+
 /* Sincroniza a tela ativa com o estado macro da FSM. Em GAMEPLAY, escolhe
  * a tela com base na sala atual (RECEPCAO ou EMPRESA). */
 static void sync_ui_to_macro(game_state_t macro)
 {
+    release_debug_overlay_for_screen_change();
     switch (macro) {
         case GAME_STATE_SPLASH:   ui_show_splash();  break;
         case GAME_STATE_MENU:     ui_show_menu();    break;
@@ -61,6 +92,235 @@ static void sync_ui_to_macro(game_state_t macro)
         case GAME_STATE_PAUSE:    ui_show_pause();   break;
         default:                  /* sem tela ainda */ break;
     }
+}
+
+/* Polling do combo X+Y para toggle do debug overlay. Chamado uma vez
+ * por tick do engine_task (a cada ENGINE_TICK_PERIOD_MS). */
+static void update_debug_combo(uint32_t dt_ms)
+{
+    static uint32_t held_ms = 0;
+    static bool     fired   = false;
+
+    const bool both_down =
+        (button_hal_peek(BTN_X) == BTN_PRESSED) &&
+        (button_hal_peek(BTN_Y) == BTN_PRESSED);
+
+    if (!both_down) {
+        held_ms = 0;
+        fired   = false;
+        return;
+    }
+
+    held_ms += dt_ms;
+    if (held_ms >= DEBUG_COMBO_HOLD_MS && !fired) {
+        fired = true;        /* dispara uma unica vez por toque continuo */
+        extern void lv_lock(void);
+        extern void lv_unlock(void);
+        lv_lock();
+        const bool new_state = !debug_overlay_is_enabled();
+        debug_overlay_set_enabled(new_state);
+        lv_unlock();
+        ESP_LOGI(TAG, "combo X+Y: debug_overlay -> %s", new_state ? "ON" : "OFF");
+    }
+}
+
+/* === Loop de jogo (ataques + vitoria/derrota) =========================== */
+
+/* Resolver de carta registrado na FSM. mock_card: 0 = carta correta pro
+ * ataque ativo, 1 = carta errada (placeholder ate a leitura NFC real).
+ * Retorna 0=CORRETO, 1=INUTIL, 2=AGRAVA, -1=sem ataque ativo. */
+static int engine_card_resolver(int mock_card)
+{
+    threat_state_t st;
+    if (!threat_get_active(&st)) {
+        return -1;
+    }
+    carta_id_t carta;
+    if (mock_card == 0) {
+        carta = threat_carta_correta(st.tipo);
+    } else {
+        const carta_id_t certa = threat_carta_correta(st.tipo);
+        carta = (certa == CARTA_ISOLAMENTO) ? CARTA_BACKUP : CARTA_ISOLAMENTO;
+    }
+    const defesa_resultado_t r = threat_mitigate(carta);
+    return (r == DEFESA_CORRETO) ? 0 : (r == DEFESA_INUTIL ? 1 : 2);
+}
+
+/* Tick do modelo durante GAMEPLAY: relogio + ataques + vitoria/derrota. */
+static void gameplay_model_tick(uint32_t dt_ms)
+{
+    if (fsm_get_state() != GAME_STATE_GAMEPLAY) {
+        return;
+    }
+    gamestate_tick(dt_ms);
+
+    if (threat_tick(dt_ms)) {            /* ataque expirou -> setor destruido */
+        gamestate_perder_vida();
+        ESP_LOGW(TAG, "[LOOP] setor destruido! vidas=%u", gamestate_get_vidas());
+        if (gamestate_get_vidas() == 0) {
+            gamestate_set_result(RESULT_DERROTA);
+            ESP_LOGW(TAG, "[LOOP] sem vidas -> DERROTA");
+            fsm_set_state(GAME_STATE_GAME_OVER);
+            return;
+        }
+    }
+
+    if (gamestate_get_clock_minutes() >= HORA_FIM_JOGO_MIN) {
+        gamestate_set_result(RESULT_VITORIA);
+        ESP_LOGI(TAG, "[LOOP] 18:00 — expediente concluido -> VITORIA");
+        fsm_set_state(GAME_STATE_GAME_OVER);
+    }
+}
+
+/* Simulacao do loop no boot — validacao REMOTA (sem precisar jogar). Roda
+ * dois cenarios rapidos e loga o desfecho. Reseta no fim (nao afeta a run
+ * real). Aux temporario. */
+static void gameplay_sim_selftest(void)
+{
+    const uint32_t DT = 100;
+    const uint32_t LIMITE = EXPEDIENTE_DURACAO_MS + 10000;
+    threat_state_t st;
+    uint32_t t;
+    int mit, perdas;
+
+    ESP_LOGI(TAG, "=== SIM loop A: mitiga sempre ===");
+    gamestate_reset(); threat_init();
+    t = 0; mit = 0; perdas = 0;
+    while (gamestate_get_clock_minutes() < HORA_FIM_JOGO_MIN &&
+           gamestate_get_vidas() > 0 && t < LIMITE) {
+        gamestate_tick(DT);
+        if (threat_tick(DT)) { gamestate_perder_vida(); perdas++; }
+        if (threat_get_active(&st)) {
+            if (threat_mitigate(threat_carta_correta(st.tipo)) == DEFESA_CORRETO) mit++;
+        }
+        t += DT;
+    }
+    ESP_LOGI(TAG, "  A: mitigados=%d perdas=%d vidas=%u relogio=%umin -> %s",
+             mit, perdas, gamestate_get_vidas(), gamestate_get_clock_minutes(),
+             gamestate_get_vidas() > 0 ? "VITORIA" : "DERROTA");
+
+    ESP_LOGI(TAG, "=== SIM loop B: nunca mitiga ===");
+    gamestate_reset(); threat_init();
+    t = 0; perdas = 0;
+    while (gamestate_get_clock_minutes() < HORA_FIM_JOGO_MIN &&
+           gamestate_get_vidas() > 0 && t < LIMITE) {
+        gamestate_tick(DT);
+        if (threat_tick(DT)) { gamestate_perder_vida(); perdas++; }
+        t += DT;
+    }
+    ESP_LOGI(TAG, "  B: perdas=%d vidas=%u relogio=%umin -> %s",
+             perdas, gamestate_get_vidas(), gamestate_get_clock_minutes(),
+             gamestate_get_vidas() > 0 ? "VITORIA" : "DERROTA");
+
+    gamestate_reset(); threat_init();   /* limpa pra run real */
+}
+
+/* === Jogador-fantasma (DEV — so roda com engine_set_test_mode(true)) ===== */
+
+static void ghost_inject_button(uint8_t btn)
+{
+    const fsm_event_t fev = {
+        .kind = FSM_EVT_BUTTON,
+        .payload.button.id    = btn,
+        .payload.button.state = 1,   /* BTN_PRESSED */
+    };
+    xQueueSend(s_event_queue, &fev, 0);
+}
+
+/* Dirige o loop sozinho e loga tudo: pula pro gameplay e, quando ha ataque
+ * ativo, avanca o terminal (Y -> A -> X carta correta) pra mitigar. No
+ * GAME_OVER loga o resultado e reinicia. Valida FSM + threat + matriz +
+ * vitoria/derrota sem tocar fisicamente no aparelho. */
+static void ghost_player_task(void *pv)
+{
+    (void)pv;
+    vTaskDelay(pdMS_TO_TICKS(3000));   /* deixa o boot assentar */
+    ESP_LOGW(TAG, "[GHOST] === jogador-fantasma iniciado ===");
+
+    /* Splash/menu usam button-peek (nao a queue), entao pula direto pro jogo. */
+    fsm_set_state(GAME_STATE_GAMEPLAY);
+    fsm_set_player_at_equipment(true);
+
+    uint16_t last_min = 0xFFFF;
+    while (1) {
+        const game_state_t macro = fsm_get_state();
+
+        if (macro == GAME_STATE_GAME_OVER) {
+            const uint16_t m = gamestate_get_clock_minutes();
+            ESP_LOGW(TAG, "[GHOST] FIM: %s | vidas=%u | relogio=%02u:%02u",
+                     gamestate_get_result() == RESULT_VITORIA ? "VITORIA" : "DERROTA",
+                     gamestate_get_vidas(), m / 60, m % 60);
+            vTaskDelay(pdMS_TO_TICKS(2500));
+            ESP_LOGW(TAG, "[GHOST] reiniciando run...");
+            ghost_inject_button(BTN_A);   /* GAME_OVER: A = retry -> GAMEPLAY */
+            vTaskDelay(pdMS_TO_TICKS(800));
+            fsm_set_player_at_equipment(true);
+            last_min = 0xFFFF;
+            continue;
+        }
+
+        if (macro == GAME_STATE_GAMEPLAY) {
+            fsm_set_player_at_equipment(true);
+
+            const uint16_t min = gamestate_get_clock_minutes();
+            if (min != last_min) {
+                threat_state_t ts;
+                const bool atk = threat_get_active(&ts);
+                ESP_LOGI(TAG, "[GHOST] %02u:%02u | vidas=%u | ataque=%s",
+                         min / 60, min % 60, gamestate_get_vidas(),
+                         atk ? ataque_nome(ts.tipo) : "nenhum");
+                last_min = min;
+            }
+
+            threat_state_t ts;
+            if (threat_get_active(&ts)) {
+                switch (fsm_get_gameplay_substate()) {
+                    case GAMEPLAY_SUB_EXPLORANDO:      ghost_inject_button(BTN_Y); break;
+                    case GAMEPLAY_SUB_TERMINAL_ABERTO: ghost_inject_button(BTN_A); break;
+                    case GAMEPLAY_SUB_WAITING_CARD:    ghost_inject_button(BTN_X); break;
+                    default: break;   /* ACTION_LOCK / SYSTEM_DEPLOY: aguarda */
+                }
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(400));
+    }
+}
+
+/* === Arco-iris verde/amarelo/vermelho no MENU ============================ */
+
+static inline uint8_t lerp8(uint8_t a, uint8_t b, uint8_t t)
+{
+    return (uint8_t)((int16_t)a + ((int16_t)b - (int16_t)a) * (int16_t)t / 255);
+}
+
+/* Cicla suavemente entre verde, amarelo e vermelho (cores de alerta do jogo).
+ * Cada LED defasado uma fase: os 3 ficam visiveis simultaneamente.
+ * Ciclo completo: 2,4 s (3 fases x 800 ms). */
+static void rainbow_leds_tick(uint32_t dt_ms)
+{
+    static const uint8_t COLORS[3][3] = {
+        {   0, 100,   0 },   /* verde    */
+        { 100,  80,   0 },   /* amarelo  */
+        { 100,   0,   0 },   /* vermelho */
+    };
+    static uint32_t s_ms = 0;
+    s_ms += dt_ms;
+
+    const uint32_t PHASE_MS = 800u;
+    const uint32_t cycle    = s_ms % (PHASE_MS * 3u);
+    const uint8_t  from     = (uint8_t)(cycle / PHASE_MS);
+    const uint8_t  to       = (from + 1u) % 3u;
+    const uint8_t  t        = (uint8_t)(cycle % PHASE_MS * 255u / PHASE_MS);
+
+    for (uint8_t i = 0; i < WS2812_LED_COUNT; i++) {
+        const uint8_t fi = (from + i) % 3u;
+        const uint8_t ti = (to   + i) % 3u;
+        ws2812_hal_set_pixel(i,
+            lerp8(COLORS[fi][0], COLORS[ti][0], t),
+            lerp8(COLORS[fi][1], COLORS[ti][1], t),
+            lerp8(COLORS[fi][2], COLORS[ti][2], t));
+    }
+    ws2812_hal_refresh();
 }
 
 static void engine_task(void *pv)
@@ -97,8 +357,18 @@ static void engine_task(void *pv)
                 .payload.tick.dt_ms = dt_ms,
             };
             fsm_handle_event(&tick_evt);
+            update_debug_combo(dt_ms);
+            gameplay_model_tick(dt_ms);   /* relogio + ataques + vitoria/derrota */
+            if (fsm_get_state() == GAME_STATE_MENU) {
+                rainbow_leds_tick(dt_ms);
+            }
             last_tick = now;
         }
+
+        /* Render sync: sob lv_lock, faz y_sort (se dirty) + debug_overlay
+         * (se enabled). Chamado todo loop — early-returns internos garantem
+         * custo zero em frames sem movimento e sem debug. */
+        entity_render_sync();
 
         /* Observa mudancas. Macro mudou? troca tela. Sala mudou (dentro
          * de GAMEPLAY)? troca tela tambem. Sub-estado e observado pela
@@ -106,6 +376,18 @@ static void engine_task(void *pv)
         const game_state_t    cur_macro = fsm_get_state();
         const gameplay_sala_t cur_sala  = fsm_get_gameplay_sala();
         if (cur_macro != last_macro) {
+            /* Saiu do MENU: apaga os LEDs do arco-iris. */
+            if (last_macro == GAME_STATE_MENU) {
+                ws2812_hal_clear();
+                ws2812_hal_refresh();
+            }
+            /* Entrada FRESCA em GAMEPLAY (vinda de MENU/SPLASH/GAME_OVER, nao
+             * de PAUSE) = run nova: zera relogio + ataques. */
+            if (cur_macro == GAME_STATE_GAMEPLAY && last_macro != GAME_STATE_PAUSE) {
+                gamestate_reset();
+                threat_init();
+                ESP_LOGI(TAG, "[LOOP] nova run: relogio + ataques zerados");
+            }
             sync_ui_to_macro(cur_macro);
             last_macro = cur_macro;
         } else if (cur_macro == GAME_STATE_GAMEPLAY && cur_sala != last_sala) {
@@ -125,6 +407,13 @@ esp_err_t engine_init(void)
     ESP_RETURN_ON_FALSE(s_event_queue != NULL, ESP_ERR_NO_MEM, TAG, "queue alloc failed");
 
     ESP_RETURN_ON_ERROR(fsm_init(), TAG, "fsm_init failed");
+    ESP_RETURN_ON_ERROR(entity_pool_init(), TAG, "entity_pool_init failed");
+    y_sort_init();
+    gamestate_init();
+    threat_init();
+    fsm_set_card_resolver(engine_card_resolver);
+    defense_matrix_selftest();   /* loga a matriz no boot (validacao remota) */
+    gameplay_sim_selftest();     /* simula o loop no boot (validacao remota) */
 
     const esp_err_t ui_err = ui_init();
     if (ui_err != ESP_OK) {
@@ -154,6 +443,11 @@ esp_err_t engine_start(void)
                                                    ENGINE_TASK_PRIO, &s_task,
                                                    ENGINE_TASK_CORE);
     ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "engine task spawn failed");
+
+    if (s_test_mode) {
+        ESP_LOGW(TAG, "[GHOST] modo teste ON — criando jogador-fantasma");
+        xTaskCreate(ghost_player_task, "ghost", 3072, NULL, 4, NULL);
+    }
 
     ESP_LOGI(TAG, "engine_start OK (core=%d, prio=%d)", ENGINE_TASK_CORE, ENGINE_TASK_PRIO);
     return ESP_OK;

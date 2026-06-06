@@ -1,6 +1,7 @@
 #include "asset_loader.h"
 #include "asset_blob.h"
 
+#include <stdio.h>
 #include <string.h>
 #include "esp_heap_caps.h"
 #include "esp_check.h"
@@ -8,12 +9,17 @@
 
 static const char *TAG = "ASSET_LOADER";
 
+/* Diretorio dos assets no cartao microSD (montado por sd_hal em /sd).
+ * Cada asset e um arquivo "<type>_<id>.bin" com layout
+ * [asset_blob_header_t 32B][pixels]. */
+#define ASSET_SD_DIR  "/sd/assets"
+
 /* ===================== Cache load-once =====================
- * Cada asset e lido da NAND uma unica vez e mantido residente na PSRAM pelo
- * resto da sessao. O cache eh SEMPRE o dono dos pixels — callers recebem
- * lv_image_dsc_t com ponteiros somente-leitura e nunca liberam nada.
+ * Cada asset e lido do cartao uma unica vez e mantido residente na PSRAM
+ * pelo resto da sessao. O cache eh SEMPRE o dono dos pixels — callers
+ * recebem lv_image_dsc_t com ponteiros somente-leitura e nunca liberam nada.
  *
- * Sem evicao: o MVP tem 17 assets (~2.2 MB) e 8 MB de PSRAM. Se exceder
+ * Sem evicao: o MVP tem ~18 assets (~2.2 MB) e 8 MB de PSRAM. Se exceder
  * ASSET_CACHE_MAX, load() retorna ESP_ERR_NO_MEM. */
 #define ASSET_CACHE_MAX  32
 
@@ -52,7 +58,7 @@ static asset_cache_entry_t *cache_alloc_slot(void)
 /* ===================== Decode do blob ===================== */
 
 /* Mapeia o pixel_format do blob (enum proprio) para o LV_COLOR_FORMAT_* do
- * LVGL. Desacopla o formato gravado na NAND da versao do LVGL. */
+ * LVGL. Desacopla o formato gravado em disco da versao do LVGL. */
 static lv_color_format_t pixfmt_to_lv(uint8_t pixfmt)
 {
     switch (pixfmt) {
@@ -72,67 +78,91 @@ static size_t expected_pixels(uint16_t w, uint16_t h, uint8_t pixfmt)
     return n;
 }
 
-/* Le o blob (type,id) da NAND, valida o header, aloca os pixels na PSRAM e
- * preenche *dsc / *off_x / *off_y / *buf. Em sucesso, *buf e o dono dos
- * pixels alocados. */
-static esp_err_t load_from_nand(asset_type_t type, uint16_t id,
-                                lv_image_dsc_t *dsc, int16_t *off_x,
-                                int16_t *off_y, void **buf)
+/* Le o arquivo do asset (type,id) do cartao, valida o header, aloca os pixels
+ * na PSRAM e preenche *dsc / *off_x / *off_y / *buf. Em sucesso, *buf e o dono
+ * dos pixels alocados. */
+static esp_err_t load_from_sd(asset_type_t type, uint16_t id,
+                              lv_image_dsc_t *dsc, int16_t *off_x,
+                              int16_t *off_y, void **buf)
 {
+    char path[48];
+    snprintf(path, sizeof(path), ASSET_SD_DIR "/%d_%u.bin", (int)type, (unsigned)id);
+
+    FILE *f = fopen(path, "rb");
+    if (f == NULL) {
+        ESP_LOGE(TAG, "asset (%d,%u): nao abriu %s", type, id, path);
+        return ESP_ERR_NOT_FOUND;
+    }
+
     /* 1. le e valida o header do blob */
     asset_blob_header_t hdr;
-    ESP_RETURN_ON_ERROR(asset_store_read(type, id, 0, &hdr, sizeof(hdr)),
-                        TAG, "asset (%d,%u) nao encontrado", type, id);
+    if (fread(&hdr, 1, sizeof(hdr), f) != sizeof(hdr)) {
+        fclose(f);
+        ESP_LOGE(TAG, "asset (%d,%u): header curto/ilegivel", type, id);
+        return ESP_ERR_INVALID_SIZE;
+    }
 
     if (hdr.magic != ASSET_BLOB_MAGIC) {
+        fclose(f);
         ESP_LOGE(TAG, "asset (%d,%u): magic invalido 0x%08X",
                  type, id, (unsigned)hdr.magic);
         return ESP_ERR_INVALID_RESPONSE;
     }
     if (hdr.version != ASSET_BLOB_VERSION) {
+        fclose(f);
         ESP_LOGE(TAG, "asset (%d,%u): versao de blob %u (suportada: %u)",
                  type, id, hdr.version, ASSET_BLOB_VERSION);
         return ESP_ERR_INVALID_VERSION;
     }
     const lv_color_format_t cf = pixfmt_to_lv(hdr.pixel_format);
     if (cf == LV_COLOR_FORMAT_UNKNOWN) {
+        fclose(f);
         ESP_LOGE(TAG, "asset (%d,%u): pixel_format %u desconhecido",
                  type, id, hdr.pixel_format);
         return ESP_ERR_INVALID_RESPONSE;
     }
     if (expected_pixels(hdr.w, hdr.h, hdr.pixel_format) != hdr.data_size) {
+        fclose(f);
         ESP_LOGE(TAG, "asset (%d,%u): data_size %u incoerente com %ux%u fmt %u",
                  type, id, (unsigned)hdr.data_size, hdr.w, hdr.h, hdr.pixel_format);
         return ESP_ERR_INVALID_RESPONSE;
     }
 
-    /* 1b. confere o tamanho total contra o manifest do asset_store */
-    asset_info_t info;
-    ESP_RETURN_ON_ERROR(asset_store_get_info(type, id, &info),
-                        TAG, "get_info falhou para asset (%d,%u)", type, id);
-    if (info.size != sizeof(hdr) + hdr.data_size) {
-        ESP_LOGE(TAG, "asset (%d,%u): manifest diz %u B, header diz %u+%u",
-                 type, id, (unsigned)info.size,
-                 (unsigned)sizeof(hdr), (unsigned)hdr.data_size);
+    /* 1b. confere o tamanho total do arquivo == header + pixels */
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return ESP_ERR_INVALID_RESPONSE;
+    }
+    const long fsize = ftell(f);
+    if (fsize != (long)(sizeof(hdr) + hdr.data_size)) {
+        fclose(f);
+        ESP_LOGE(TAG, "asset (%d,%u): arquivo %ld B, esperado %u",
+                 type, id, fsize, (unsigned)(sizeof(hdr) + hdr.data_size));
         return ESP_ERR_INVALID_RESPONSE;
     }
 
-    /* 2. aloca os pixels na PSRAM */
+    /* 2. aloca os pixels: prefere PSRAM, cai pra heap interna se PSRAM
+     * desligada (modo bring-up) ou cheia. */
     void *pixbuf = heap_caps_malloc(hdr.data_size, MALLOC_CAP_SPIRAM);
     if (pixbuf == NULL) {
-        ESP_LOGE(TAG, "asset (%d,%u): PSRAM insuficiente para %u bytes",
+        pixbuf = heap_caps_malloc(hdr.data_size, MALLOC_CAP_8BIT);
+    }
+    if (pixbuf == NULL) {
+        fclose(f);
+        ESP_LOGE(TAG, "asset (%d,%u): sem memoria para %u bytes (PSRAM+DRAM esgotadas)",
                  type, id, (unsigned)hdr.data_size);
         return ESP_ERR_NO_MEM;
     }
 
-    /* 3. le os pixels (vem logo apos o header de 32 B no blob) */
-    const esp_err_t err = asset_store_read(type, id, sizeof(hdr), pixbuf, hdr.data_size);
-    if (err != ESP_OK) {
+    /* 3. le os pixels (vem logo apos o header de 32 B) */
+    if (fseek(f, sizeof(hdr), SEEK_SET) != 0 ||
+        fread(pixbuf, 1, hdr.data_size, f) != hdr.data_size) {
         heap_caps_free(pixbuf);
-        ESP_LOGE(TAG, "asset (%d,%u): falha lendo pixels: %s",
-                 type, id, esp_err_to_name(err));
-        return err;
+        fclose(f);
+        ESP_LOGE(TAG, "asset (%d,%u): falha lendo pixels", type, id);
+        return ESP_ERR_INVALID_SIZE;
     }
+    fclose(f);
 
     /* 4. monta o lv_image_dsc_t apontando para o buffer PSRAM */
     memset(dsc, 0, sizeof(*dsc));
@@ -148,7 +178,7 @@ static esp_err_t load_from_nand(asset_type_t type, uint16_t id,
     *off_y = hdr.off_y;
     *buf   = pixbuf;
 
-    ESP_LOGD(TAG, "asset (%d,%u) lido da NAND: %ux%u cf=%d off=%d,%d %u B",
+    ESP_LOGD(TAG, "asset (%d,%u) lido do SD: %ux%u cf=%d off=%d,%d %u B",
              type, id, hdr.w, hdr.h, (int)cf, hdr.off_x, hdr.off_y,
              (unsigned)hdr.data_size);
     return ESP_OK;
@@ -179,11 +209,11 @@ esp_err_t asset_loader_load(asset_type_t type, uint16_t id, loaded_asset_t *out)
         return ESP_ERR_NO_MEM;
     }
 
-    /* Le da NAND e cacheia. */
+    /* Le do cartao e cacheia. */
     lv_image_dsc_t dsc;
     int16_t off_x = 0, off_y = 0;
     void *buf = NULL;
-    const esp_err_t err = load_from_nand(type, id, &dsc, &off_x, &off_y, &buf);
+    const esp_err_t err = load_from_sd(type, id, &dsc, &off_x, &off_y, &buf);
     if (err != ESP_OK) {
         return err;
     }

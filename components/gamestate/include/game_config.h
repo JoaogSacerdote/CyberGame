@@ -10,10 +10,15 @@
 /* === Vidas === */
 #define VIDAS_INICIAIS                3
 
-/* === Intervalos de spawn (Etapa C+) === */
+/* === Intervalos de spawn (Etapa C+) ===
+ * Pacing ajustado 2026-05-28 pra deixar a partida de 3 min TENSA/perdivel:
+ * vermelho a cada 30s (era 90s) com 1o ataque cedo (10s). Com 3 vidas e
+ * VERMELHO_TIMER 20s, ignorar tudo leva a derrota por volta dos ~16:00.
+ * Numeros de game design — ajustar a gosto. */
 #define EVENTO_VERDE_INTERVALO_MS     (30 * 1000)
 #define EVENTO_AMARELA_INTERVALO_MS   (60 * 1000)
-#define EVENTO_VERMELHO_INTERVALO_MS  (90 * 1000)
+#define EVENTO_VERMELHO_INTERVALO_MS  (30 * 1000)   /* entre ataques vermelhos */
+#define EVENTO_VERMELHO_PRIMEIRO_MS   (10 * 1000)   /* atraso do 1o ataque da run */
 #define EVENTO_COOLDOWN_GLOBAL_MS     (5 * 1000)
 
 /* === Mecanica de carta NFC (Etapa C) === */

@@ -17,17 +17,17 @@ esp_err_t pmu_init(void)
      * de Deep Sleep, senao gpio_config nao consegue reconfigurar o pino. */
     rtc_gpio_deinit(BOARD_PIN_PMU_PWR);
 
-    /* PWR e REC compartilham a mesma config: input pull-up, sem interrupcao.
-     * Botoes ligados a GND, nivel LOW = pressionado. */
+    /* PWR: input pull-up, sem interrupcao. Botao ligado a GND,
+     * nivel LOW = pressionado. */
     const gpio_config_t cfg = {
-        .pin_bit_mask = (1ULL << BOARD_PIN_PMU_PWR) | (1ULL << BOARD_PIN_PMU_REC),
+        .pin_bit_mask = (1ULL << BOARD_PIN_PMU_PWR),
         .mode         = GPIO_MODE_INPUT,
         .pull_up_en   = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type    = GPIO_INTR_DISABLE,
     };
 
-    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "gpio_config failed for PWR/REC");
+    ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "gpio_config failed for PWR");
     return ESP_OK;
 }
 
@@ -46,11 +46,7 @@ pmu_boot_mode_t pmu_check_boot_mode(void)
         vTaskDelay(step_ticks);
     }
 
-    /* PWR confirmado pelo hold de 2s. Amostra REC para decidir o modo:
-     * REC pressionado no fim do hold = boot em modo gravador (RECOVERY). */
-    if (gpio_get_level(BOARD_PIN_PMU_REC) == 0) {
-        return PMU_BOOT_RECOVERY;
-    }
+    /* PWR confirmado pelo hold de 2s. */
     return PMU_BOOT_NORMAL;
 }
 

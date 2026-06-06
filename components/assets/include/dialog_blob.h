@@ -1,13 +1,14 @@
 #pragma once
-/* Contrato do header de blob de dialogo gravado na NAND.
+/* Contrato do header de blob de dialogo gravado no cartao microSD.
  *
- * Cada blob de dialogo no asset_store e armazenado como:
+ * Cada dialogo vive em /sd/assets/0_<id>.bin (mesmo schema de path dos
+ * sprites) com o seguinte layout:
  *     [dialog_blob_header_t (12 B)]
  *     [uint16_t offsets[num_lines]]   -- offset de cada linha dentro do payload
  *     [payload]                       -- strings null-terminated concatenadas
  *
- * O dialog_loader le este header, valida, aloca o payload na PSRAM e monta um
- * array de const char* apontando pras strings.
+ * O dialog_loader le este header pelo FATFS, valida, aloca o payload na
+ * PSRAM e monta um array de const char* apontando pras strings.
  *
  * Espelhado em tools/asset_codec.py (build_dialog_blob) — manter os dois lados
  * em sincronia.

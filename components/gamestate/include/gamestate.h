@@ -36,6 +36,18 @@ uint16_t gamestate_get_clock_minutes(void);
 uint8_t  gamestate_get_vidas(void);
 void     gamestate_perder_vida(void);
 
+/* Resultado da run. EM_ANDAMENTO ate o expediente terminar (vitoria) ou as
+ * vidas acabarem (derrota). A tela final (GAME_OVER) le isto pra mostrar
+ * "Promovido" (vitoria) vs "Demissao" (derrota). */
+typedef enum {
+    RESULT_EM_ANDAMENTO = 0,
+    RESULT_VITORIA,
+    RESULT_DERROTA,
+} game_result_t;
+
+void          gamestate_set_result(game_result_t r);
+game_result_t gamestate_get_result(void);
+
 #ifdef __cplusplus
 }
 #endif

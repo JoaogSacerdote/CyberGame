@@ -1,5 +1,6 @@
 #include "y_sort.h"
 
+#include "debug_overlay.h"
 #include "entity_pool.h"
 #include "lvgl.h"
 
@@ -64,4 +65,12 @@ void y_sort_run(void)
     }
 
     s_dirty = false;
+}
+
+void entity_render_sync(void)
+{
+    lv_lock();
+    y_sort_run();             /* early-return interno se !dirty */
+    debug_overlay_redraw();   /* early-return interno se !enabled */
+    lv_unlock();
 }

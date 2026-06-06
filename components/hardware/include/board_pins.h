@@ -15,14 +15,13 @@ extern "C" {
  * Agrupamento atual reflete o layout do protoboard (PCB ainda nao fechada):
  *   - ADC1 (joystick) ............ GPIO  1, 2     (ADC1_CH0, ADC1_CH1)
  *   - Botoes frontais ............ GPIO  9..13    (sequenciais)
- *   - PMU (power button + rec) ... GPIO 13, 14    (REC compartilha com BTN_START)
+ *   - PMU (power button) ......... GPIO 14
  *   - NFC PN532 (I2C) ............ GPIO  4, 39, 40
  *   - Display ST7796 (SPI2) ...... GPIO  5, 6, 7, 15, 16, 17, 42
- *   - NAND W25N01GV (SPI2) ....... GPIO 15, 16, 18, 41 (MOSI/SCK compartilham
- *                                                       bus com o display)
+ *   - microSD (SPI2, slot do modulo) GPIO 15, 16, 18, 47
  *
- * Se mudar pinout, edite SO este arquivo. Os _Static_assert ao final garantem
- * que invariantes de hardware (dual-use, bus compartilhado) sejam preservadas.
+ * Se mudar pinout, edite SO este arquivo. Atencao aos pinos compartilhados
+ * (DISP/SD via SPI2): mude os dois lados juntos.
  * ============================================================================ */
 
 /* --- Joystick analogico (ADC1 oneshot) -------------------------------------- */
@@ -34,11 +33,10 @@ extern "C" {
 #define BOARD_PIN_BTN_X              GPIO_NUM_10
 #define BOARD_PIN_BTN_B              GPIO_NUM_11
 #define BOARD_PIN_BTN_Y              GPIO_NUM_12
-#define BOARD_PIN_BTN_START          GPIO_NUM_13  /* dual-use: PMU_REC durante boot */
+#define BOARD_PIN_BTN_START          GPIO_NUM_13
 
 /* --- PMU (Power Management Unit) -------------------------------------------- */
 #define BOARD_PIN_PMU_PWR            GPIO_NUM_14  /* power button + EXT0 wakeup */
-#define BOARD_PIN_PMU_REC            GPIO_NUM_13  /* recovery; coincide com BTN_START */
 
 /* --- NFC PN532 (I2C) -------------------------------------------------------- */
 #define BOARD_PIN_NFC_SCL            GPIO_NUM_4
@@ -49,33 +47,22 @@ extern "C" {
 #define BOARD_PIN_DISP_CS            GPIO_NUM_5
 #define BOARD_PIN_DISP_RST           GPIO_NUM_6
 #define BOARD_PIN_DISP_DC            GPIO_NUM_7
-#define BOARD_PIN_DISP_MOSI          GPIO_NUM_15  /* compartilhado com NAND */
-#define BOARD_PIN_DISP_SCK           GPIO_NUM_16  /* compartilhado com NAND */
+#define BOARD_PIN_DISP_MOSI          GPIO_NUM_15  /* compartilhado com microSD */
+#define BOARD_PIN_DISP_SCK           GPIO_NUM_16  /* compartilhado com microSD */
 #define BOARD_PIN_DISP_BL            GPIO_NUM_17  /* backlight via LEDC PWM */
 #define BOARD_PIN_DISP_PWR_EN        GPIO_NUM_42  /* NPN driver: 1=liga VCC, 0=corta */
 
-/* --- Storage NAND W25N01GV (SPI2_HOST, compartilha bus com display) --------- */
-#define BOARD_PIN_NAND_MOSI          GPIO_NUM_15  /* === DISP_MOSI */
-#define BOARD_PIN_NAND_SCK           GPIO_NUM_16  /* === DISP_SCK */
-#define BOARD_PIN_NAND_MISO          GPIO_NUM_18
-#define BOARD_PIN_NAND_CS            GPIO_NUM_41
+/* --- Feedback ao jogador (LED enderecavel + buzzer) ------------------------- */
+#define BOARD_PIN_WS2812_DATA        GPIO_NUM_8   /* 3 LEDs WS2812 via RMT */
+#define BOARD_PIN_BUZZER             GPIO_NUM_21  /* piezo passivo via LEDC PWM */
 
-/* === Invariantes de hardware =================================================
- * Estes asserts disparam em compile-time se alguem mudar um pino acima sem
- * pensar nas consequencias. NAO os remova para "fazer o build passar". */
-
-_Static_assert(BOARD_PIN_BTN_START == BOARD_PIN_PMU_REC,
-               "BTN_START e PMU_REC compartilham o mesmo GPIO por design "
-               "(PMU le como REC durante boot; button_hal claim como START depois). "
-               "Ver pmu.c e button_hal.c.");
-
-_Static_assert(BOARD_PIN_NAND_MOSI == BOARD_PIN_DISP_MOSI,
-               "NAND e Display compartilham MOSI no SPI2_HOST. Se separar, "
-               "alocar bus distinto (SPI3_HOST) para um dos dois.");
-
-_Static_assert(BOARD_PIN_NAND_SCK == BOARD_PIN_DISP_SCK,
-               "NAND e Display compartilham SCK no SPI2_HOST. Mesma regra "
-               "do MOSI acima.");
+/* --- Cartao microSD (slot embutido no modulo de display, SPI2_HOST) ---------
+ * Compartilha MOSI/SCK/MISO com o display no mesmo barramento SPI2_HOST.
+ * Pinos do modulo LCDWIKI: 9 SDO(MISO)->GPIO18, 14 SD_CS->GPIO47. */
+#define BOARD_PIN_SD_MOSI            GPIO_NUM_15  /* === DISP_MOSI */
+#define BOARD_PIN_SD_SCK             GPIO_NUM_16  /* === DISP_SCK */
+#define BOARD_PIN_SD_MISO            GPIO_NUM_18  /* compartilhado no SPI2_HOST */
+#define BOARD_PIN_SD_CS              GPIO_NUM_47
 
 #ifdef __cplusplus
 }

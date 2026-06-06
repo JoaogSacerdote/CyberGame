@@ -10,6 +10,7 @@ idf_component_register(
         "screen_room.c"
         "screen_hud.c"
         "screen_game_over.c"
+        "room_layout_loader.c"
     INCLUDE_DIRS "include"
     REQUIRES
         "hardware"
@@ -18,6 +19,7 @@ idf_component_register(
         "fsm"
         "assets"
         "gamestate"
+        "entity"
     PRIV_REQUIRES
         "esp_timer"
 )

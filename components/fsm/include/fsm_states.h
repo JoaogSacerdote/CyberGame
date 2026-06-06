@@ -12,6 +12,7 @@ typedef enum {
     GAME_STATE_MENU,
     GAME_STATE_GAMEPLAY,       /* placeholder na Etapa A; sub-FSM completa na Etapa C+ */
     GAME_STATE_PAUSE,
+    GAME_STATE_GAME_OVER,
     GAME_STATE_RANKING_VIEW,
     GAME_STATE_CREDITOS,
     GAME_STATE_MAX,

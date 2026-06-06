@@ -2,6 +2,7 @@
 
 #include "entity_pool.h"
 #include "esp_log.h"
+#include "y_sort.h"
 
 static const char *TAG = "DEBUG_OVERLAY";
 
@@ -46,17 +47,33 @@ void debug_overlay_init(lv_obj_t *parent)
     ESP_LOGI(TAG, "init OK");
 }
 
+void debug_overlay_deinit(void)
+{
+    if (s_layer != NULL) {
+        lv_obj_delete(s_layer);
+        s_layer = NULL;
+    }
+    s_enabled = false;
+}
+
 void debug_overlay_set_enabled(bool en)
 {
     s_enabled = en;
-    if (s_layer == NULL) {
-        ESP_LOGW(TAG, "set_enabled(%d) sem init previo", en);
-        return;
-    }
+
     if (en) {
-        lv_obj_clear_flag(s_layer, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_move_foreground(s_layer);     /* sempre por cima */
-    } else {
+        /* Auto-init na screen ativa se ainda nao havia layer. Permite o
+         * caller (engine) ligar/desligar sem precisar passar parent. */
+        if (s_layer == NULL) {
+            debug_overlay_init(lv_screen_active());
+        }
+        if (s_layer != NULL) {
+            lv_obj_clear_flag(s_layer, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(s_layer);     /* sempre por cima */
+        }
+        /* Forca primeiro redraw mesmo sem entity ter se movido — senao o
+         * overlay aparece em branco ate alguem chamar try_move. */
+        y_sort_mark_dirty();
+    } else if (s_layer != NULL) {
         lv_obj_add_flag(s_layer, LV_OBJ_FLAG_HIDDEN);
     }
 }
