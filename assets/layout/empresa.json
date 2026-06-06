@@ -1,0 +1,37 @@
+{
+  "_doc": "Layout de entidades da sala empresa (escritorio). Carregado em runtime pelo room_layout_sd.c. bg_asset_id=8=emp_piso. pivot=bottom-center.",
+  "room": "empresa",
+  "bg_asset_id": 8,
+  "entities": [
+    {
+      "name": "player_spawn",
+      "asset_type": 0,
+      "asset_id": 16,
+      "type": "player",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 56,
+      "y": 184,
+      "coll_w": 16,
+      "coll_h": 12,
+      "coll_offset_x": -8,
+      "coll_offset_y": -12,
+      "sort_offset_y": 0,
+      "from_image": false
+    },
+    {
+      "name": "npc_ti_01",
+      "asset_type": 0,
+      "asset_id": 15,
+      "type": "npc",
+      "flags": ["solid", "interactable", "ysorted", "visible"],
+      "x": 0,
+      "y": 0,
+      "coll_w": 24,
+      "coll_h": 12,
+      "coll_offset_x": -12,
+      "coll_offset_y": -12,
+      "sort_offset_y": 0,
+      "from_image": true
+    }
+  ]
+}
