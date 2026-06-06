@@ -85,9 +85,8 @@ esp_err_t button_hal_init(void)
     };
     ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "gpio_config failed");
 
-    /* BTN_START compartilha GPIO com PMU_REC (ver _Static_assert em board_pins.h).
-     * Se o usuario ainda esta segurando o botao apos o boot, armar ISR agora
-     * dispararia evento espurio imediato. */
+    /* Se o usuario ainda esta segurando BTN_START apos o boot, armar ISR
+     * agora dispararia evento espurio imediato. Esperamos soltar primeiro. */
     vTaskDelay(pdMS_TO_TICKS(100));
     while (gpio_get_level(BOARD_PIN_BTN_START) == 0) {
         vTaskDelay(pdMS_TO_TICKS(10));

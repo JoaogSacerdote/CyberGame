@@ -120,13 +120,13 @@ static esp_err_t display_hal_backlight_init(void)
 
 static esp_err_t display_hal_spi_bus_init(void)
 {
-    /* MISO=9 pertence ao storage_hal (NAND W25N01GV). Display nao le, mas
-     * roteamos a linha aqui para que o storage possa anexar via spi_bus_add_device
-     * sem precisar reinicializar o bus. Display eh dono do bus por exigir
-     * max_transfer_sz muito maior. */
+    /* MISO=18 pertence ao microSD. Display nao le, mas roteamos a linha aqui
+     * para que o sd_hal possa anexar via spi_bus_add_device sem precisar
+     * reinicializar o bus. Display eh dono do bus por exigir max_transfer_sz
+     * muito maior. */
     const spi_bus_config_t bus_cfg = {
         .mosi_io_num     = BOARD_PIN_DISP_MOSI,
-        .miso_io_num     = 18,  /* MISO compartilhado SPI2: tela (write-only) + NAND (read) */
+        .miso_io_num     = 18,  /* MISO compartilhado SPI2: tela (write-only) + microSD (read) */
         .sclk_io_num     = BOARD_PIN_DISP_SCK,
         .quadwp_io_num   = -1,
         .quadhd_io_num   = -1,

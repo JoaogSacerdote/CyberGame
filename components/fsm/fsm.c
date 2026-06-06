@@ -14,6 +14,9 @@ static gameplay_sala_t     s_sala                = GAMEPLAY_SALA_RECEPCAO;
 static gameplay_sala_t     s_sala_prev           = GAMEPLAY_SALA_RECEPCAO;
 static uint32_t            s_phase_ms            = 0;   /* tempo decorrido no sub-estado atual */
 static bool                s_player_at_equipment = false; /* setado pelo tick do screen ativo */
+static fsm_card_resolver_t s_card_resolver       = NULL;  /* registrado pelo engine */
+
+void fsm_set_card_resolver(fsm_card_resolver_t cb) { s_card_resolver = cb; }
 
 static const char *state_name(game_state_t s)
 {
@@ -174,19 +177,23 @@ static void gameplay_handle_event(const fsm_event_t *evt)
             else if (btn == BTN_B) set_sub(GAMEPLAY_SUB_EXPLORANDO);
             break;
         case GAMEPLAY_SUB_WAITING_CARD:
-            /* X = mock de leitura NFC com carta CORRETA — segue pra ACTION_LOCK.
-             * Y = mock de carta ERRADA — perde 1 vida e fica em WAITING_CARD
-             *     (tenta de novo). Substituir pela validacao real UID-vs-ameaca
-             *     quando a logica de ameacas existir.
+            /* X = "escaneia carta correta" (mock), Y = "carta errada" (mock).
+             * O engine resolve via matriz contra o ataque ativo (resolver).
+             * A perda de vida NAO acontece aqui — quem decide e o threat_tick
+             * (engine) quando o ataque expira sem mitigacao.
              * B = abortar / voltar pro terminal. */
-            if (btn == BTN_X) {
-                set_sub(GAMEPLAY_SUB_ACTION_LOCK);
-            } else if (btn == BTN_Y) {
-                ESP_LOGW(TAG, "[GAMEPLAY] carta errada -> -1 vida");
-                gamestate_perder_vida();
-                if (gamestate_get_vidas() == 0) {
-                    fsm_set_state(GAME_STATE_GAME_OVER);
-                    return;
+            if (btn == BTN_X || btn == BTN_Y) {
+                const int mock_card = (btn == BTN_X) ? 0 : 1;
+                const int res = (s_card_resolver != NULL) ? s_card_resolver(mock_card) : -1;
+                if (res == 0) {            /* CORRETO -> mitiga, segue pro deploy */
+                    set_sub(GAMEPLAY_SUB_ACTION_LOCK);
+                } else if (res == 2) {     /* AGRAVA */
+                    ESP_LOGW(TAG, "[GAMEPLAY] carta AGRAVOU o ataque");
+                } else if (res == 1) {     /* INUTIL */
+                    ESP_LOGW(TAG, "[GAMEPLAY] carta inutil (so perdeu tempo)");
+                } else {                   /* -1: nenhum ataque ativo */
+                    ESP_LOGI(TAG, "[GAMEPLAY] sem ataque ativo pra mitigar");
+                    set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
                 }
             } else if (btn == BTN_B) {
                 set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);

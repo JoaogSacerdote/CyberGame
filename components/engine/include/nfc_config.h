@@ -7,8 +7,7 @@
  * Os UIDs sao HARDCODED conforme decisao em RESPOSTAS.txt (item 6 das
  * sub-duvidas). Para preencher os valores reais:
  *
- *   1. Boot em recovery (PWR+REC) e use o comando de leitura NFC bruta,
- *      OU use um app celular tipo "NFC TagWriter" para ler o UID de cada tag.
+ *   1. Use um app celular tipo "NFC TagWriter" para ler o UID de cada tag.
  *   2. Substitua os 0xDEADBEEFs abaixo pelos UIDs reais.
  *   3. Confirme o uid_len (MIFARE Classic costuma ser 4 ou 7 bytes).
  *

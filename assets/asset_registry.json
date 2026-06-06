@@ -21,6 +21,6 @@
 
     { "file": "Sprite_PLAYER.png",                                                     "type": "sprite", "id": 16, "name": "player",            "crop": false },
 
-    { "file": "recepcionista.txt",                                                     "type": "sprite", "id": 17, "name": "dialog_recep" }
+    { "file": "DIALOGO.txt",                                                           "type": "sprite", "id": 17, "name": "dialog_recep" }
   ]
 }

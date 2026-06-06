@@ -3,17 +3,16 @@
 #include <stdbool.h>
 #include "esp_err.h"
 
-/* Pinos do PMU agora vivem em components/hardware/include/board_pins.h
- * (BOARD_PIN_PMU_PWR, BOARD_PIN_PMU_REC). Header publico do PMU nao
- * precisa expor GPIOs — esses sao detalhes de implementacao. */
+/* Pino do PMU vive em components/hardware/include/board_pins.h
+ * (BOARD_PIN_PMU_PWR). Header publico do PMU nao precisa expor o GPIO —
+ * eh detalhe de implementacao. */
 
 #define PMU_HOLD_BOOT_MS        2000
 #define PMU_HOLD_SHUTDOWN_MS    4000
 
 typedef enum {
     PMU_BOOT_ABORT     = 0,  /* PWR solto antes do hold completar — voltar para Deep Sleep */
-    PMU_BOOT_NORMAL,         /* Apenas PWR segurado por 2s — fluxo normal do jogo */
-    PMU_BOOT_RECOVERY,       /* PWR + REC segurados por 2s — modo gravador (USB MSC futuro) */
+    PMU_BOOT_NORMAL,         /* PWR segurado por 2s — fluxo normal do jogo */
 } pmu_boot_mode_t;
 
 #ifdef __cplusplus

@@ -2,6 +2,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -69,12 +71,37 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     const int y1 = area->y1;
     const int x2 = area->x2;     /* coordenadas do LVGL sao inclusivas    */
     const int y2 = area->y2;
-    const size_t pixels = (size_t)(x2 - x1 + 1) * (size_t)(y2 - y1 + 1);
+    const int width = x2 - x1 + 1;
+    const int height = y2 - y1 + 1;
+    const size_t line_bytes = (size_t)width * DISPLAY_HAL_BYTES_PER_PIXEL;
 
-    rb_boost_and_byte_swap_inplace((uint16_t *)px_map, pixels);
+    /* Detecta stride: LVGL pode alinhar linhas e introduzir padding.
+     * Se o draw buf ativo tem stride > line_bytes, copiamos linha-a-linha
+     * para buffer denso antes do display_hal_draw_bitmap. */
+    uint8_t *src_buf = px_map;
+    uint8_t *temp_buf = NULL;
+
+    {
+        const lv_draw_buf_t *buf_active = lv_display_get_buf_active(disp);
+        if (buf_active && buf_active->header.stride > line_bytes) {
+            /* Buffer tem stride > width*bpp. Copia linha-a-linha densamente. */
+            size_t stride_bytes = (size_t)buf_active->header.stride;
+            temp_buf = (uint8_t *)malloc(line_bytes * height);
+            if (temp_buf) {
+                for (int y = 0; y < height; y++) {
+                    const uint8_t *src_line = px_map + (y * stride_bytes);
+                    uint8_t *dst_line = temp_buf + (y * line_bytes);
+                    memcpy(dst_line, src_line, line_bytes);
+                }
+                src_buf = temp_buf;
+            }
+        }
+    }
+
+    rb_boost_and_byte_swap_inplace((uint16_t *)src_buf, (size_t)width * height);
 
     /* display_hal espera (x_end, y_end) exclusivos -> +1. */
-    const esp_err_t err = display_hal_draw_bitmap(x1, y1, x2 + 1, y2 + 1, px_map);
+    const esp_err_t err = display_hal_draw_bitmap(x1, y1, x2 + 1, y2 + 1, src_buf);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "display_hal_draw_bitmap retornou %s", esp_err_to_name(err));
         /* Sinaliza ready imediatamente para nao travar o pipeline do LVGL. */
@@ -82,6 +109,10 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     }
     /* Em sucesso, lv_display_flush_ready sera chamado pelo
      * display_trans_done_cb quando o DMA acabar. */
+
+    if (temp_buf) {
+        free(temp_buf);
+    }
 }
 
 static void IRAM_ATTR lv_tick_timer_cb(void *arg)

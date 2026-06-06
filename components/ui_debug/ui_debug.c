@@ -267,10 +267,16 @@ static void refresh_header(void)
         s_last_uptime_s = seconds;
     }
 
-    const unsigned dram_kb  = (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024);
-    const unsigned psram_kb = (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)   / 1024);
+    const unsigned dram_kb     = (unsigned)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024);
+    const unsigned psram_kb    = (unsigned)(heap_caps_get_free_size(MALLOC_CAP_SPIRAM)   / 1024);
+    const unsigned psram_total = (unsigned)(heap_caps_get_total_size(MALLOC_CAP_SPIRAM)  / 1024);
     if (dram_kb != s_last_dram_kb || psram_kb != s_last_psram_kb) {
-        lv_label_set_text_fmt(s_lbl_heap, "heap: %u/%u KB", dram_kb, psram_kb);
+        if (psram_total == 0) {
+            /* PSRAM desligada — mostra so DRAM pra evitar "X/0 KB" confuso. */
+            lv_label_set_text_fmt(s_lbl_heap, "heap: %u KB (sem PSRAM)", dram_kb);
+        } else {
+            lv_label_set_text_fmt(s_lbl_heap, "heap: %u/%u KB", dram_kb, psram_kb);
+        }
         s_last_dram_kb  = dram_kb;
         s_last_psram_kb = psram_kb;
     }

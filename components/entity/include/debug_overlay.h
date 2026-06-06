@@ -24,8 +24,13 @@ extern "C" {
  * Chamar sob lv_lock. */
 void debug_overlay_init(lv_obj_t *parent);
 
-/* Liga/desliga visibilidade. Quando liga, move_foreground para garantir
- * que fica sobre o resto. Chamar sob lv_lock. */
+/* Destroi a camada (caso a screen pai va morrer). set_enabled(true) volta
+ * a auto-inicializar na screen ativa. Chamar sob lv_lock. */
+void debug_overlay_deinit(void);
+
+/* Liga/desliga visibilidade. Quando liga, auto-inicializa em
+ * lv_screen_active() se ainda nao havia init + move_foreground. Quando
+ * desliga, apenas oculta. Chamar sob lv_lock. */
 void debug_overlay_set_enabled(bool en);
 
 bool debug_overlay_is_enabled(void);

@@ -5,5 +5,5 @@ idf_component_register(
         "collision/collision_recepcao.c"
         "collision/collision_empresa.c"
     INCLUDE_DIRS "include"
-    REQUIRES "lvgl__lvgl" "asset_store"
+    REQUIRES "lvgl__lvgl" "heap" "log"
 )

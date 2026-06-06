@@ -3,3 +3,4 @@
 dependencies:
   idf: ">=5.1"
   espressif/esp_lcd_st7796: "^1.2.0"
+  espressif/led_strip: "^3.0"

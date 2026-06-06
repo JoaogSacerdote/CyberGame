@@ -4,6 +4,7 @@ idf_component_register(
         "movement.c"
         "y_sort.c"
         "debug_overlay.c"
+        "room_layout_gen.c"
     INCLUDE_DIRS "include"
     REQUIRES
         "lvgl__lvgl"

@@ -1,12 +1,11 @@
 #pragma once
-/* Contrato do header de blob de asset gravado na NAND.
+/* Contrato do header de blob de asset gravado no cartao microSD.
  *
- * Cada asset no asset_store e armazenado como:
+ * Cada asset vive em /sd/assets/<type>_<id>.bin como:
  *     [asset_blob_header_t (32 B)] [pixels crus]
  *
- * O asset_store guarda o blob inteiro como bytes opacos (size/crc/name no
- * manifest). O runtime loader (Fase 5) le este header e monta o
- * lv_image_dsc_t a partir dele.
+ * O asset_loader le este header pelo FATFS e monta o lv_image_dsc_t a
+ * partir dele.
  *
  * Espelhado em tools/asset_codec.py — manter os dois lados em sincronia.
  */

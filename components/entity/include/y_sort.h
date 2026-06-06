@@ -25,6 +25,13 @@ bool y_sort_is_dirty(void);
  * Chamar SOB lv_lock. No-op se !y_sort_is_dirty(). */
 void y_sort_run(void);
 
+/* Coordena render por frame: lv_lock + y_sort_run (no-op se !dirty) +
+ * debug_overlay_redraw (no-op se !enabled) + lv_unlock.
+ *
+ * Engine chama sem precisar incluir lvgl.h nem saber sobre lock.
+ * Idempotente; barato em frames sem mudanca (early-returns aninhados). */
+void entity_render_sync(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -11,15 +11,23 @@
 #include "button_hal.h"
 #include "joystick_hal.h"
 #include "nfc_hal.h"
-#include "storage_hal.h"
 #include "display_hal.h"
+#include "ws2812_hal.h"
+#include "buzzer_hal.h"
+#include "sd_hal.h"
 #include "hal_bridge.h"
-#include "asset_store.h"
-#include "recovery.h"
 #include "ui_debug.h"     /* modo dev — acessivel pelo combo Y+START */
 #include "engine.h"       /* gameplay loop */
 
 static const char *TAG = "APP_MAIN";
+
+/* ===== MODO DE TESTE REMOTO (mude SO este numero entre 1 e 0) ==============
+ * 1 = BYPASSA o botao PWR (boota direto em NORMAL) + LIGA o jogador-fantasma
+ *     (task que joga sozinha e loga tudo no console). Para testar sem o
+ *     hardware fisico.
+ * 0 = comportamento normal: segura PWR pra ligar, sem fantasma (producao).
+ * ========================================================================== */
+#define DEV_TEST_MODE   0
 
 #define DEV_COMBO_POLL_MS   100
 #define DEV_COMBO_HOLD_MS   2000
@@ -30,6 +38,7 @@ static const char *TAG = "APP_MAIN";
  *
  * Detecta assim que main.c termina os inits — o usuario pode comecar a
  * segurar o combo durante o splash anterior do PMU e ainda pegar. */
+#if !DEV_TEST_MODE
 static bool detect_dev_combo(void)
 {
     if (button_hal_peek(BTN_Y) != BTN_PRESSED ||
@@ -49,6 +58,7 @@ static bool detect_dev_combo(void)
     }
     return true;
 }
+#endif /* !DEV_TEST_MODE */
 
 static const char *reset_reason_name(esp_reset_reason_t r)
 {
@@ -82,6 +92,12 @@ void app_main(void)
 
     ESP_ERROR_CHECK(pmu_init());
 
+#if DEV_TEST_MODE
+    /* BYPASS: forca boot NORMAL sem segurar PWR (teste remoto). Pula o latch
+     * e o monitor de shutdown (evita deep sleep acidental com PWR flutuando). */
+    ESP_LOGW(TAG, "[DEV] DEV_TEST_MODE=1 — PMU latch BYPASSADO (boot NORMAL forcado)");
+    const pmu_boot_mode_t mode = PMU_BOOT_NORMAL;
+#else
     ESP_LOGI(TAG, "Avaliando Power Latch...");
     const pmu_boot_mode_t mode = pmu_check_boot_mode();
 
@@ -90,43 +106,9 @@ void app_main(void)
         pmu_enter_deep_sleep();
     }
 
-    /* Monitor de PWR para shutdown vale tanto em jogo quanto em recovery. */
+    /* Monitor de PWR para shutdown (hold longo -> deep sleep). */
     xTaskCreate(pmu_shutdown_monitor_task, "pmu_monitor", 3072, NULL, 5, NULL);
-
-    if (mode == PMU_BOOT_RECOVERY) {
-        ESP_LOGI(TAG, "Boot RECOVERY confirmado (PWR+REC). Modo gravador.");
-
-        if (storage_hal_init() != ESP_OK) {
-            ESP_LOGE(TAG, "storage_hal_init falhou — sem como rodar testes do NAND");
-        } else {
-            if (storage_hal_test_write_cycle() == ESP_OK) {
-                ESP_LOGI(TAG, "POST do NAND PASSOU.");
-            } else {
-                ESP_LOGE(TAG, "POST do NAND FALHOU — ver logs acima.");
-            }
-            /* A validacao fisica completa (destrutiva, ~5-10 s) NAO roda mais
-             * automaticamente: viraria risco a cada entrada em recovery, que
-             * agora tambem e o modo de upload de assets. Disponivel sob
-             * demanda pelo comando CMD_SELFTEST do protocolo de recovery. */
-        }
-
-        /* asset_store sobe sobre o storage_hal — necessario para os comandos
-         * PUT/GET/LIST do recovery. Se falhar, o recovery ainda roda (PING),
-         * mas comandos de asset retornam NACK. */
-        if (asset_store_init() != ESP_OK) {
-            ESP_LOGE(TAG, "asset_store_init falhou — comandos de asset indisponiveis.");
-        }
-
-        if (recovery_init() == ESP_OK) {
-            ESP_LOGI(TAG, "Recovery USB CDC ativo. Use PC para enviar comandos. Segure PWR para desligar.");
-            recovery_run();   /* nunca retorna */
-        } else {
-            ESP_LOGE(TAG, "Falha ao iniciar USB CDC — caindo em idle. Segure PWR para desligar.");
-            while (1) {
-                vTaskDelay(pdMS_TO_TICKS(1000));
-            }
-        }
-    }
+#endif
 
     /* PMU_BOOT_NORMAL daqui em diante. */
     ESP_LOGI(TAG, "Boot NORMAL confirmado! Iniciando sistema...");
@@ -147,6 +129,22 @@ void app_main(void)
     if (nfc_hal_init() != ESP_OK) {
         ESP_LOGW(TAG, "[BRING-UP] NFC ausente — boot continua sem leitura de cartao.");
     }
+    if (ws2812_hal_init() != ESP_OK) {
+        ESP_LOGW(TAG, "[BRING-UP] WS2812 ausente — boot continua sem LEDs de feedback.");
+    } else {
+        /* Diagnostico de hardware: 3 LEDs em vermelho por 300 ms.
+         * Se nao acender visivelmente, o driver iniciou mas a eletrica
+         * (alimentacao/GND/GPIO 8/data line) tem problema. Remover apos
+         * confirmar que a tira responde. */
+        ws2812_hal_set_all(80, 0, 0);
+        ws2812_hal_refresh();
+        vTaskDelay(pdMS_TO_TICKS(300));
+        ws2812_hal_clear();
+        ws2812_hal_refresh();
+    }
+    if (buzzer_hal_init() != ESP_OK) {
+        ESP_LOGW(TAG, "[BRING-UP] buzzer ausente — boot continua sem SFX.");
+    }
 
     /* Display: sem ele nao tem como rodar LVGL/engine/ui_debug. Marca flag. */
     bool ui_ok = true;
@@ -160,15 +158,14 @@ void app_main(void)
         display_hal_set_backlight_percent(70);
     }
 
-    /* Storage: se a NAND nao responder, segue (ja era tolerante). */
-    if (storage_hal_init() != ESP_OK) {
-        ESP_LOGW(TAG, "[BRING-UP] NAND ausente — boot continua sem asset_store.");
-    } else if (asset_store_init() != ESP_OK) {
-        ESP_LOGW(TAG, "[BRING-UP] asset_store_init falhou — boot continua sem assets.");
+    /* microSD (slot do modulo de display). O barramento SPI2 ja foi inicializado
+     * pelo display acima. Fase 1: so detectar/montar e listar a raiz. Tolerante:
+     * se falhar, boot segue (as telas ficam sem assets ate a migracao Fase 2). */
+    if (sd_hal_init() != ESP_OK) {
+        ESP_LOGW(TAG, "[BRING-UP] microSD ausente — boot continua sem storage.");
     } else {
-        size_t n = 0;
-        asset_store_count(&n);
-        ESP_LOGI(TAG, "asset_store pronto: %u entries", (unsigned)n);
+        sd_hal_list_root();
+        sd_hal_selftest();   /* valida escrita+leitura do cartao */
     }
 
     /* Sem UI nao tem como rodar engine nem ui_debug (ambos chamam LVGL).
@@ -181,8 +178,10 @@ void app_main(void)
         }
     }
 
+#if !DEV_TEST_MODE
     /* Combo dev: Y+START segurados juntos por 2s -> ui_debug.
-     * Caso contrario, inicia o engine normalmente. */
+     * Caso contrario, inicia o engine normalmente. (Pulado em DEV_TEST_MODE
+     * pra nao depender de leitura de botao com a placa sem interacao.) */
     if (detect_dev_combo()) {
         ESP_LOGW(TAG, "MODO DEV: iniciando ui_debug ao inves do engine.");
         if (ui_debug_init() != ESP_OK) {
@@ -190,12 +189,14 @@ void app_main(void)
         }
         while (1) vTaskDelay(pdMS_TO_TICKS(1000));
     }
+#endif
 
     /* MODO GAME normal. */
     if (engine_init() != ESP_OK) {
         ESP_LOGE(TAG, "engine_init falhou — boot continua em idle.");
         while (1) vTaskDelay(pdMS_TO_TICKS(1000));
     }
+    engine_set_test_mode(DEV_TEST_MODE);   /* liga o jogador-fantasma se ==1 */
     if (engine_start() != ESP_OK) {
         ESP_LOGE(TAG, "engine_start falhou — engine nao recebera eventos.");
     }
