@@ -9,13 +9,9 @@
 extern "C" {
 #endif
 
-/* Definicao ESTATICA de uma entidade numa sala — gerada por
- * tools/gen_room_layout.py a partir de assets/room_layout.json.
- *
- * NAO confundir com entity_t (estado vivo, com lv_obj). Isto e o "molde":
- * o loader (na camada de UI) le um room_entity_def_t, aloca uma entity_t no
- * pool, carrega o asset e posiciona. Por isso aqui guardamos so dados leves
- * (ids numericos, sem ponteiros LVGL) — cabe na flash sem pesar. */
+/* Definicao de uma entidade numa sala. Molde estatico que o loader usa para
+ * alocar uma entity_t no pool, carregar o asset e posicionar.
+ * Dados leves (ids numericos, sem ponteiros LVGL) — cabe na RAM estatica. */
 typedef struct {
     const char    *name;          /* rotulo humano (debug) */
     uint8_t        asset_type;    /* asset_type_t (0 = sprite) */
@@ -43,11 +39,7 @@ typedef struct {
     size_t                   count;
 } room_layout_t;
 
-/* Tabela gerada (room_layout_gen.c). Iterar com room_layouts_count. */
-extern const room_layout_t room_layouts[];
-extern const size_t        room_layouts_count;
-
-/* Acha o layout de uma sala pelo nome, ou NULL. Definido em room_layout_gen.c. */
+/* Retorna o layout de uma sala (lido do SD na primeira chamada), ou NULL. */
 const room_layout_t *room_layout_find(const char *room);
 
 #ifdef __cplusplus

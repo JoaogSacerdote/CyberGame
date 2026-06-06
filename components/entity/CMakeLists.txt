@@ -4,9 +4,10 @@ idf_component_register(
         "movement.c"
         "y_sort.c"
         "debug_overlay.c"
-        "room_layout_gen.c"
+        "room_layout_sd.c"
     INCLUDE_DIRS "include"
     REQUIRES
         "lvgl__lvgl"
         "log"
+        "json"
 )

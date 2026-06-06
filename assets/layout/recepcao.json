@@ -1,0 +1,37 @@
+{
+  "_doc": "Layout de entidades da sala recepcao. Carregado em runtime pelo room_layout_sd.c. bg_asset_id=0=rec_piso. pivot=bottom-center.",
+  "room": "recepcao",
+  "bg_asset_id": 0,
+  "entities": [
+    {
+      "name": "player_spawn",
+      "asset_type": 0,
+      "asset_id": 16,
+      "type": "player",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 240,
+      "y": 232,
+      "coll_w": 16,
+      "coll_h": 12,
+      "coll_offset_x": -8,
+      "coll_offset_y": -12,
+      "sort_offset_y": 0,
+      "from_image": false
+    },
+    {
+      "name": "recepcionista_01",
+      "asset_type": 0,
+      "asset_id": 4,
+      "type": "npc",
+      "flags": ["solid", "interactable", "ysorted", "visible"],
+      "x": 0,
+      "y": 0,
+      "coll_w": 24,
+      "coll_h": 12,
+      "coll_offset_x": -12,
+      "coll_offset_y": -12,
+      "sort_offset_y": 0,
+      "from_image": true
+    }
+  ]
+}
