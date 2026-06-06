@@ -1,4 +1,14 @@
 dependencies:
+  espressif/cjson:
+    component_hash: 4b7cc2431072dc728f6b0a93859e433b563955487f85df594ab53008c0e49c11
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~1
   espressif/cmake_utilities:
     component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
     dependencies:
@@ -51,6 +61,7 @@ dependencies:
       type: service
     version: 9.3.0
 direct_dependencies:
+- espressif/cjson
 - espressif/esp_lcd_st7796
 - espressif/led_strip
 - idf

@@ -1,0 +1,47 @@
+﻿{
+    "schema_version":  1,
+    "files":  {
+                  "joystick_hal.h":  {
+                                         "mtime_iso":  "2026-05-08T18:42:45.0838284-03:00",
+                                         "size":  890
+                                     },
+                  "joystick_hal.c":  {
+                                         "mtime_iso":  "2026-05-08T18:42:41.6268768-03:00",
+                                         "size":  4088
+                                     },
+                  "Artigo.pdf":  {
+                                     "mtime_iso":  "2026-05-08T01:07:08.0216987-03:00",
+                                     "size":  2591566
+                                 },
+                  "button_hal.h":  {
+                                       "mtime_iso":  "2026-05-08T18:42:45.0940619-03:00",
+                                       "size":  1034
+                                   },
+                  "display_hal.c":  {
+                                        "mtime_iso":  "2026-05-08T18:42:41.6197831-03:00",
+                                        "size":  5895
+                                    },
+                  "button_hal.c":  {
+                                       "mtime_iso":  "2026-05-08T18:42:41.6127077-03:00",
+                                       "size":  4289
+                                   },
+                  "display_hal.h":  {
+                                        "mtime_iso":  "2026-05-08T18:42:45.0758034-03:00",
+                                        "size":  1825
+                                    },
+                  "notas_temp.txt":  {
+                                         "mtime_iso":  "2026-05-10T18:42:43.2838216-03:00",
+                                         "size":  577
+                                     },
+                  "pmu.h":  {
+                                "mtime_iso":  "2026-05-08T18:42:20.4964772-03:00",
+                                "size":  1227
+                            },
+                  "pmu.c":  {
+                                "mtime_iso":  "2026-05-08T18:42:28.7024873-03:00",
+                                "size":  3853
+                            }
+              },
+    "last_sync_iso":  "2026-05-11T09:31:04.2570759-03:00",
+    "_comment":  "Snapshot apos /sync-consulta. Gitignorado. Nao editar manualmente."
+}

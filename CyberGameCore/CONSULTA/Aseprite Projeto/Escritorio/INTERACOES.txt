@@ -1,0 +1,18 @@
+AREAS:
+#Formato: ID | LARGURA,ALTURA | POSICAO_X,POSICAO_Y
+
+RETORNO_RECEPCAO | 12,64 | 6,191
+CAIXA_DE_TEXTO_DIALOGO | 232,74 | 268,105
+CAIXA_INSTRUCOES_DE_PULA/PROXIMO_DIALOGO | 102,12 | 335,122 
+INTERAÇCAO_COMPUTADOR_SALA | 16,58 | 383,298 (nesta caixa acontecerar a tarefa verde de trocar senha)
+SERVIDOR_ESQUERDA | 32,16 | 336,111
+SERVIDOR_DIREITA | 32,16 | 447,111
+(Nos servidores tanto da direita quanto da esquerda acontecerar a tarefa amarela de backup e a vermelha de ataque DDoS pode ser em qualquer um deles.)
+INTERACAO_NPC_SERVIDOR | 22,26 | 363,127 (ele dará instruções de como executar algumas tarefas.)
+
+
+
+SPOWNs:
+#Formato: ID | POSICAO_X,POSICAO_Y
+
+SPOWN_ENTRADA_ESCRITORIO | 12,160

@@ -1,0 +1,272 @@
+================================================================================
+A RESOLVER — Itens pendentes para discussao com a equipe / orientador
+================================================================================
+Gerado em 2026-05-12 a partir das respostas em RESPOSTAS.txt + sub-dialogo
+com Claude. Cada item lista o impacto e o default temporario que sera
+aplicado em codigo enquanto a decisao nao chega.
+
+================================================================================
+ESCOPO / ROADMAP
+================================================================================
+
+[ ] E1. feedback_hal (3 WS2812 + buzzer) adiado para pos-MVP
+       Decidido em 2026-05-13: a Etapa B do plano original (criacao do
+       feedback_hal) fica em standby. Vamos pular direto pra Etapa C
+       (FSM + 1 ataque) e construir gameplay primeiro. Sem feedback_hal,
+       os outputs do jogo ficam restritos ao display LVGL — sem indicacao
+       visual fisica (LEDs) nem sonora (buzzer).
+       IMPACTO NO GAMEPLAY:
+         - Logica dos 3 LEDs (escalada de ataque) descrita em
+           game_logic_decisions fica sem efeito visivel ate o
+           feedback_hal ser implementado.
+         - Os 6 SFX (alert verde/amarelo/vermelho/sucesso/erro/menu)
+           ficam silenciados.
+         - As tarefas vermelhas (ataques) tem que ser sinalizadas
+           apenas pela tela (animacao + texto), sem audio.
+       MIGRACAO FUTURA: feedback_hal pode ser plugado depois sem
+       refatorar a FSM — basta o game_engine chamar
+       `feedback_hal_set_led(idx, color)` e `feedback_hal_play_sound(id)`
+       nos lugares marcados como `TODO: feedback`.
+
+================================================================================
+DISPLAY / CALIBRACAO RESIDUAL
+================================================================================
+
+[ ] D1. Cinzas com leve tonalidade errada (2026-05-13)
+       Apos calibracao byte_swap + BGR + R-boost (commit 2e9a63a), os
+       cinzas (UI_COLOR_TEXT 0xE6E6E6 e UI_COLOR_DIM 0x808890) saem com
+       uma leve coloracao errada ao inves de cinza neutro. Funcional o
+       suficiente para nao corrigir agora — usuario validou em
+       2026-05-13. Causa provavel: o R-boost 2x da hal_bridge tambem
+       afeta tons cinza (que tem componente R nao-zero), criando leve
+       desbalanceamento. Solucoes possiveis quando virar prioritario:
+         (a) Boost por gamma nao-linear (R^0.7) em vez de multiplicador
+             linear — preserva proporcao entre R/G/B em meios-tons
+         (b) Boost por intensidade alvo: so aplicar boost quando R for
+             dominante em relacao a G e B (cores quentes), nao em cinzas
+         (c) Calibrar via registros GMCTRP1/GMCTRN1 do ST7796 (mais
+             complexo mas correto)
+       DEFAULT TEMPORARIO: ficar com cinzas levemente tingidos. Nao e
+       bloqueador para a Etapa B+.
+
+================================================================================
+GAMEPLAY E BALANCEAMENTO
+================================================================================
+
+[ ] A1. Numero final de ataques vermelhos por sessao (= numero de vidas)
+       Decisao do RESPOSTAS: "se colocarmos 1 ataque sera 1 vida; 2 ataques,
+       2 vidas; etc — definir depois com a equipe".
+       DEFAULT TEMPORARIO: 2 ataques vermelhos por sessao de 3 min
+       (intervalo de 90s = aproximadamente 2 ataques antes das 18h).
+       PARAMETRIZAVEL em game_config.h via VERMELHO_INTERVALO_MS.
+
+[ ] A2. Penalidade exata da carta "AGRAVA"
+       Sabemos: Backup-em-DDoS sobrecarrega; Balanceamento-em-Ransomware replica.
+       Falta: numero concreto. Sugestoes:
+         (a) timer do ataque acelera 50% (mais agressivo)
+         (b) timer do ataque acelera 25%
+         (c) subtrai N segundos fixos do timer
+       DEFAULT TEMPORARIO: acelera 50% (constante VERMELHO_AGRAVADO_MULT=0.5).
+
+[ ] A3. Penalidade da carta "inutil"
+       Sabemos: jogador perde Action Lock + System Deploy (5-7s). Sem outro custo.
+       DEFAULT TEMPORARIO: nenhuma penalidade alem do tempo perdido.
+
+[ ] A4. Eventos por minuto — afinacao na pratica
+       Defaults atuais: Verde 30s / Amarela 60s / Vermelho 90s.
+       Pode mudar apos o primeiro playtest do MVP.
+
+[ ] A5. Mecanica da tarefa VERDE (troca de senha)
+       Sem teclado fisico, opcoes:
+         (a) 4 opcoes na tela: 3 senhas fracas + 1 forte. Joystick navega, A confirma.
+         (b) Construir senha letra por letra usando joystick (mais lento).
+         (c) Puzzle de combinacao (selecionar maiuscula + numero + simbolo).
+       DEFAULT TEMPORARIO: opcao (a) — 4 opcoes, mais rapido pra mostra academica.
+
+[ ] A6. Mecanica da tarefa AMARELA (QTE Simon Says)
+       Decidido conceitualmente: Simon Says. Falta:
+         (a) Quantos botoes na sequencia? (4? 5? cresce?)
+         (b) Tempo para o jogador repetir? (5s? 8s?)
+         (c) Tempo de exibicao da sequencia? (1s por botao?)
+         (d) Erra um botao = falha imediata ou tem chance de recuperar?
+       DEFAULT TEMPORARIO: 4 botoes, 1s cada na exibicao, 8s para repetir,
+       falha imediata em erro.
+
+================================================================================
+UI E TELAS
+================================================================================
+
+[ ] U1. Conteudo do Dashboard do Analista (botao X)
+       Sabemos que mostra: strikes tomados, tarefas pendentes, historico de
+       ataques resolvidos/falhos.
+       Falta: layout exato, quais campos sao numericos vs visuais, paginacao.
+
+[ ] U2. Tela de Splash
+       Sem decisao: logo do jogo? Logo da Unijorge? Nomes dos autores?
+       Animacao ou estatico?
+       DEFAULT TEMPORARIO: tela com nome "CyberSec: Network Defender" + "Press A".
+
+[ ] U3. Tela de Vitoria ("Promovido")
+       Sem decisao sobre o visual exato. So sabemos: mostra pontuacao final.
+       DEFAULT TEMPORARIO: texto "PROMOVIDO!" + score + bonus por setores intactos.
+
+[ ] U4. Tela de Derrota ("Demissao")
+       DEFAULT TEMPORARIO: texto "VOCE FOI DEMITIDO" + setores perdidos +
+       botoes "Tentar Novamente" (A) e "Sair" (B). Conforme decidido em
+       RESPOSTAS item 20.3.
+
+[ ] U5. QR Code da pesquisa pedagogica
+       Falta o link/conteudo do questionario.
+       DEFAULT TEMPORARIO: nao renderizar QR ate ter URL. Mostrar placeholder
+       "QR aqui — em breve".
+
+[ ] U6. Tela de cadastro de nick
+       Decidido: joystick navega letras, A confirma, B apaga.
+       Falta: quantos caracteres maximo? Layout do alfabeto na tela (grid 5x6?
+       linear?). Permite numeros e simbolos ou so letras?
+       DEFAULT TEMPORARIO: maximo 6 chars, grid 5x6 com A-Z + apagar + ok,
+       sem numeros/simbolos no MVP.
+
+================================================================================
+NARRATIVA E DIALOGOS
+================================================================================
+
+[ ] N1. Dialogo do NPC recepcionista
+       Decidido que ele faz papel de tutorial conversacional. Falta o texto.
+       QUEM ESCREVE: a equipe (nao Claude por padrao). Se autorizado, Claude
+       rascunha 3-4 falas explicando regras basicas.
+
+[ ] N2. Nome do protagonista
+       Fixo? Customizado pelo jogador? Genero?
+       DEFAULT TEMPORARIO: "Analista" (sem nome proprio no MVP).
+
+[ ] N3. Texto das telas de tarefa (mensagens dos terminais)
+       Cada tipo de tarefa precisa de um titulo e texto curto explicativo.
+       QUEM ESCREVE: equipe. Claude pode propor rascunho.
+
+================================================================================
+ARTE E ASSETS
+================================================================================
+
+[ ] G1. Sprites do protagonista (4 direcoes)
+       Quantos frames de animacao por direcao? Idle? Walking?
+       DEFAULT TEMPORARIO: 2 frames por direcao (4 direcoes) = 8 frames + 1 idle.
+
+[ ] G2. Sprites dos NPCs
+       Recepcionista (Sala 1) ja existe. Outros NPCs no MVP?
+       DEFAULT TEMPORARIO: apenas o recepcionista.
+
+[ ] G3. Tilesets das salas
+       Servidores, Financeiro e RH ainda nao tem arte. Recepcao e Sala 2 (Escritorios)
+       ja existem do simulador.
+       PIPELINE: Aseprite -> exportar PNG -> converter para RGB565 -> upload na NAND
+       via recovery USB CDC (depende de asset_store Etapa 2 + recovery PUT/GET).
+
+[ ] G4. Icones de alerta (verde / amarelo / vermelho)
+       3 sprites pequenos (16x16?) sobre os equipamentos com tarefa.
+
+[ ] G5. Animacao de ataque
+       Animacao de chamas/sobrecarga para DDoS, criptografia para Ransomware,
+       propagacao entre salas para Propagacao Lateral.
+
+[ ] G6. Logo do jogo
+       Para a tela de splash.
+
+[ ] G7. Fonte / glyphs PT-BR
+       LVGL tem suporte a TTF mas custa RAM. Alternativa: bitmap font com
+       acentos (a-z + A-Z + 0-9 + acentos + simbolos).
+       DEFAULT TEMPORARIO: usar fonte LVGL embutida (sem acentos) e
+       converter texto para forma sem acentos no i18n_ptbr.h.
+
+================================================================================
+TECNICAS E INFRAESTRUTURA
+================================================================================
+
+[ ] T1. Cooldown entre leituras NFC (debounce do PN532)
+       O leitor pode disparar leituras repetidas se a carta ficar parada
+       sobre o sensor.
+       DEFAULT TEMPORARIO: cooldown de 1s apos cada UID lido valido
+       (nao re-le o mesmo UID dentro desse intervalo).
+
+[ ] T2. Politica de save mid-game
+       Decidido implicitamente: sem save (sessao curta de 3 min).
+       Reabrir se a equipe quiser salvar progresso parcial.
+
+[ ] T3. Calibracao de UIDs no recovery
+       Decidido: hardcoded em nfc_config.h. Implementacao do header sera feita
+       quando voce passar os 3 UIDs reais lidos pelas tags fisicas.
+       PENDENCIA: usuario precisa ler os 3 UIDs (com o modo recovery + carta
+       aproximada, ou com app celular tipo NFC TagWriter) e passar para Claude.
+
+[ ] T4. Pipeline de conversao Aseprite -> bin RGB565
+       Ferramenta a definir:
+         (a) lvgl-image-converter (citado no artigo)
+         (b) script proprio em Python
+         (c) outra
+       DEFAULT TEMPORARIO: usar lvgl-image-converter por compatibilidade.
+
+[ ] T5. Sistema de arquivos para NAND (LittleFS vs FATFS)
+       RESPOSTAS dizem "LittleFS ou FATFS" — escolher um.
+       DEFAULT TEMPORARIO: LittleFS (mais leve, projetado para flash, menor
+       overhead que FATFS, suporte oficial ESP-IDF via esp_littlefs).
+
+[ ] T6. Cooldown entre eventos
+       Se varios eventos disparam ao mesmo tempo, espacar?
+       DEFAULT TEMPORARIO: cooldown global de 5s entre eventos novos
+       (ja ha o limite de 1 vermelho ativo por vez).
+
+================================================================================
+ACESSIBILIDADE E PUBLICO ALVO
+================================================================================
+
+[ ] X1. Acessibilidade para daltonicos
+       Verde/amarelo/vermelho usa so cor. Daltonicos perdem informacao.
+       Adicionar icones distintos (! ? !!) por severidade? Padroes de
+       piscagem diferentes?
+       DEFAULT TEMPORARIO: usar simbolos textuais alem das cores
+       ("INFO" / "AVISO" / "ALERTA").
+
+[ ] X2. Publico-alvo etario
+       Ensino fundamental II, medio, superior? Afeta tom dos dialogos.
+       DEFAULT TEMPORARIO: medio/superior (a mostra academica e
+       universitaria pela natureza do projeto).
+
+================================================================================
+WISHLIST / IDEIAS ABSTRATAS (POS-MVP)
+================================================================================
+
+[ ] W1. Phishing como 4o ataque (substituicao educacional)
+       Adiado por decisao do usuario. Voltar apos MVP estavel.
+
+[ ] W2. Modo cooperativo de 2 cartas (2FA pedagogico)
+       Wishlist item 18.1 do DUVIDAS.TXT — interessante mas adiado.
+
+[ ] W3. Easter eggs (cartas secretas para destravar modos)
+       Wishlist item 18.2.
+
+[ ] W4. Replay/Attract mode no menu apos 30s idle
+       Wishlist item 18.6 — bom para a mostra mas complexo.
+
+[ ] W5. Multiplos cenarios (Hospital, Banco) com mesmo motor
+       Wishlist item 18.4.
+
+[ ] W6. Sistema de missoes diarias / briefing dinamico
+       Wishlist item 18.5.
+
+[ ] W7. Estatisticas de rede animadas na tela do terminal
+       Wishlist item 18.7 — apenas visual, sem efeito mecanico.
+
+[ ] W8. Musica de fundo
+       Decidido: NAO para o MVP (so SFX). Reabrir se houver tempo e o
+       buzzer permitir polifonia minima via timer multiplexado.
+
+================================================================================
+LEGENDA
+================================================================================
+[ ] = pendente
+[x] = resolvido (mover para arquivo / memoria)
+
+Quando uma decisao for tomada, registrar:
+  - em codigo: se altera valor de game_config.h ou nfc_config.h
+  - em memoria: se altera arquitetura ou contrato
+  - aqui: marcar [x] e citar onde foi resolvido

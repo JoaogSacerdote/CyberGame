@@ -1,0 +1,225 @@
+{
+  "main": {
+    "id": "16e7a25cbb180c1a",
+    "type": "split",
+    "children": [
+      {
+        "id": "cac70f44d329d191",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "86edf9788cbc1c32",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/video_lcd_display/README.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "README"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "d1d40a05c19a50aa",
+    "type": "split",
+    "children": [
+      {
+        "id": "8289e6482342c68b",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7f86040f1cb05ad0",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de arquivos"
+            }
+          },
+          {
+            "id": "9340d7fe2ce8c821",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Procurar"
+            }
+          },
+          {
+            "id": "8c45c60244c60c17",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "f92a9face7a853b4",
+    "type": "split",
+    "children": [
+      {
+        "id": "2d333f05774cd379",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "a8afb0523f2b3718",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Links inversos"
+            }
+          },
+          {
+            "id": "a105735488cde6f3",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Links de saída"
+            }
+          },
+          {
+            "id": "0eb107a1b4fc3fee",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "9c43b57856bde7d5",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas as propriedades"
+            }
+          },
+          {
+            "id": "3e494770583a9c55",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Bem-vindo.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Sumário de Bem-vindo"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir a troca rápida": false,
+      "graph:Abrir visualização em gráfico": false,
+      "canvas:Criar novo canvas": false,
+      "daily-notes:Abrir a nota de hoje": false,
+      "templates:Inserir modelo": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Criar nova base": false
+    }
+  },
+  "active": "86edf9788cbc1c32",
+  "lastOpenFiles": [
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp_video/examples/image_storage/usb_msc/components/example_video_common/README.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/xiaozhi-esp32/main/boards/movecall-cuican-esp32s3/README.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/lvgl_sw_rotation/components/lvgl__lvgl/demos/README.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/xiaozhi-esp32/main/boards/labplus-ledong-v2/README.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/xiaozhi-esp32/main/boards/waveshare-c6-lcd-1.69/README.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/xiaozhi-esp32/main/boards/movecall-moji-esp32s3/README.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/components/espressif__esp-brookesia/examples/esp_idf/esp_brookesia_phone_m5stace_core_s3/README.md",
+    "CHANGELOG/INDEX.md.tmp.41524.a24e5cba9670",
+    "CHANGELOG/entries/2026-05-28T0730-projeto-sd-only-revert-psram.md",
+    "CHANGELOG/entries/2026-05-28T0730-projeto-sd-only-revert-psram.md.tmp.41524.da0db3084363",
+    "CHANGELOG/INDEX.md.tmp.41524.52a2cad17248",
+    "CHANGELOG/entries/2026-05-28T0610-reabilita-psram-octal.md",
+    "CHANGELOG/entries/2026-05-28T0610-reabilita-psram-octal.md.tmp.41524.5f53ba71a332",
+    "CHANGELOG/entries/2026-05-28T0230-sd-card-detect-disable-nand.md.tmp.41524.7fd1df56218f",
+    "CHANGELOG/entries/2026-05-28T0540-fase2-assets-na-sd.md.tmp.41524.cefab4ba58c1",
+    "CHANGELOG/INDEX.md.tmp.41524.8382c76f287f",
+    "CHANGELOG/entries/2026-05-28T0540-fase2-assets-na-sd.md",
+    "CHANGELOG/entries/2026-05-28T0540-fase2-assets-na-sd.md.tmp.41524.900e544483d7",
+    "CHANGELOG/entries/2026-05-28T0230-sd-card-detect-disable-nand.md.tmp.41524.8712d2303e47",
+    "CHANGELOG/INDEX.md.tmp.41524.237dfecf6f6a",
+    "CHANGELOG/entries/2026-05-28T0230-sd-card-detect-disable-nand.md",
+    "CHANGELOG/entries/2026-05-28T0158-feedback-hal-ws2812-buzzer.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp_video/examples/README.md",
+    "CONSULTA/consulta_esquema_eletrico.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_draw_bit/README_CN.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp-brookesia/examples/esp_idf/esp_brookesia_phone_s3_lcd_ev_board/README.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp-brookesia/docs/system_ui_phone_CN.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/video_lcd_display/managed_components/espressif__esp_cam_sensor/CHANGELOG.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/xiaozhi-esp32/main/boards/guition-jc4880p443/README.md",
+    "20_Hardware_HAL/calibracao-cores-display.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/xiaozhi-esp32/docs/websocket.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp-brookesia/docs/how_to_use.md",
+    "10_Arquitetura/matriz-reacao-ataques.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/lvgl_sw_rotation/components/lvgl__lvgl/tests/README.md",
+    "CHANGELOG/entries/2026-05-27T1054-vault-reorganizacao-agente.md",
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp_video/README.md",
+    "CONSULTA/tela (1).jpeg",
+    "CONSULTA/tela.jpeg"
+  ]
+}

@@ -1,0 +1,377 @@
+as perguntas foram divididas nos seguintes blocos:
+
+🧱 Bloco 1: Fundações Físicas e Periféricos (A Base de Tudo)
+O que precisamos definir para o hardware conversar corretamente com o FreeRTOS e a HAL.
+
+Item 0: Conflitos e Inconsistências (Resolução do Display ST7796S, Orientação, GPIOs livres, Idioma).
+
+Item 11: Áudio / Buzzer (Tipo de componente físico e limitações PWM).
+
+Item 12: WS2812 / LED RGB (Quantidade e padrões de luz).
+
+Item 13: Botões (Mapeamento A/B/X/Y e uso de interrupções).
+
+Item 20: Deploy / Bateria (Autonomia para a mostra acadêmica).
+
+🎯 Bloco 2: Escopo do MVP e Loop Central (A Regra de Negócio)
+O que define uma partida do início ao fim para a mostra acadêmica.
+
+Item 1: Escopo (O que é essencial vs. "nice to have" para a demo).
+
+Item 2: Loop de Gameplay (Tempo do expediente, condições de vitória/derrota, ritmo).
+
+Item 7: Sistema de Pontuação e Penalidades.
+
+🃏 Bloco 3: Mecânicas Core e NFC (O Diferencial do Projeto)
+Como o jogador interage com os ataques e as cartas físicas.
+
+Item 5: Cartas NFC Físicas (Quantidade, UIDs, leitura em contexto neutro vs. ativo).
+
+Item 6: Eventos e Tarefas (Mecânicas das tarefas Verdes, Amarelas e Vermelhas).
+
+🗺️ Bloco 4: Navegação, UI e Máquina de Estados (A Experiência Visual)
+Como o mundo é desenhado e como o jogo transita entre telas.
+
+Item 3: Mapa, Salas e Navegação (Câmera, colisão, HUD persistente).
+
+Item 4: Personagens e NPCs.
+
+Item 8: Estados do Jogo (FSM de alto nível, Pause, Recovery).
+
+Item 9: Telas e Menus (Splash, Menu Principal, Tela de Resultados).
+
+💾 Bloco 5: Assets, Narrativa e Persistência (O Polimento)
+Arquivos, textos, acessibilidade e salvamento.
+
+Item 10: Save / Persistência (O que vai para NVS vs. NAND).
+
+Item 14: Tutorial (Obrigatório vs. pulável).
+
+Item 15: Arte / Assets (Tamanhos, animações, pipeline Aseprite).
+
+Item 16: Narrativa e Diálogos.
+
+Item 17: Acessibilidade e Público-Alvo.
+
+⚙️ Bloco 6: Arquitetura FreeRTOS e Wishlist (Refinamento Técnico)
+A cola que une tudo e as ideias para o futuro.
+
+Item 19: Arquitetura de Software (FSM Central, Tasks do FreeRTOS, IPC/Queues).
+
+Item 18: Ideias Abstratas / Wishlist (Co-op, Easter Eggs, Replay).
+
+
+
+RESPOSTAS:
+
+
+🧱 BLOCO 1: Fundações Físicas e Periféricos (Propostas JogoCyber)
+0. CONFLITOS / INCONSISTÊNCIAS
+0.1 Resolução do Display: * Decisão: 480x320 pixels. O artigo acadêmico possui um erro tipográfico (ou referia-se a uma versão anterior do hardware). Nosso driver ST7796S e a PSRAM Octal estão dimensionados para 480x320 em RGB565.
+
+0.2 Orientação do Display: * Decisão: Paisagem (Landscape). Largura 480 x Altura 320. É o padrão da indústria para jogos de exploração (estilo Zelda/Pokémon) e acomoda melhor as janelas de log de rede e HUD lateral.
+
+0.3 GPIO 15 Livre: * Decisão: Ficará mapeado como o botão START / PAUSE. Como o joystick do PSP não tem botão de Select/Start integrado, usar o GPIO 15 para pausar o jogo e abrir o menu é a melhor utilidade.
+
+0.4 Idioma: * Decisão: PT-BR (Português do Brasil). Focado no público da mostra acadêmica. Os textos ficarão em um arquivo de header (.h) separado (ex: i18n_ptbr.h) para não poluir a lógica, mas compilados junto com o binário no MVP (para evitar complexidade de ler arquivos de texto da NAND agora).
+
+0.5 LED RGB vs WS2812: * Decisão: WS2812 no GPIO 48. O artigo fala em LED com resistores, mas o WS2812 (endereçável) já está na nossa arquitetura de pinagem, é mais moderno, exige apenas 1 pino (RMT) e não precisa de resistores para cada cor. Vamos assumir 1 único LED físico na placa para feedback visual global.
+
+11. ÁUDIO / BUZZER
+11.1 Buzzer Passivo (Tipo Físico): * Decisão: Assumiremos um Piezoelétrico simples ligado diretamente ao GPIO (com PWM). Se o volume ficar baixo no hardware real, você precisará adicionar um transistor NPN depois.
+
+11.2 Biblioteca de Sons: * Decisão: Apenas SFX (Efeitos Sonoros). Sem música de fundo (BGM). Gerar música via PWM no ESP32 consome timers preciosos e pode causar engasgos na FSM do jogo. Teremos beeps curtos para: Navegação de menu, Alerta (Verde/Amarelo/Vermelho), Sucesso (Carta Correta), Erro (Carta Errada).
+
+11.3 Volume / Mute: * Decisão: Implementaremos um Software Mute no menu de pause. Não haverá controle de volume gradativo no MVP para poupar tempo de desenvolvimento (será 0% ou 100% de duty cycle no PWM).
+
+12. WS2812 / LED RGB DE STATUS
+12.1 Quantidade: * Decisão: 1 único LED.
+
+12.2 Padrões de Luz: * Decisão:
+* 🟢 Verde Sólido: Expediente tranquilo.
+* 🟡 Amarelo Piscando (Lento): Tarefa/Aviso pendente.
+* 🔴 Vermelho Piscando (Rápido): Ataque cibernético crítico em andamento.
+* 🔵 Azul Sólido: Modo de leitura NFC ativo ou NPC aguardando interação.
+* 🌈 Arco-íris: Tela de Boot/Splash Screen.
+
+serão 3 leds um para cada cor, cada lede vai ascender em sua tarefa. se aparecer uma ataque o lede vermelho ascende, de 0 a 33% do ataque apenas o led destinado ao ataque ascende, entre 33%  e 66% o lede amarelo passa a ser vermelho. e se passar de 66% todos ledes ascendem em vermelho e continuam piscando, se passar de 90% eles começam a piscar de forma embaralhada meio caótica.
+
+Sem problemas, Tech Lead! Vamos reescrever essa seção do Bloco 1 com as nossas decisões finais e oficiais sobre os botões.
+
+Aqui está a versão corrigida que vai para a documentação final do hal_input e do game_logic:
+
+13. BOTÕES A/B/X/Y — MAPEAMENTO DEFINITIVO
+13.1 Proposta de Mapeamento (Decisão Aprovada):
+
+A (GPIO 11): Confirmar / Interagir. (Usado para falar com NPCs, iniciar minigames de tarefas e selecionar opções em menus).
+
+B (GPIO 12): Cancelar / Voltar. (Usado para sair de menus e cancelar ações em andamento).
+
+X (GPIO 13): Dashboard do Analista. (Abre a "Prancheta" com o resumo do expediente: strikes tomados, tarefas Verdes/Amarelas pendentes e histórico de ataques Vermelhos resolvidos ou falhos).
+
+Y (GPIO 14): Não Atribuído (No-op). (O botão físico existe para manter a estética do console, mas não terá função ativa no jogo no MVP atual).
+
+START (GPIO 15): Pause. (Congela o relógio do expediente e abre o menu de pausa).
+
+Joystick (ADC): Movimentação com Velocidade Variável. (A velocidade do personagem é proporcional à inclinação do analógico; empurrar um pouco = andar devagar; empurrar tudo = correr).
+
+13.2 Uso nas Tarefas: * Decisão: Consistência máxima. O D-Pad (Joystick) sempre move o cursor ou personagem. O botão A sempre confirma a ação ou seleciona a opção na tela de mini-game.
+
+20. DEPLOY / BATERIA / DEMO
+20.1 Unidades Físicas: * Decisão: Foco em fazer rodar perfeitamente em 1 protótipo.
+
+20.2 Bateria / Autonomia: * Decisão: Como há um módulo TP4056 + Li-Po, o código não se preocupará com o gerenciamento de energia complexo (Deep Sleep) durante o gameplay. O display ficará 100% aceso.
+
+20. DEPLOY / BATERIA / DEMO (ATUALIZADO)
+20.3 Ciclo de Fim de Jogo e Reset:
+
+Vitória (Clear): Se o jogador passar por todas as fases, o jogo exibe a Tela de Parabéns/Promovido, mostrando a pontuação final (Score).
+
+Derrota (Game Over): Se o jogador estourar o limite de vidas/setores perdidos em qualquer fase, o jogo pausa e exibe a Tela de Demissão. O jogador terá duas opções na tela:
+
+Botão A: Tentar Novamente (Reinicia a fase atual com o score zerado ou penalizado).
+
+Botão B: Sair (Encerra a sessão e volta para o Menu Inicial).
+
+Timeout (Proteção de Ociosidade): Para garantir que a fila da mostra ande caso o jogador simplesmente largue o console em cima da mesa após ganhar ou perder, se o aparelho ficar 30 segundos na tela final sem nenhum botão ser pressionado, ele volta automaticamente para a Splash Screen (Menu Inicial).
+
+
+
+
+1. Escopo do MVP (Mínimo Produto Viável)
+
+Foco Pedagógico: Aprendizagem orgânica baseada na experiência (Ciclo de Kolb). Conforme sua ordem, o Tutorial em texto explícito foi removido. O aluno aprende jogando.
+
+Ameaças Obrigatórias: O MVP simulará ataques baseados na tríade CIA da cibersegurança: DDoS (Disponibilidade), Ransomware (Integridade/Backup) e Phishing (Engenharia Social).
+
+Ação Local Obrigatória: O jogador não pode resolver problemas de longe. É obrigatório o deslocamento físico no mapa 2D (top-down) pelas 4 salas (Servidores, Financeiro, RH, Recepção) até o terminal afetado para realizar a leitura NFC.
+
+Aproveitamento de Código: O motor gráfico e a base de transições visuais serão herdados diretamente do que já foi feito pela equipe na pasta simulation (LVGL), sendo apenas portados para o ESP32-S3.
+
+2. Loop de Gameplay (O Expediente)
+
+Teoria do Fluxo (Csikszentmihalyi): Para manter o equilíbrio entre desafio e habilidade na mostra acadêmica, haverá o limite de apenas 1 Ataque Vermelho (crítico) ativo por vez no MVP.
+
+Duração da Partida: O expediente de trabalho (08:00 às 18:00) durará exatamente 3 minutos em tempo real.
+
+3. Condições de Vitória, Derrota e Penalidades Orgânicas
+
+Sistema de Vidas e Interdição: O jogador possui uma quantidade limite de vidas (setores). Se um ataque for bem-sucedido, a sala fica permanentemente interditada (com faixas visuais na porta) e uma vida é perdida. Perder setores demais resulta em Game Over (Demissão). Sobreviver até as 18:00 resulta em Vitória.
+
+Penalidades Dinâmicas (Uso de Carta Errada): Rejeitada a ideia de perda de "pontos invisíveis". Seguindo a sua lógica de simulação realística, as cartas terão tempo de execução dividido (tempo do personagem agir + tempo da ação no sistema). Se o jogador usar a carta NFC errada:
+
+Ele sofre o Action Lock (fica travado na animação da barra de progresso, perdendo tempo precioso dos 3 minutos).
+
+A ação incorreta gera uma consequência lógica que agrava o ataque ativo (Exemplo: Usar a carta de Backup durante um DDoS consome banda e sobrecarrega o servidor ainda mais rápido).
+
+
+
+
+
+🃏 BLOCO 3: Mecânicas Core e NFC (O "Cyber-Deck")
+5. Cartas NFC Físicas (Gerenciamento sob Demanda)
+
+5.1 Gatilho de Acionamento (Sua Regra):
+
+Estado Ocioso (Idle): Enquanto o analista caminha pelo cenário, o chip PN532 permanecerá em modo Low Power ou desligado. Nenhuma carta será lida se for aproximada do console.
+
+Estado Ativo (Interaction Zone): O leitor NFC só será energizado e colocado em modo de busca (RF Field ON) quando a Máquina de Estados (FSM) detectar que o personagem entrou na "Tela de Ataque" (a zona de interação imediata frontal ao terminal infectado).
+
+Fluxo Lógico: Personagem encosta no Servidor ➔ FSM muda para STATE_WAITING_CARD ➔ nfc_hal_start() é chamado ➔ UI exibe "Escaneie a Defesa" ➔ Leitura realizada ➔ nfc_hal_stop() desliga o campo RF imediatamente.
+
+esse gatilho sera semelhante ao botão que apertamos agora para ler o nfc, no jogo quem libera o nfc é o jogo quando necessário e não o jogador.
+
+5.2 O Duplo Tempo de Execução:
+
+Fase 1 (Action Lock): Personagem fica travado enquanto "digita" ou "conecta" o deck (1-2 seg).
+
+Fase 2 (System Deploy): Personagem é liberado, mas a barra de progresso no terminal continua carregando (3-5 seg) até a mitigação total do ataque. enquanto o processo de executa a carta estiver rolando o jogado não poderar executar tarefas, a ideia seria que as cartas fosse o conhecimento do personagem, ele escolher a carta é escolher quando deve aplicar a ação e qunado a ação for aplicada no caso quando a carta for lida, o personagem demora um tempo mínimo para iniciar a execução da carta ou seja se ele que executar uma tarefa ele demora para executar assim como na vida real.
+
+5.3 Consequências Dinâmicas e Punições:
+
+Se a carta lida na tela de ataque for a incorreta para aquela ameaça, o sistema aplicará a Matriz de Reações agravando o incidente (ex: acelerando o cronômetro do ataque ou bloqueando o terminal por alguns segundos extras), mas a carta incorreta não pode agravar de forma aleatória ou idêntica para todas as cartas erradas, se a carta por natureza não ter nenhuma ação relevante nem positivamente nem negativamente o jogador so perdera o tempo de executar ela, mas se a carta tiver ação negativa tera um peso a mais, um exemplo é a carta de backup em um ataque ddos que se for usada ira terminar de sobrecarregar o servidor. (usei o exemplo da carta backup em uma ataque ddos para exemplificar, mas por favor não a tome como unica ideia ou maneira de afetar no jogo.).
+
+6. Motor de Eventos e Tarefas (Priorização Real)
+
+6.1 Paralelismo de Crises: Ataques Vermelhos (NFC) não pausam o relógio nem as tarefas secundárias (Verdes/Amarelas) espalhadas pelo mapa.
+
+6.2 Limite de Concorrência: Apenas 1 Ataque Vermelho ativo por vez para garantir a viabilidade pedagógica da Teoria do Fluxo, mas poderão acontecer tarefas amarelas e verdes simultaneamente.
+
+
+
+
+🗺️ BLOCO 4: Navegação, UI e Máquina de Estados (Versão Estrita)
+1. Navegação, Mapa e Atualização Gráfica
+
+Câmera e Cenário: Perspectiva 2D top-down. O mapa é dividido em múltiplas telas (salas como Servidores, RH, Financeiro conectadas por corredores). O jogador não vê o mapa inteiro de uma vez, exigindo memorização e deslocamento físico.
+
+Renderização Otimizada (Sua Correção): Para não travar o display, a biblioteca gráfica (LVGL) não vai redesenhar a tela inteira a todo momento. Ela fará a atualização apenas das áreas necessárias (os sprites que se moveram ou dirty areas), garantindo a fluidez da movimentação.
+
+HUD Fixo: Relógio do expediente (08h às 18h) e sistema de Vidas (integridade dos setores) ficam ancorados na tela para visualização constante.
+
+2. Ação Local e a Interface do Terminal (Conforme Artigo e Sua Correção)
+
+Deslocamento Físico Obrigatório: Conforme o artigo, não é possível agir remotamente. O personagem deve se deslocar até a frente do servidor ou equipamento afetado.
+
+Abertura do Terminal: Qualquer execução de tarefa (Verde, Amarela ou Vermelha) exige que o jogador abra a tela do terminal. O jogador pode fechar e sair do terminal a qualquer momento para voltar ao mapa, mas só pode executar qualquer ação quando a tela do terminal estiver aberta.
+
+3. Acionamento do Leitor NFC (Sua Correção)
+
+O leitor NFC (PN532) fica completamente desligado/ocioso enquanto o jogador caminha pelo mapa.
+
+O leitor só deverá ser acionado quando o jogo pedir, e o jogo só irá pedir a carta quando o personagem estiver na tela de ataque (terminal aberto), apenas nesse momento. (ou podemos por para nesse momento liberar o botão Y para chamar o terminal...)
+
+4. Estados Fundamentais do Jogo (FSM)
+A Máquina de Estados se resumirá ao que o artigo e a mecânica exigem:
+
+Estado de Exploração: Personagem navega pelo mapa. Tarefas e tempo correndo. NFC desligado.
+
+Estado de Terminal: Personagem acessa o terminal afetado. Único estado onde inputs de resolução ou leitura NFC são aceitos.
+
+Estado de Fim de Expediente: Ocorre a Vitória (sobreviver até as 18h) ou Game Over (atingir o limite de setores perdidos).
+
+Mas caso tenha a necessidade podemos criar novas para melhorar o projeto e corrigir bugs.
+
+5. Anexo Técnico: Estrutura de Renderização e Z-Ordering (LVGL)
+Para garantir que a sobreposição de imagens no mapa 2D top-down funcione corretamente e sem estourar a memória RAM do ESP32-S3, a construção visual no LVGL obedecerá rigorosamente à técnica de Z-Ordering (Ordem de Profundidade), estruturada em 5 camadas lógicas hierárquicas:
+
+Camada 0 (Background / Chão): Elementos 100% estáticos e sem colisão física (ex: texturas de piso, carpetes). Renderizados no fundo. O personagem sempre sobrepõe esta camada.
+
+Camada 1 (Midground / Obstáculos): Elementos estáticos com colisão física ativa (ex: mesas de escritório, paredes, servidores). O personagem colide e não os atravessa.
+
+Camada 2 (Entidades Dinâmicas): Elementos com movimento e atualização de tela constante (ex: Sprite do Analista, alertas visuais de ataque). Possuem colisão dinâmica entre si e contra a Camada 1.
+
+Camada 3 (Foreground / Teto): Elementos estáticos de sobreposição visual para criar sensação de profundidade (ex: molduras superiores de portas, infraestrutura de teto). Não possuem colisão; o personagem caminha por baixo deles.
+
+Camada 4 (UI / HUD / Terminal): Camada de interface absoluta. Ignora a câmera do cenário. Contém o Relógio, Vidas e a Tela do Terminal. É ancorada no topo da hierarquia visual, sobrepondo todas as camadas anteriores.
+
+Nota de Engenharia (LVGL): O sistema não aloca buffers de vídeo individuais para cada camada (o que inviabilizaria o uso do microcontrolador). A profundidade é tratada puramente pela ordem de criação dos objetos na árvore (Parent/Child). A Camada 4 (HUD) será sempre desenhada por último ou forçada para a frente utilizando a função nativa lv_obj_move_foreground().
+
+
+
+
+
+
+
+
+💾 BLOCO 5: Assets, Narrativa e Persistência (Versão Final)
+10. Persistência de Dados (NAND e Logs)
+
+Local de Armazenamento: O Ranking e os registros de atividades não serão salvos na NVS. Serão gravados na memória NAND externa.
+
+Estrutura de Arquivos: O jogo criará uma pasta específica (ex: /sys/logs/) que apenas o motor do jogo poderá alterar. O arquivo de ranking será binário para evitar manipulação simples por editores de texto externos.
+
+Segurança dos Dados: O sistema de arquivos (LittleFS ou FATFS) garantirá que, mesmo se a energia cair durante uma gravação, o arquivo anterior não seja corrompido.
+
+11. Sistema de Medição de Ranking (Matemática do Score)
+A pontuação será baseada na eficiência da triagem e na integridade da rede:
+
+Tarefas Verdes (Rotina): +10 pontos por conclusão.
+
+Tarefas Amarelas (Manutenção): +20 pontos por conclusão (devido ao tempo de QTE).
+
+Ataque Vermelho (Crítico/NFC):
+
+Base: +50 pontos pela mitigação correta.
+
+Bônus de Velocidade: Pontuação adicional baseada no tempo restante do timer de destruição do setor. Quanto mais rápido o NFC for lido, maior o bônus.
+
+Penalidades: O tempo gasto em Action Lock por erros de carta reduz drasticamente o Bônus de Velocidade.
+
+Bônus Final: Multiplicador aplicado ao final do expediente com base no número de setores (vidas) que permaneceram intactos.
+
+14. Tutorial e Assets
+
+Tutorial: Removido. Aprendizagem 100% orgânica dentro do jogo. tivemos a ideia de deixar o secretario na entrada da primeira tela para o jogador poder ir interagir e o secretario explicar ao jogado o jogo como se fosse um secretario recepcionando o novo funcionário explicando as regras da empresa que seria as regras do jogo.
+
+Pipeline de Arte: Tiles 16x16 e Sprites 24x24 em formato RGB565 armazenados na NAND
+
+
+
+
+🧠 BLOCO 6: Arquitetura de Software e Tasks (FreeRTOS)
+18. Divisão de Tarefas (Task Management)
+O código não rodará num único loop (como num Arduino básico). Ele será dividido em três rotinas independentes para garantir a ortogonalidade exigida no projeto:
+
+1. Task UI / LVGL (Prioridade Alta): * Dedicada exclusivamente a redesenhar as áreas sujas do ecrã e gerir as animações usando os buffers e o DMA. Não faz cálculos de jogo.
+
+2. Task GameEngine (Prioridade Média): * É o cérebro da operação. Executa a Máquina de Estados (FSM) que aprovámos no Bloco 4, os timers do relógio do expediente e aplica as penalizações ou bónus do Bloco 5.
+
+3. Task Hardware (Prioridade Alta / Orientada a Interrupção): * Fica adormecida na maior parte do tempo. Acorda apenas para ler os inputs físicos do joystick/botões e o módulo NFC.
+
+19. Comunicação Segura (IPC - Inter-Process Communication)
+Para que uma rotina não atropele a outra, a comunicação entre elas será blindada:
+
+Filas (Queues): O joystick e os botões não mudam o personagem diretamente. A Task Hardware empacota a direção (ex: CIMA) num pacote de dados e atira para a "Fila de Comandos". A Task GameEngine lê essa fila e decide se o personagem pode andar ou se está em estado de Action Lock.
+
+Mutex (Cadeado do Ecrã): A biblioteca LVGL tem de ser protegida. Quando a Task GameEngine precisar de mudar a cor de um servidor para vermelho, ela adquire um Mutex, faz a alteração em segurança, e liberta o Mutex para que a Task UI possa desenhar.
+
+20. O Gatilho do NFC (A Tua Correção)
+Refletindo exatamente o que definiste no Bloco 3 e 4:
+
+A Task Hardware mantém a rotina I2C/SPI do chip PN532 completamente suspensa.
+
+Quando a Task GameEngine muda a FSM para o estado de Terminal de Ataque, ela levanta uma Event Flag (Sinalizador).
+
+A Task Hardware vê este sinal, energiza o PN532 e fica à escuta da carta. Mal a leitura é validada ou o jogador sai do Terminal, o sinal cai e o leitor é desligado de imediato.
+
+
+
+
+
+
+Aqui está a Nota de Consolidação Técnica Final. Este texto foi redigido para ser anexado ao final do seu documento, detalhando cada ponto que você definiu e corrigindo as inconsistências das versões anteriores sem deixar margem para interpretações ambíguas.
+
+📝 NOTA DE CONSOLIDAÇÃO TÉCNICA E ERRATA (LEITURA OBRIGATÓRIA)
+Esta seção prevalece sobre qualquer informação conflitante presente nos blocos anteriores do documento. O desenvolvimento do firmware deve seguir estritamente estas definições:
+
+1. Hardware de Sinalização (LEDs de Status)
+
+Configuração Física: Ignorar menções a usar apenas um único led. O projeto utiliza 3 LEDs WS2812.
+
+Lógica de Acionamento (Baseada no Progresso do Ataque):
+O led 1 sera para tarefas verdes e ficara aceso na cor verde solida a partir do momento que tiver tarefas a fazer, se não tiver ele apaga.
+O led 2 sera para a amarela e seguira a mesma logica do verde, porem para tarefas amarelas.
+O led 3 sera exclusivo para o alerta da tarefa vermelha.
+Ainda referente a ataques (tarefas vermelhas) os três leds se comportarão assim:
+
+Ataque 0% a 33%: Apenas o LED 03 acende (indicando o início do ataque crítico).
+
+Ataque 33% a 66%: O LED 02 ascende (ficando o 3 e 2 aceso) deve ser acionado para atuar como um segundo alerta de perigo (indicação visual de agravamento).
+
+Ataque > 66%: Os 3 LEDs (3, 2 e 1) devem acender simultaneamente e piscar em sincronia.
+
+Ataque > 90%: Os 3 LEDs devem piscar de forma caótica e embaralhada, sinalizando a iminência da perda do setor (estado crítico máximo).
+
+2. Gerenciamento de Memória e Persistência (NAND vs NVS)
+
+Localização do Ranking e Logs: É terminantemente proibido o uso da NVS para salvar o Ranking. Todos os dados de pontuação (Score), Nicks de jogadores e logs de eventos do sistema serão gravados na memória NAND externa.
+
+Integridade: O sistema deve garantir que os logs e o ranking não sejam perdidos ao desligar o dispositivo. O acesso deve ser feito via sistema de arquivos em uma pasta isolada, permitindo que apenas o motor do jogo altere esses registros.
+
+3. Mecânica de Terminal e Execução de Cartas NFC
+
+Gatilho NFC: O leitor (PN532) permanece desenergizado. Ele só é liberado pelo jogo quando o personagem está na Tela de Ataque (Terminal Aberto). O jogador não decide quando ler; o sistema habilita o hardware apenas nesse contexto.
+
+Ciclo de Ação: Ao ler a carta, ocorre o Action Lock (1-2s) onde o personagem fica travado. Segue-se o System Deploy (3-5s), onde a barra de progresso enche no terminal.
+
+Regra de Abandono: O jogador pode sair do terminal (Botão B) a qualquer momento, porém, se ele sair antes da barra de System Deploy completar 100%, a ação é imediatamente cancelada, o progresso de defesa é zerado e o ataque continua danificando o servidor.
+
+4. Regra Crítica de Fim de Expediente (18:00h)
+
+O horário de 18:00h é um Hard Stop (interrupção imediata). Se o relógio bater 18:00h enquanto uma mitigação (NFC ou Tarefa) estiver em curso, a ação é abortada. O resultado do setor dependerá se a mitigação foi concluída antes do milissegundo final.
+
+5. Arquitetura FreeRTOS e Afinidade de Núcleos (ESP32-S3)
+Para respeitar o Princípio da Ortogonalidade e evitar engasgos gráficos, as tarefas devem ser fixadas nos núcleos da seguinte forma:
+
+Core 1 (Application Core): Exclusivo para a Task UI / LVGL. Responsável por todo o processamento gráfico, animações e envio de dados via DMA para o display.
+
+Core 0 (Protocol Core): Responsável pela Task GameEngine (lógica da FSM, timers, regras de pontuação) e pela Task Hardware (leitura de joystick, botões e acionamento do NFC).
+
+6. Renderização e Camadas (Z-Ordering)
+O motor gráfico deve obrigatoriamente seguir a estrutura de 5 camadas lógicas (0: Chão, 1: Obstáculos/Colisão, 2: Personagem/Entidades, 3: Teto/Sobreposição, 4: HUD/Terminal) para garantir profundidade visual e impedir que elementos do cenário cubram as informações vitais da interface (HUD).
+
+
+
+
+

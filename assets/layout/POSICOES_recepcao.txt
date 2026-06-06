@@ -1,0 +1,16 @@
+# POSICOES_recepcao — instancias posicionadas NA SALA recepcao.
+# Ver POSICOES_empresa.txt para a explicacao dos campos.
+
+SALA: recepcao
+FUNDO: rec_piso
+
+POSICAO
+entidade: player
+nome: player_spawn
+x: 240
+y: 232
+
+POSICAO
+entidade: recepcionista
+nome: recepcionista_01
+from_image: true

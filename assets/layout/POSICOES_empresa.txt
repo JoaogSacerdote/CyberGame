@@ -1,0 +1,29 @@
+# ===========================================================================
+# POSICOES_empresa — instancias posicionadas NA SALA empresa.
+# Cada bloco referencia um tipo do catalogo ENTIDADES.txt e da a posicao.
+#
+# Cabecalho:
+#   SALA   : nome da sala (empresa, recepcao, ...)
+#   FUNDO  : asset do piso/fundo (nome no asset_registry.json)
+#
+# Campos por bloco POSICAO:
+#   entidade   : nome do TIPO no catalogo (ex: cadeira_esquerda)
+#   nome       : nome UNICO da instancia (snake_case, sufixo _01, _02, ...)
+#   x, y       : pivot base-centro (pes) em pixels (480x320). Ignorado se from_image.
+#   from_image : true se o sprite ja foi desenhado no lugar no PNG (opcional)
+#   (opcional) flags / colisao_base / sort_offset_y sobrescrevem o catalogo
+# ===========================================================================
+
+SALA: empresa
+FUNDO: emp_piso
+
+POSICAO
+entidade: player
+nome: player_spawn
+x: 56
+y: 184
+
+POSICAO
+entidade: npc_ti
+nome: npc_ti_01
+from_image: true

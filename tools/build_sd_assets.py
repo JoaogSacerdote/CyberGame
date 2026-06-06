@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -28,8 +29,9 @@ import asset_codec  # noqa: E402
 TYPE_MAP = {"sprite": 0, "font": 1, "sound": 2}
 
 ROOT = Path(__file__).resolve().parent.parent
-REGISTRY = ROOT / "assets" / "asset_registry.json"
+REGISTRY    = ROOT / "assets" / "asset_registry.json"
 SPRITES_DIR = ROOT / "assets" / "sprites"
+LAYOUT_DIR  = ROOT / "assets" / "layout"
 
 
 def main() -> int:
@@ -76,6 +78,19 @@ def main() -> int:
     print(f"\n{written} assets gravados ({total_bytes/1024:.1f} KB) em {out_assets}")
     if missing:
         print(f"ATENCAO: {missing} arquivo(s) faltando — ver avisos acima.", file=sys.stderr)
+
+    # Copia os JSONs de layout para sdcard/assets/layout/
+    out_layout = out_assets / "layout"
+    out_layout.mkdir(parents=True, exist_ok=True)
+    layout_copied = 0
+    for json_file in LAYOUT_DIR.glob("*.json"):
+        dst = out_layout / json_file.name
+        shutil.copy2(json_file, dst)
+        print(f"  {str(dst.relative_to(Path(args.out))):30s} <- {json_file.name}")
+        layout_copied += 1
+    if layout_copied:
+        print(f"{layout_copied} layout(s) JSON copiados para {out_layout}")
+
     print(f"\nProximo passo: copie o conteudo de '{out_assets}' para a pasta")
     print("'/assets' na RAIZ do cartao microSD (deve ficar /assets/0_0.bin, etc.).")
     return 1 if missing else 0

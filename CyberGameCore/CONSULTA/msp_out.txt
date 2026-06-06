@@ -1,0 +1,483 @@
+LCDWIKI          MSP4030_MSP4031 Specification  CR2023-MI4041
+
+MSP4030&MSP4031
+
+       4.0inch TFT SPI Display Module
+                     Specification
+
+ShenZhen QDtech electronic technology Co.,LTD.
+
+REV                  Record                          Date
+V1.0             First Release                  Dec-14-2023
+
+www.lcdwiki.com  1 / 13                         V1.0
+LCDWIKI          MSP4030_MSP4031 Specification  CR2023-MI4041
+
+                   CONTENTS
+
+1. GENERAL DESCRIPTION ...............................................................................3
+
+   1.1.Product Introduction .......................................................................................................... 3
+   1.2.Image .................................................................................................................................. 3
+   1.3.Accessory List .................................................................................................................... 4
+
+2. PRODUCT FEATURES .......................................................................................... 5
+
+   2.1.Feature Description ........................................................................................................... 5
+
+3. PRODUCT PARAMETERS ................................................................................. 5
+
+   3.1.TFT Parameters ................................................................................................................ 5
+   3.2.Touch screen parameters ................................................................................................ 6
+   3.3.Size Parameters ................................................................................................................ 6
+   3.4.Electrical parameters ........................................................................................................ 6
+   3.5.Other Parameters .............................................................................................................. 6
+
+4. PRODUCT OUTLINE DRAWING .................................................................... 7
+
+   4.1.MSP4031(with Touch Screen) Outline Drawing ........................................................... 7
+   4.2.MSP4030(without Touch Screen) Outline Drawing ..................................................... 8
+
+5. PRODUCT INTERFACE ........................................................................................ 9
+
+   5.1.Interface Function Description ......................................................................................... 9
+   5.2.Pin Function Description .................................................................................................. 9
+
+6. PRECAUTIONS ........................................................................................................... 10
+
+   6.1.Safe Use of Products ......................................................................................................10
+   6.2.Frequently Asked Questions FAQ ..................................................................................11
+
+www.lcdwiki.com  2 / 13                         V1.0
+LCDWIKI          MSP4030_MSP4031 Specification                  CR2023-MI4041
+
+1. GENERAL DESCRIPTION
+
+   1.1. Product Introduction
+
+             MSP4030 and MSP4031 are two 4.0-inch color LCD display modules, with
+       MSP4030 without a touch screen and MSP4031 with a capacitive touch screen. The
+       display module adopts a 4-wire SPI interface, which only requires 5 IOs to achieve
+       display. The 320x480 high-definition resolution can be applied to various products
+       that require screen display function.
+
+   1.2. Image
+
+                 Picture 1 MSP4031 (with touch screen) product
+
+www.lcdwiki.com  3 / 13                                         V1.0
+LCDWIKI          MSP4030_MSP4031 Specification    CR2023-MI4041
+
+                   Picture 2 MSP4030 (without touch screen) product
+
+1.3. Accessory List
+
+    Configure a 14P reverse FPC cable with a length of 30cm and a spacing of 0.5mm.
+
+                 Picture 3 14P reverse FPC cable
+
+www.lcdwiki.com  4 / 13                           V1.0
+LCDWIKI          MSP4030_MSP4031 Specification   CR2023-MI4041
+
+2. PRODUCT FEATURES
+
+   2.1. Feature Description
+
+       4.0 " color screen with 320x480 resolution of 65K colors and rich display colors
+       On board level conversion circuit, compatible with 5V and 3.3V MCU
+       Adopting a 4-wire SPI serial bus to save I/O pins
+       Optional capacitive touch/no touch function for modules
+       Module input supports 2.54 pin interface and FPC extension interface
+       Equipped with micro TF card slot for easy storage expansion
+       Provide rich example learning programs (ESP32/STM32/ Arduino/C51/CH32)
+       Provide low-level driver technical support, and update WIKI information online
+       Multiple tests for module aging can meet military level standards, supporting
+
+            long-term stable work
+
+3. PRODUCT PARAMETERS
+
+3.1. TFT Parameters               Parameters     Unit
+                                        4.0       inch
+                    Item                TN
+               Panel Size                           -
+               Panel Type        320xRGBx480     pixels
+               Resolution     55.68(W)x83.52(H)   mm
+              Active Area
+      Number of Colors(Max)           16.7M         -
+                Driver IC           ST7796S         -
+           Display Interface       4-Line SPI       -
+                Pixel Size      0.174(H)x0.174    mm
+               View Angle         12 O'CLOCK      deg
+           Brightness(TYP)                       cd/m2
+            Backlight Type              300         -
+      Operation Temperature       White LED*8      
+        Storage Temperature                        
+                                      -10~50
+                                      -20~60
+
+www.lcdwiki.com               5 / 13                     V1.0
+LCDWIKI                MSP4030_MSP4031 Specification   CR2023-MI4041
+
+3.2. Touch Screen Parameters
+
+                 Item         Parameters               Unit
+                                                        inch
+     Touch Active Area                      4.0
+    Touch Screen Type         Capacitive Touch Screen     -
+Touch Screen Resolution                                pixels
+                                        320x480
+            Driver IC                   FT6336U           -
+Touch Screen Visual Area         55.98(W)x83.82(H)      mm
+Communication Interface
+                                            IIC           -
+            Material                       G+F            -
+ Operation Temperature                   -20~70          
+   Storage Temperature                   -30~80          
+
+3.3. Size Parameters
+
+      Item                    Parameters                                           Unit
+ TFT Outline
+                       60.88±0.2(W)x94.57±0.2(H)x2.5±0.1(D)
+      Size                                                                                      mm
+Touch Screen
+ Outline Size          ( Excluding cables and adhesive backing)
+                       60.88±0.1(W)x94.57±0.1(H)x1.35 (D) ( Excluding
+    Module
+ Outline Size                                                                                   mm
+                       cables and adhesive backing)
+                       NO Touch Screen:
+                       60.88(W)x108.0(H)x12.95(D) (including Pin Header)
+
+                                                                                                mm
+                       Have Touch Screen:
+                       60.88(W)x108.0(H)x14.80(D) ( including Pin Header)
+
+3.4. Electrical Parameters
+
+                  Item        Parameters               Unit
+         Working Voltage
+         Backlight Current  5.0/3.3V(Recommended to
+                                                                            V
+                 Power
+                                    connect to 5V)
+
+                                      103              mA
+
+                                      0.5              W
+
+3.5. Other Parameters
+
+                 Item         Parameters               Unit
+
+                 SKU         NO Touch Screen : MSP4030
+                                                                                -
+
+                            Have Touch Screen : MSP4031
+
+         Interface          14 Pin 2.54mm Header and
+                                                                                -
+
+                            0.5mm FPC
+
+Weight(including package)     MSP4030: 58              g
+
+                              MSP4031: 76
+
+www.lcdwiki.com               6 / 13                                               V1.0
+CR2023-MI4041                                                                                                                                                                                                                                          REVISION                     RECORD                                                                 Date
+
+                                                                                                                                                                                                                                                          V1.0                    First release                                                         2023-11-16
+
+                                                                                                                                            Front                                                   Side                                                   Back                                                                                                                                        V1.0
+
+                                                                                         3.00                                                         60.88(PCB)     2.45                1.35±0.1   6.45(Total thickness without Header)         6.79     30.44
+                                                                                             6.71                                           60.88±0.1(CTP LENS OD)   2.60             (CTP without    1.60(PCB)
+                                                                                                  6.71                                                               3.00                           0.50(LCD back tape)                                                                     P2
+                                                                                                       9.21                                      60.88±0.2(LCD BL)                     back tape)
+                                                                                                            9.36                            55.98±0.15(CTP LENS VA)                                 2.50(LCD without back tape)                        4.0" TFT SPI 480X320 V1.0
+                                                                                                                                                                                                    0.50(CTP back tape)
+                                                                                                                                                    55.68(LCD AA)                                                                                                       Capacitive Touch
+                                                                                                                                                     54.88(HOLE)                                        2.20 Max(SMD)
+                                                                                                                                                                                                                                                                                           P1
+                               4. PRODUCT OUTLINE DRAWING                                                                                                                          K                                                                                                                                                                                Picture 4 MSP4031 Outline Drawing
+
+MSP4030_MSP4031 Specification        4.1. MSP4031(with Touch Screen) Outline Drawing                                                                                                                                                                                                                                                          52.03
+
+                                                                                         108.00(PCB)                                           4.0" TFT                                                                                                                                                                                                                                                7 / 13
+                                                                                             102.00(HOLE)                                   320*RGB*480
+                                                                                                  94.57±0.1(CTP LENS OD)                    12 0' CLOCK
+                                                                                                       94.57±0.2(LCD BL)
+                                                                                                            83.82±0.15(CTP LENS VA)
+
+                                                                                                                 83.52(LCD AA)
+
+                                                                                                                                                                     4-3.204-4.70                                                                                Q2 Q3 Q1  U2
+
+                                                                                                                                                                                                                                                                                                R8
+
+                                                                                                                                                                                                             5.84                                                                               C1
+                                                                                                                                                                                                             8.34
+                                                                                                                                                                                                             11.17(Header height)                                                                                                         U1
+                                                                                                                                                                                                             14.80(Total thickness with Header)                  R4 R3 R5 R6 R1R7 R2
+
+                                                                                         at                                                 13x2.54=33.02
+                                                                                                                                     13.93                           2.00
+
+                                                                                                                                                                                                                                                       14                      1
+
+                                                                                      iNOTES:                                                                                                                                                                                                                                                                                                          www.lcdwiki.com
+                                                                                       1.DISPLAY TYPE: 4.0" TFT
+LCDWIKI                                                                                2.VIEWING DIRECTION: 12 O'CLOCK                                                                                                                                                                                                                        DRG DATE  2023-11-16
+                                                                                       3.DRIVE IC: ST7796S                                                                                                                                                                                                                                    DRAWING       Joan
+                                                                                       4.POLARIZER MODE: TRANSMISSIVE/POSITIVE                                                                                    ShenZhen QDtech electronic technology Co.,LTD.                                                                                           Green
+                                                                                       5.RESOLUTION: 320*RGB*480                                                                                                                                                                                                                                CHECK       Rose
+                                                                                       6.INTERFACE: SPI_4-Line                                                                                      TITLE.  LCM OUTLINE                          REV. UNIT SIZE                                                                               APPROVE
+                                                                                       7.UNMARKER TOLERANCE: ±0.2                                                                                    SKU.       MSP4031
+                                                                                       8.OPERATING TEMP: -10~+60                                                                                                                                 V1.0 mm A4
+CR2023-MI4041                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        REVISION                     RECORD                                                                 Date                                        V1.0
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        V1.0                    First release                                                         2023-11-17
+
+                                                                                                                          Front                               Side                                                                                                                                                                                                                                                                                                                                                                                                                                       Back
+
+                                                                                      3.00                                     60.88(PCB)    2.60                        4.60(Total thickness without Header)                                                                                                                                                                                                                                                                                                                                                                                  6.79     30.44
+                                                                                          6.71                            60.88±0.2(LCD BL)  3.00                          1.60(PCB)
+                                                                                               9.36                                                                      0.50(LCD back tape)                                                                                                                                                                                                                                                                                                                                                                                                                                              P2
+                                                                                                                            55.68(LCD AA)
+                                                                                                                              54.88(HOLE)                                2.50(LCD without back tape)                                                                                                                                                                                                                                                                                                                                                                                                 4.0" TFT SPI 480X320 V1.0
+                                                                                                                                                                             2.20 Max(SMD)
+                               4.2. MSP4030(without Touch Screen) Outline Drawing                                                                  K                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Capacitive Touch                                                                            Picture 5 MSP4030 Outline Drawing
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+                                                                                                                                                   Pull Tape                                                                                                                                                                                                                                                                                                                                                                                                                                                                             P1                                                 52.03
+                                                                                                                                                                                 5.84
+MSP4030_MSP4031 Specification                                                         108.00(PCB)                            4.0" TFT                                            8.34                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                8 / 13
+                                                                                          102.00(HOLE)                    320*RGB*480                                            11.17(Header height)
+                                                                                               94.57±0.2(LCD BL)          12 0' CLOCK                                            12.95(Total thickness with Header)
+
+                                                                                                    83.52(LCD AA)
+
+                                                                                                                                             4-3.204-4.70                                                                                                                                                                                                                                                                                                                                                                                                                                                      Q2 Q3 Q1  U2
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              R8
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              C1
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        U1
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               R4 R3 R5 R6 R1R7 R2
+
+                                                                                      at                           13.93  13x2.54=33.02      2.00
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     14                      1
+
+                                                                                   iNOTES:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           www.lcdwiki.com
+                                                                                    1.DISPLAY TYPE: 4.0" TFT
+LCDWIKI                                                                             2.VIEWING DIRECTION: 12 O'CLOCK                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         DRG DATE  2023-11-17
+                                                                                    3.DRIVE IC: ST7796S                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     DRAWING       Joan
+                                                                                    4.POLARIZER MODE: TRANSMISSIVE/POSITIVE                                                  ShenZhen QDtech electronic technology Co.,LTD.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              Green
+                                                                                    5.RESOLUTION: 320*RGB*480                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 CHECK       Rose
+                                                                                    6.INTERFACE: SPI_4-Line                                                   TITLE.  LCM OUTLINE                                                                                                                                                                                                                                                                                                                                                                                                              REV. UNIT SIZE                                                                               APPROVE
+                                                                                    7.UNMARKER TOLERANCE: ±0.2                                                 SKU.       MSP4030
+                                                                                    8.OPERATING TEMP: -10~+60                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  V1.0 mm A4
+LCDWIKI          MSP4030_MSP4031 Specification                      CR2023-MI4041
+
+5. PRODUCT INTERFACE
+
+   5.1. Interface Function Description
+
+                 Picture 6 Product Interface
+
+Number Interface                              Function Description
+
+                 14 Pin Header  2.54mm spacing row pins, module signal input
+
+                                pins
+
+                                Insert a Micro SD card to expand storage
+
+                 Micro SD Slot space, such as storing big data content such
+
+                                as fonts and images
+
+                 14P FPC        0.5mm FPC terminal, used for module signal
+
+                                input with the same function as 
+
+5.2. Pin Function Description
+
+Module Pin                      Pin Function Description
+
+         VCC     power positive (It is recommended to connect to 5V. When
+                 connected to 3.3V, the backlight brightness will be slightly
+                 dim)
+
+         GND Power ground
+
+LCD_CS LCD selection control signal, Low level active
+
+LCD_RST LCD reset control signal, Low level reset
+                 LCD command / data selection control signal
+
+ LCD_RS
+                 High level: data, low level: command
+                 SPI bus write data signal(SD card and LCD screen used
+
+SDI(MOSI)
+                 together)
+
+www.lcdwiki.com                       9 / 13                                   V1.0
+LCDWIKI          MSP4030_MSP4031 Specification                       CR2023-MI4041
+
+         SCK SPI bus clock signal(SD card and LCD screen used together)
+
+         LED     LCD backlight control signal (If you need control, please
+                 connect the pins. If you don't need control, you can skip it)
+
+                  SPI bus read data signal (SD card and LCD screen used
+SDO(MISO)
+
+                  together)
+
+                 Capacitive touch screen IIC bus clock signal (modules without
+CTP_SCL
+
+                 touch screens do not need to be connected)
+
+                 Capacitor touch screen reset control signal, low-level reset
+CTP_RST
+
+                 (modules without touch screens do not need to be connected)
+
+                 Capacitive touch screen IIC bus data signal (modules without
+CTP_SDA
+
+                 touch screens do not need to be connected)
+
+                 Capacitor touch screen IIC bus touch interrupt signal, when
+
+CTP_INT generating touch, input low level to the main control (modules
+
+                 without touch screens do not need to be connected)
+
+              SD card selection control signal, low level active (without SD
+SD_CS
+
+              card function, can be disconnected)
+
+6. PRECAUTIONS
+
+6.1. Safe Use of Products
+
+    Do not use violence to press or hit the screen to avoid damaging it
+    Do not use hard objects to scratch the screen to avoid scratching it
+    Do not place heavy items on the product to avoid crushing the screen
+    Please keep the product clean and do not drip water or oil on the screen
+    Please use a clean, soft, and dry cloth to wipe the screen, and do not spray
+
+       water or cleaning agents directly onto the screen
+    Do not disassemble the product randomly to avoid damaging the screen or
+
+       wiring
+    Do not place the product in a high temperature and humidity environment
+    Please place the product facing upwards in a stable place to prevent it from
+
+       falling and damaging the product
+    Please use the correct voltage to connect to the product to avoid damage due to
+
+       high voltage
+    When using the product, do not touch the components or pins with wet hands to
+
+       avoid causing short circuits and damaging the product
+
+www.lcdwiki.com  10 / 13                                                        V1.0
+LCDWIKI          MSP4030_MSP4031 Specification  CR2023-MI4041
+
+    When the product is not in use for a long time, please unplug the power supply
+
+6.2. Frequently Asked Questions FAQ
+
+    Question 1: After receiving the product, there is no response from the
+       wiring and the screen does not light up
+       Analysis:
+               Due to the fact that this module is an IPS display panel, only connecting to
+       the power supply will not emit white light. It is recommended to first connect only
+       three pins (VCC connected to 5V/3.3V, GND grounded, LED pin connected to
+       5V/3.3V). At this time, when observing from the vicinity of the LCD screen pin
+       array, it is normal to see that there is an internal light bead lit up, indicating that
+       the backlight is normal.
+               If the backlight still does not respond according to the above operation, it is
+       speculated that there may be a hardware circuit malfunction.
+
+ Question 2: After receiving the product, the wiring test has a bright back,
+    but there is no display screen
+   Analysis:
+           Backlit indicates that the power supply is connected correctly and there is
+   no short circuit phenomenon, but if the screen needs to be displayed normally,
+   SPI communication needs to be completely normal, including factors such as
+   correct matching of SPI signal wiring and program burning, and normal operation
+   of the microcontroller.
+           It is recommended to use the demo program we have tested for the first
+   time. The program should not be modified and try to find the same
+   microcontroller development board for testing as much as possible. This can
+   eliminate the factor of dim dots caused by program modifications. At this time, it
+   is also important to pay attention to whether the demo compilation and download
+   prompt is successful, whether the development board is running normally, and
+   whether the wiring is wired according to program requirements.
+           If the demo does not match your microcontroller and must be modified to
+
+www.lcdwiki.com  11 / 13                        V1.0
+LCDWIKI          MSP4030_MSP4031 Specification  CR2023-MI4041
+
+   run, it is recommended to use the_ Example modification test for SoftWare suffix
+   words, which will be more effective than_ HardWare is more likely to succeed.
+
+           If the picture still cannot be displayed normally after many times of tossing
+   and turning according to the above steps, use the necessary tools such as
+   multimeter/oscilloscope/Logic analyzer to analyze and test the signal, and
+   contact our technicians for help.
+
+ Question 3: The product can display normally, but there is no response to
+    touch
+    Analysis:
+           The display bus designed in this module is separate from the touch bus,
+    which means that a normal display does not mean that the touch driver bottom
+    layer is normal, and the physical wiring between the two is not related.
+           The capacitive touch circuit of this module adopts the I2C communication
+    bus, and the hardware can also observe whether there are signs of damage to
+    the touch cable, whether the P1 touch seat is in place, and other factors to rule
+    out the possibility of hardware damage; In terms of software, it is recommended
+    to first use the test demo we provide for testing and wire according to the wiring
+    requirements, in order to troubleshoot problems using the elimination method.
+
+ Question 4: The product can display, but the backlight brightness
+    fluctuates and is unstable
+    Analysis:
+           The backlight circuit of this module is driven by a transistor. The LED pin
+    inputs a high level to light up the backlight, and a low level to turn off the
+    backlight. The PWM signal can also be input through the LED pin to achieve
+    dimming purposes; If the LED pin is suspended without any treatment, an
+    unstable state will occur, which means that the LED pin will be very dark when
+    touched by hand. It is necessary to configure the LED pin with a stable level
+    output to ensure stable and normal backlight.
+
+www.lcdwiki.com  12 / 13                        V1.0
+LCDWIKI          MSP4030_MSP4031 Specification  CR2023-MI4041
+
+ Question 5: What if there is no example in the demo that my
+    microcontroller is suitable for
+    Analysis:
+           As is well known, there are over ten thousand types of microcontroller
+    models, and the development boards derived from them are countless. Our
+    demo is configured with examples of the ESP32/STM32/CH32/C51/AruinoUNO
+    platform by default, and each example will only be released after being tested
+    and certified. All source code is free and open-source learning, and is mostly
+    written in pure C language, making it convenient for customers to transplant to
+    their own microcontroller platform; If you cannot find a directly usable example in
+    the demo, you need to refer to our code and transplant it yourself. If necessary,
+    you can also purchase our test board to test the screen first to determine its
+    quality and increase confidence; Our company provides low-level driver
+    technical support. Welcome to communicate, exchange, and learn!
+
+www.lcdwiki.com  13 / 13                        V1.0
+

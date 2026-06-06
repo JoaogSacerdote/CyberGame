@@ -1,0 +1,6 @@
+Tileset1 = primeiro no topo a esquerda
+Tileset2 = primeiro no topo a direita do Tileset1
+Tileset3 = Embaixo do Tileset1
+Tileset4 = Embaixo do Tileset4
+
+Cada Tileset Individual é 16x16, Logo a soma das 4 variações dará 64x64.

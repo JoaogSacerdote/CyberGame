@@ -1,37 +1,268 @@
 {
-  "_doc": "Layout de entidades da sala empresa (escritorio). Carregado em runtime pelo room_layout_sd.c. bg_asset_id=8=emp_piso. pivot=bottom-center.",
+  "_doc": "Layout sala empresa (escritorio). Posicoes do pivot bottom-center extraidas de posicao.txt. Spawns de INTERACOES.txt. Colisoes calibrar em jogo.",
   "room": "empresa",
-  "bg_asset_id": 8,
+  "bg_asset_id": 20,
   "entities": [
     {
       "name": "player_spawn",
-      "asset_type": 0,
-      "asset_id": 16,
+      "asset_type": 0, "asset_id": 28,
       "type": "player",
       "flags": ["solid", "ysorted", "visible"],
-      "x": 56,
-      "y": 184,
-      "coll_w": 16,
-      "coll_h": 12,
-      "coll_offset_x": -8,
-      "coll_offset_y": -12,
-      "sort_offset_y": 0,
-      "from_image": false
+      "x": 12, "y": 160,
+      "coll_w": 16, "coll_h": 12, "coll_offset_x": -8, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
     },
     {
-      "name": "npc_ti_01",
-      "asset_type": 0,
-      "asset_id": 15,
+      "name": "npc_02",
+      "asset_type": 0, "asset_id": 36,
       "type": "npc",
       "flags": ["solid", "interactable", "ysorted", "visible"],
-      "x": 0,
-      "y": 0,
-      "coll_w": 24,
-      "coll_h": 12,
-      "coll_offset_x": -12,
-      "coll_offset_y": -12,
-      "sort_offset_y": 0,
-      "from_image": true
+      "x": 190, "y": 195,
+      "coll_w": 24, "coll_h": 12, "coll_offset_x": -12, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "npc_03",
+      "asset_type": 0, "asset_id": 38,
+      "type": "npc",
+      "flags": ["solid", "interactable", "ysorted", "visible"],
+      "x": 337, "y": 127,
+      "coll_w": 24, "coll_h": 12, "coll_offset_x": -12, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "impressora_01",
+      "asset_type": 0, "asset_id": 21,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 167, "y": 319,
+      "coll_w": 40, "coll_h": 20, "coll_offset_x": -20, "coll_offset_y": -20,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "cafeteira_01",
+      "asset_type": 0, "asset_id": 22,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 71, "y": 319,
+      "coll_w": 40, "coll_h": 20, "coll_offset_x": -20, "coll_offset_y": -20,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "planta_02_a",
+      "asset_type": 0, "asset_id": 23,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 291, "y": 319,
+      "coll_w": 16, "coll_h": 12, "coll_offset_x": -8, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "planta_02_b",
+      "asset_type": 0, "asset_id": 23,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 447, "y": 188,
+      "coll_w": 16, "coll_h": 12, "coll_offset_x": -8, "coll_offset_y": -12,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "mesa_l_01",
+      "asset_type": 0, "asset_id": 24,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 168, "y": 175,
+      "coll_w": 192, "coll_h": 48, "coll_offset_x": -96, "coll_offset_y": -48,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "mesa_l_02",
+      "asset_type": 0, "asset_id": 25,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 407, "y": 303,
+      "coll_w": 24, "coll_h": 32, "coll_offset_x": -12, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "cadeira_esq_02_a",
+      "asset_type": 0, "asset_id": 26,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 447, "y": 287,
+      "coll_w": 24, "coll_h": 16, "coll_offset_x": -12, "coll_offset_y": -16,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "cadeira_esq_02_b",
+      "asset_type": 0, "asset_id": 26,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 133, "y": 95,
+      "coll_w": 24, "coll_h": 16, "coll_offset_x": -12, "coll_offset_y": -16,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "cadeira_costa_01_a",
+      "asset_type": 0, "asset_id": 27,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 233, "y": 207,
+      "coll_w": 24, "coll_h": 16, "coll_offset_x": -12, "coll_offset_y": -16,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "cadeira_costa_01_b",
+      "asset_type": 0, "asset_id": 27,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 127, "y": 207,
+      "coll_w": 24, "coll_h": 16, "coll_offset_x": -12, "coll_offset_y": -16,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "servidor_01_a",
+      "asset_type": 0, "asset_id": 35,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 447, "y": 95,
+      "coll_w": 28, "coll_h": 24, "coll_offset_x": -14, "coll_offset_y": -24,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "servidor_01_b",
+      "asset_type": 0, "asset_id": 35,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 336, "y": 95,
+      "coll_w": 28, "coll_h": 24, "coll_offset_x": -14, "coll_offset_y": -24,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_05_a",
+      "asset_type": 0, "asset_id": 32,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 448, "y": 159,
+      "coll_w": 32, "coll_h": 32, "coll_offset_x": -16, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_05_b",
+      "asset_type": 0, "asset_id": 32,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 415, "y": 159,
+      "coll_w": 32, "coll_h": 32, "coll_offset_x": -16, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_05_c",
+      "asset_type": 0, "asset_id": 32,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 352, "y": 159,
+      "coll_w": 32, "coll_h": 32, "coll_offset_x": -16, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_06_a",
+      "asset_type": 0, "asset_id": 33,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 328, "y": 159,
+      "coll_w": 16, "coll_h": 32, "coll_offset_x": -8, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_03_a",
+      "asset_type": 0, "asset_id": 30,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 314, "y": 159,
+      "coll_w": 12, "coll_h": 21, "coll_offset_x": -6, "coll_offset_y": -21,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_04_a",
+      "asset_type": 0, "asset_id": 31,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 311, "y": 127,
+      "coll_w": 12, "coll_h": 32, "coll_offset_x": -6, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_05_d",
+      "asset_type": 0, "asset_id": 32,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 448, "y": 223,
+      "coll_w": 32, "coll_h": 32, "coll_offset_x": -16, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_05_e",
+      "asset_type": 0, "asset_id": 32,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 416, "y": 223,
+      "coll_w": 32, "coll_h": 32, "coll_offset_x": -16, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_05_f",
+      "asset_type": 0, "asset_id": 32,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 384, "y": 223,
+      "coll_w": 32, "coll_h": 32, "coll_offset_x": -16, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_05_g",
+      "asset_type": 0, "asset_id": 32,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 352, "y": 223,
+      "coll_w": 32, "coll_h": 32, "coll_offset_x": -16, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_06_b",
+      "asset_type": 0, "asset_id": 33,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 328, "y": 223,
+      "coll_w": 16, "coll_h": 32, "coll_offset_x": -8, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_04_b",
+      "asset_type": 0, "asset_id": 31,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 314, "y": 223,
+      "coll_w": 12, "coll_h": 32, "coll_offset_x": -6, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_04_c",
+      "asset_type": 0, "asset_id": 31,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 314, "y": 319,
+      "coll_w": 12, "coll_h": 32, "coll_offset_x": -6, "coll_offset_y": -32,
+      "sort_offset_y": 0, "from_image": false
+    },
+    {
+      "name": "parede_07",
+      "asset_type": 0, "asset_id": 34,
+      "type": "furniture",
+      "flags": ["solid", "ysorted", "visible"],
+      "x": 16, "y": 127,
+      "coll_w": 32, "coll_h": 54, "coll_offset_x": -16, "coll_offset_y": -54,
+      "sort_offset_y": 0, "from_image": false
     }
   ]
 }

@@ -9,5 +9,5 @@ idf_component_register(
     REQUIRES
         "lvgl__lvgl"
         "log"
-        "json"
+        "espressif__cjson"
 )

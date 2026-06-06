@@ -1,0 +1,14 @@
+# REFERENCIA DE RENOMEACAO - Aseprite Projeto
+# Gerado em 2026-06-05
+# Formato: PASTA | ANTES -> DEPOIS | MOTIVO
+# Arquivos ja em UPPER_SNAKE_CASE canonico nao aparecem aqui.
+# BEBEDOURO_01_DUP.png pode ser apagado (mesmo asset).
+#
+Secretaria   | CadeiraCosta.png               -> CADEIRA_COSTA_01_REC.png       | 32x64 cadeira alta recep. costas
+Secretaria   | CadeiraDireita.png             -> CADEIRA_DIREITA_01.png         | 32x64 cadeira alta recep. direita
+Secretaria   | CadeiraFrente.png              -> CADEIRA_FRENTE_01.png          | 32x64 cadeira alta recep. frente
+Secretaria   | CadeiraLados.png               -> CADEIRA_SHEET_01.png           | 128x64 spritesheet 4 orientacoes
+Secretaria   | Protagonista32x32.png          -> PROTAGONISTA_01.png            | 96x256 spritesheet player (nome enganoso)
+Escritorio   | CadeiraCosta.png               -> CADEIRA_COSTA_01.png           | 32x48 cadeira escrit. costas (canonical)
+Escritorio   | CadeiraEsquerda.png            -> CADEIRA_ESQUERDA_02.png        | 32x48 cadeira escrit. lado (canonical)
+Escritorio   | Bebedouro.png                  -> BEBEDOURO_01_DUP.png           | DUPLICATA de Secretaria/BEBEDOURO_01.png

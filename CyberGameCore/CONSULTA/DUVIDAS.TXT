@@ -1,0 +1,676 @@
+================================================================================
+DUVIDAS DE GAME LOGIC — CyberSec: Network Defender
+================================================================================
+Documento gerado por Claude em 2026-05-12 a pedido do usuario.
+Base de leitura: Artigo_extracted.txt + matriz-reacao-ataques.md + memorias do projeto.
+
+Estas duvidas precisam ser respondidas (mesmo que parcialmente, mesmo que com
+"nao decidido ainda") antes de comecar a escrever components/game_logic/.
+Responder na ordem ou pular livremente — o que estiver vazio vira decisao
+default minha, registrada em memoria, e voce confirma depois.
+
+Formato sugerido para resposta: editar este mesmo arquivo abaixo de cada
+pergunta, ou criar um RESPOSTAS.TXT do lado. Tanto faz.
+
+================================================================================
+0. CONFLITOS / INCONSISTENCIAS QUE PRECISAM SER RESOLVIDAS PRIMEIRO
+================================================================================
+
+0.1 RESOLUCAO DO DISPLAY
+    O artigo diz "320x240 pixels" em duas secoes (3.3 Arquitetura e Tabela 2).
+    Mas o hardware real e ST7796S, que e 480x320, e a memoria project_hardware
+    confirma 480x320 RGB565 em PSRAM Octal.
+    PERGUNTA: confirmo que o jogo sera desenhado para 480x320 (paisagem) e o
+    artigo esta com erro tipografico? Ou voces vao redesenhar para 320x240?
+    >>> RESPOSTA:
+
+0.2 ORIENTACAO DO DISPLAY
+    Paisagem (480 largura, 320 altura) ou retrato (320 largura, 480 altura)?
+    O simulador do colega esta em qual? As capturas (Sala 1 / Sala 2) estao em
+    qual orientacao? Isso muda tudo no layout de UI.
+    >>> RESPOSTA:
+
+0.3 GPIO 15 LIVRE
+    Sobrou GPIO 15 apos o remap de A/B/X/Y para 11-14. Esse pino esta destinado
+    a alguma coisa do jogo (ex: botao START/SELECT, segundo LED, outro sensor)
+    ou pode ficar como reserva permanente?
+    >>> RESPOSTA:
+
+0.4 IDIOMA
+    O jogo todo em portugues (PT-BR)? Tem versao em ingles? Texto fixo no
+    binario ou carregado de arquivo em asset_store (permite trocar sem
+    recompilar)?
+    >>> RESPOSTA:
+
+0.5 LED RGB vs WS2812
+    O artigo fala em "LED RGB com resistores dimensionados pela Lei de Ohm".
+    A memoria de hardware fala em "WS2812 enderecaveis no GPIO 48 (RMT)".
+    Sao a mesma coisa (WS2812 e LED RGB enderecavel, ja tem driver embutido,
+    nao precisa resistor de limitacao por cor). Confirmo que o LED RGB do
+    artigo == WS2812 no GPIO 48? Quantos LEDs WS2812 tem na placa? 1 ou tira?
+    >>> RESPOSTA:
+
+
+================================================================================
+1. ESCOPO — DEMO PARA MOSTRA ACADEMICA vs JOGO COMPLETO
+================================================================================
+
+1.1 Para a mostra academica (validacao pedagogica), qual e o escopo MINIMO
+    aceitavel? Marque o que e essencial:
+    [ ] Boot + menu inicial
+    [ ] Tela de splash com nome do jogo
+    [ ] Tutorial com NPC recepcionista
+    [ ] Pelo menos 1 sala jogavel (Sala 2)
+    [ ] Salas 1 + 2 com transicao
+    [ ] Mais salas alem de 1 e 2 (Servidores, Financeiro, RH...)
+    [ ] Todos os 3 tipos de tarefa (verde/amarela/vermelha) funcionais
+    [ ] Pelo menos 1 ataque com NFC funcional (ja que o NFC e o diferencial)
+    [ ] Todos os 3 ataques NFC funcionais
+    [ ] Pontuacao numerica visivel
+    [ ] Indicador de integridade dos setores
+    [ ] Relogio de expediente
+    [ ] Tela de fim de expediente (resultado/score)
+    [ ] Questionario via QR Code na tela final
+    [ ] Audio (buzzer) tocando
+    [ ] WS2812 mudando de cor
+    [ ] Save de high-score em NAND
+    [ ] Sistema de assets carregando da NAND (asset_store)
+    >>> RESPOSTA:
+
+1.2 Qual a data alvo aproximada da mostra? Quantas semanas tenho de
+    desenvolvimento de game_logic? (Pra eu calibrar ambicao do escopo.)
+    >>> RESPOSTA:
+
+
+================================================================================
+2. LOOP DE GAMEPLAY (CICLO DE UMA SESSAO)
+================================================================================
+
+2.1 DURACAO DO EXPEDIENTE
+    Quantos minutos reais de jogo equivalem a um "expediente das 9h as 18h"?
+    Sugestao tecnica: 5 a 10 min de gameplay real (mostra academica = sessao
+    rapida). E se o jogador ficar parado, o relogio avanca igual?
+    >>> RESPOSTA:
+
+2.2 TICK DO RELOGIO
+    O relogio do expediente avanca em tempo real (1s real = X min jogo)?
+    Avanca so quando o jogador resolve eventos? Avanca em escala
+    (acelera/desacelera por dificuldade)?
+    >>> RESPOSTA:
+
+2.3 CONDICAO DE VITORIA
+    O jogador "vence" quando? Chegar as 18:00 com integridade > X%? Resolver Y
+    ataques? Pontuacao maior que Z? Combinacao?
+    >>> RESPOSTA:
+
+2.4 CONDICAO DE DERROTA / GAME OVER
+    Game over acontece se a integridade global cair a 0%? Se um setor critico
+    cair? Nunca tem game over, so score menor? Pode acontecer ANTES das 18h?
+    >>> RESPOSTA:
+
+2.5 RITMO DE EVENTOS
+    Quantos eventos por minuto de gameplay? Crescente (acelera ao longo do
+    expediente)? Aleatorio? Roteirizado (script fixo de eventos)?
+    >>> RESPOSTA:
+
+2.6 EVENTOS SIMULTANEOS
+    Pode ter 2 ou 3 eventos ativos ao mesmo tempo (ex: DDoS na sala servidores
+    + senha para trocar na recepcao)? Ou um por vez ate resolver?
+    >>> RESPOSTA:
+
+2.7 EVENTOS NAO ATENDIDOS
+    Se o jogador ignora um evento, o que acontece exatamente?
+       (a) integridade do setor cai ate zerar?
+       (b) o setor "morre" e nao gera mais eventos?
+       (c) o evento desaparece sozinho mas perde-se pontos?
+       (d) virou um evento PIOR (ex: senha nao trocada -> invasao posterior)?
+    >>> RESPOSTA:
+
+
+================================================================================
+3. MAPA, SALAS E NAVEGACAO
+================================================================================
+
+3.1 NUMERO DE SALAS NO TOTAL
+    Pelo artigo identifiquei: Sala 1 (Recepcao), Sala 2 (Escritorios).
+    Pelo matriz-reacao-ataques.md tem referencias a sala-servidores,
+    sala-financeiro, sala-recepcao. Sao 3, 4, 5 salas no total? Lista
+    definitiva com nomes:
+    >>> RESPOSTA:
+
+3.2 TOPOLOGIA / TRANSICAO
+    Como o jogador troca de sala?
+       (a) "borda de tela" como Zelda classico (anda ate a direita e a tela
+           muda para a proxima sala)
+       (b) porta clicavel (chega perto + aperta A)
+       (c) mapa do predio (abre tela 2D do andar e seleciona sala)
+       (d) ascensor / corredor central
+    >>> RESPOSTA:
+
+3.3 COLISAO COM MOBILIARIO
+    O jogador colide com mesas/cadeiras/computadores? Tem tile-map com mascara
+    de colisao? Ou caminho livre dentro do retangulo da sala?
+    >>> RESPOSTA:
+
+3.4 VELOCIDADE DE MOVIMENTO
+    Quantos pixels por frame o personagem anda? Tem corrida (botao Y aperta =
+    corre 2x mais rapido)? Velocidade fixa?
+    >>> RESPOSTA:
+
+3.5 CAMERA
+    Camera estatica (uma tela = uma sala inteira) ou tem scroll (sala maior
+    que a tela e camera segue o jogador)?
+    >>> RESPOSTA:
+
+3.6 INDICADORES VISUAIS DE EVENTO ATIVO
+    No artigo aparecem icones tipo "!" azul/verde sobre estacao de trabalho.
+    Codigo de cor:
+       VERDE = baixa prioridade
+       AMARELO = media
+       VERMELHO = alta/urgente
+       AZUL = informativo/NPC
+       (confirma?)
+    Os icones piscam? Tem som de aparicao? Aparecem so na sala atual ou ha um
+    minimap/HUD que mostra eventos em outras salas?
+    >>> RESPOSTA:
+
+3.7 HUD PERSISTENTE
+    Que indicadores ficam SEMPRE na tela durante gameplay?
+    [ ] Relogio do expediente (ex: 14:32)
+    [ ] Pontuacao
+    [ ] Integridade global (barra de vida unica)
+    [ ] Integridade por setor (varias barrinhas)
+    [ ] Nome do jogador / cargo
+    [ ] Sala atual
+    [ ] Eventos pendentes (contador "3 alertas")
+    [ ] Cartas NFC disponiveis na "mao"
+    >>> RESPOSTA:
+
+
+================================================================================
+4. PERSONAGENS / NPCs
+================================================================================
+
+4.1 PROTAGONISTA
+    Como ele se chama? Tem nome fixo ou jogador escolhe? Cargo "Analista de
+    suporte de TI Jr." confirmado? Tem genero/aparencia escolhivel ou e fixo?
+    >>> RESPOSTA:
+
+4.2 NPC RECEPCIONISTA (Sala 1)
+    Ja existe arte. Nome? Funcao narrativa alem do tutorial? Aparece de novo
+    depois do tutorial ou some?
+    >>> RESPOSTA:
+
+4.3 OUTROS NPCs
+    Existem outros NPCs? (ex: chefe que da feedback no fim do expediente,
+    colega de trabalho que comenta eventos, "hacker invisivel" que e narrado).
+    Lista de NPCs previstos:
+    >>> RESPOSTA:
+
+4.4 INIMIGOS VISIVEIS NO MAPA?
+    Os ataques sao representados como entidades visuais no mapa (ex: um
+    hacker animado tentando entrar no servidor) ou sao apenas alertas/icones
+    abstratos sobre as maquinas?
+    >>> RESPOSTA:
+
+
+================================================================================
+5. CARTAS NFC FISICAS
+================================================================================
+
+5.1 QUANTAS CARTAS FISICAS EXISTEM?
+    O artigo diz 3 (Isolamento, Backup, Balanceamento). Confirmo 3 e nenhuma
+    a mais (ex: carta de "Phishing" mencionada como extensao futura na
+    matriz-reacao-ataques.md)?
+    >>> RESPOSTA:
+
+5.2 UIDs DAS CARTAS
+    Os UIDs dos PN532-MIFARE Classic ja foram lidos e anotados em algum lugar?
+    Se sim, qual arquivo/memoria? Se nao, preciso de uma rotina de
+    "registrar carta" (modo recovery/calibracao) onde voce aproxima as 3
+    cartas em sequencia e o sistema grava em NVS.
+    >>> RESPOSTA:
+
+5.3 LEITURA DE CARTA EM CONTEXTO NEUTRO
+    Se o jogador encosta uma carta fora de um evento ativo, o que acontece?
+       (a) ignora silenciosamente
+       (b) buzzer de erro / "voce nao precisa usar carta agora"
+       (c) usa como atalho para alguma coisa (ex: pause? menu?)
+    >>> RESPOSTA:
+
+5.4 CARTA ERRADA EM EVENTO ATIVO
+    Penalidade exata: perda de quantos pontos? Integridade cai? Tempo do
+    evento diminui? Visual: tela treme, buzzer toca tom grave?
+    >>> RESPOSTA:
+
+5.5 LEITURA DEBOUNCE
+    Tem cooldown entre leituras (ex: depois de ler uma carta, o sensor fica X
+    segundos sem ler de novo) para evitar leitura repetida acidental?
+    >>> RESPOSTA:
+
+5.6 CARTA APROXIMADA SEM EVENTO E ANTES DO INICIO
+    No menu inicial / pausa / fim de jogo, o que acontece se uma carta for
+    encostada? Ignora, ou poderia ser usado como "menu shortcut" (ideia
+    abstrata, mas legal pedagogicamente)?
+    >>> RESPOSTA:
+
+
+================================================================================
+6. EVENTOS / TAREFAS — MECANICAS ESPECIFICAS
+================================================================================
+
+6.1 TAREFA VERDE — TROCA DE SENHA PADRAO
+    Como o jogador "troca a senha" na tela? (Sem teclado fisico no console.)
+       (a) escolhe entre 4 opcoes de senha (3 fracas + 1 forte)
+       (b) monta a senha letra por letra usando joystick (lento)
+       (c) mini-jogo de "puxa a senha forte" tipo arrastar
+       (d) puzzle de combinacao (selecionar maiusculas+numero+simbolo)
+    Quantos segundos pra resolver? Pode falhar?
+    >>> RESPOSTA:
+
+6.2 TAREFA AMARELA — TROCA DE HD
+    Como representar isso no joystick + 4 botoes?
+       (a) sequencia de QTEs (aperta A, depois X, depois B na ordem)
+       (b) mini-jogo de encaixar o HD na bay (slide com joystick)
+       (c) so um "aperta A para confirmar manutencao"
+       (d) puzzle visual de identificar HD defeituoso entre varios
+    >>> RESPOSTA:
+
+6.3 TAREFA VERMELHA — ATAQUES (DDoS, Ransomware, Propagacao Lateral)
+    Confirmo que TODA tarefa vermelha exige carta NFC fisica? Existem ataques
+    vermelhos que se resolvem so com o joystick/botoes (sem carta)?
+    >>> RESPOSTA:
+
+6.4 OUTRAS TAREFAS NAO MENCIONADAS NO ARTIGO
+    Tem ideias de outras tarefas pedagogicas que poderiam entrar (mesmo que
+    nao na demo)? Exemplos abstratos:
+    - Identificar email de phishing (escolher entre 3 emails qual e o falso)
+    - Aplicar patch de seguranca (esperar X segundos com indicador)
+    - Configurar firewall (selecionar quais portas abrir/fechar)
+    - Verificar logs (escolher a linha suspeita em uma lista)
+    - 2FA: aproximar carta + segurar botao (combina dois fatores)
+    >>> RESPOSTA:
+
+6.5 DURACAO DE CADA EVENTO ATIVO
+    Verde: dura X segundos antes de virar amarelo?
+    Amarelo: vira vermelho?
+    Vermelho: vai cair integridade ate "incidente fechado com prejuizo"?
+    Ou cada evento tem timer fixo independente?
+    >>> RESPOSTA:
+
+
+================================================================================
+7. SISTEMA DE PONTUACAO E PENALIDADES
+================================================================================
+
+7.1 PONTOS POR RESOLUCAO CERTA
+    Sugestao: VERDE = 10 pts, AMARELO = 25 pts, VERMELHO = 100 pts. Bonus por
+    velocidade? Bonus por sequencia sem erros (combo)?
+    >>> RESPOSTA:
+
+7.2 PONTOS NEGATIVOS
+    Carta NFC errada: -X pts? Evento nao atendido: -Y pts? Game over imediato
+    nunca, ou ha eventos "instant fail"?
+    >>> RESPOSTA:
+
+7.3 RANKING / LEADERBOARD
+    Tem leaderboard local salvo em NAND (top 10 nomes + score)? O jogador
+    digita o nome no fim usando joystick? Ou e anonimo / so mostra "you = 500
+    pts"?
+    >>> RESPOSTA:
+
+7.4 ESTRELAS / RANK FINAL
+    No fim, tem rating tipo "S/A/B/C/D" ou "1-3 estrelas" baseado em
+    integridade final + pontos? Ou so o numero crue?
+    >>> RESPOSTA:
+
+
+================================================================================
+8. ESTADOS DO JOGO — FSM DE ALTO NIVEL
+================================================================================
+
+8.1 ESTADOS MACRO (proposta minha — confirma/edita)
+    BOOT -> SPLASH -> MENU_PRINCIPAL -> CUTSCENE_INTRO (opcional) ->
+    GAMEPLAY (loop principal) -> PAUSE (opcional) -> FIM_EXPEDIENTE ->
+    TELA_RESULTADO -> RANKING -> volta para MENU_PRINCIPAL
+    >>> RESPOSTA:
+
+8.2 PAUSE
+    Tem pause? Botao Start (qual GPIO? Y?) abre menu de pause? O relogio do
+    expediente para no pause? Pode sair do jogo no pause (volta ao menu)?
+    >>> RESPOSTA:
+
+8.3 RECOVERY MODE NO MEIO DO JOGO
+    Se o usuario segura PWR+REC enquanto jogando, vai pra modo recovery
+    automatico (perde sessao). Confirma esse comportamento ou ha intencao de
+    "auto-save" antes de entrar recovery?
+    >>> RESPOSTA:
+
+
+================================================================================
+9. TELAS / UI / MENUS
+================================================================================
+
+9.1 TELA DE BOOT / SPLASH
+    Mostra logo do jogo por X segundos? Logo da universidade (Unijorge)? Nomes
+    dos autores? So texto ou tem animacao?
+    >>> RESPOSTA:
+
+9.2 MENU PRINCIPAL
+    Opcoes: [Iniciar Expediente] [Ranking] [Tutorial] [Sobre/Creditos]
+    [Calibrar Cartas NFC]? Quais mantemos?
+    >>> RESPOSTA:
+
+9.3 TELA DE RESULTADO (FIM DE EXPEDIENTE)
+    Mostra: integridade final por setor, pontuacao, ranking ("voce e Analista
+    Jr 3ª classe"), eventos resolvidos / falhos, QR code para questionario.
+    Confirma essa lista? Adiciona algo?
+    >>> RESPOSTA:
+
+9.4 QR CODE
+    Confirmo que o QR e fixo (mesmo link para todos os jogadores) ou cada
+    sessao gera um QR diferente com session_id pra correlacionar resposta com
+    pontuacao? (Segundo caso e bem mais complicado mas pedagogicamente
+    interessante.)
+    >>> RESPOSTA:
+
+
+================================================================================
+10. SAVE / PERSISTENCIA
+================================================================================
+
+10.1 O QUE PRECISA SOBREVIVER A REBOOT?
+    [ ] Leaderboard / high-scores
+    [ ] UIDs registrados das 3 cartas NFC
+    [ ] Configuracao (volume, brilho, idioma)
+    [ ] Estatistica geral (X partidas jogadas, Y ataques resolvidos)
+    [ ] Nada (sempre comeca do zero)
+    >>> RESPOSTA:
+
+10.2 ONDE SALVAR?
+    Sugestao tecnica: NVS (key-value rapido, no XIP flash) para leaderboard e
+    config. NAND (via asset_store) so para assets graficos/audio. Confirma?
+    >>> RESPOSTA:
+
+10.3 SAVE MID-GAME?
+    Salva progresso no meio do expediente (ex: jogador desliga as 15:00 e
+    retoma depois)? Sugestao: NAO (demo academica, sessao curta). Confirma?
+    >>> RESPOSTA:
+
+
+================================================================================
+11. AUDIO / BUZZER
+================================================================================
+
+11.1 BUZZER PASSIVO — TIPO FISICO
+    Voce ja tem o buzzer em maos? E:
+       (a) piezoeletrico (disquinho fino) -> pode ir direto no GPIO 45
+       (b) eletromagnetico (com bobina, mais alto/cilindrico, peso) ->
+           precisa transistor NPN
+    Foto/modelo:
+    >>> RESPOSTA:
+
+11.2 BIBLIOTECA DE SONS
+    Quais sons precisamos?
+    [ ] Alerta verde (curto, suave)
+    [ ] Alerta amarelo
+    [ ] Alerta vermelho (urgencia, repete)
+    [ ] Sucesso (carta certa)
+    [ ] Erro (carta errada)
+    [ ] Menu navegacao (beep curto)
+    [ ] Confirmacao (A apertado)
+    [ ] Inicio de expediente (jingle)
+    [ ] Fim de expediente (jingle)
+    [ ] Musica de fundo durante gameplay?
+    Para musica de fundo num buzzer mono PWM e bem limitante (so 1 voz).
+    Recomendo NAO. Confirma?
+    >>> RESPOSTA:
+
+11.3 VOLUME / MUTE
+    Tem opcao de mute? Volume regulavel? PWM duty cycle pra atenuar?
+    >>> RESPOSTA:
+
+
+================================================================================
+12. WS2812 / LED RGB DE STATUS
+================================================================================
+
+12.1 QUANTOS LEDs WS2812?
+    1 unico (e os efeitos sao todos nele) ou uma fileirinha de N LEDs (tira
+    pequena de 4-8 LEDs por exemplo, para "barra de integridade fisica")?
+    >>> RESPOSTA:
+
+12.2 PADROES DE LUZ
+    Sugestoes:
+    - VERDE estavel = expediente tranquilo (sem ataques)
+    - AMARELO piscando lento = alerta medio
+    - VERMELHO piscando rapido = ataque vermelho ativo
+    - AZUL = NPC quer falar
+    - ARCO-IRIS animado = tela de menu
+    Confirma? Adiciona ideias?
+    >>> RESPOSTA:
+
+
+================================================================================
+13. BOTOES A/B/X/Y — MAPEAMENTO
+================================================================================
+
+13.1 PROPOSTA (do estilo Game Boy / portatil retro):
+    A (GPIO 11) = Confirmar / Interagir com NPC ou objeto
+    B (GPIO 12) = Cancelar / Voltar
+    X (GPIO 13) = Abrir menu de pause ou status
+    Y (GPIO 14) = Correr (segurar) ou "carta rapida" (atalho)
+    Botao do joystick (SEL) = nao tem (joystick PSP slim sem SEL, GPIO 15 livre)
+    PWR (GPIO 4) = power on/off / forcar deep sleep
+    REC (GPIO 3) = modificador de boot recovery
+    Confirma esse mapeamento? Edita?
+    >>> RESPOSTA:
+
+13.2 USO DOS BOTOES NAS TAREFAS
+    A tarefa verde de "troca de senha" usa quais botoes? E a amarela de HD?
+    Quanto mais consistente o mapeamento, melhor a UX.
+    >>> RESPOSTA:
+
+
+================================================================================
+14. TUTORIAL
+================================================================================
+
+14.1 OBRIGATORIO OU PULAVEL?
+    O artigo ja diz "voluntario, nao interrompe usuario familiarizado". Como
+    pular? Botao B na recepcao? Caminho que ignora a NPC?
+    >>> RESPOSTA:
+
+14.2 CONTEUDO DO TUTORIAL
+    Lista de tutoriais que precisamos cobrir:
+    - como andar (joystick)
+    - como interagir com objeto/NPC (botao A)
+    - o que e cada cor de alerta
+    - como usar carta NFC (aproximar do sensor)
+    - significado dos indicadores no HUD
+    - objetivo do expediente
+    Tutorial dirigido (passo-a-passo guiado) ou aberto (NPC explica em texto e
+    jogador testa por conta)?
+    >>> RESPOSTA:
+
+14.3 RE-EXECUCAO
+    Apos finalizar o tutorial, ele fica disponivel pra rever no menu? Ou e
+    one-shot por sessao / por instalacao?
+    >>> RESPOSTA:
+
+
+================================================================================
+15. ARTE / ASSETS — PRODUCAO E INTEGRACAO
+================================================================================
+
+15.1 RESPONSAVEL PELA ARTE
+    A arte fica com voce? Algum outro membro do time? Estilo Aseprite ja
+    confirmado, mas qual a paleta de cores (16, 32, 64 cores)?
+    >>> RESPOSTA:
+
+15.2 TAMANHO DOS SPRITES
+    Personagem: 16x16? 24x24? 32x32 pixels? Tiles do mapa: 16x16 (classico)?
+    Para uma tela 480x320 com tiles 16x16 da 30x20 tiles por sala.
+    >>> RESPOSTA:
+
+15.3 ANIMACOES
+    Personagem tem quantos frames de anim de caminhada (4 typical, 2
+    economico)? Animacoes de ataque (chamas, propagacao) tem quantos frames?
+    >>> RESPOSTA:
+
+15.4 PIPELINE ASEPRITE -> CODIGO
+    Vai usar o lvgl-image-converter (artigo menciona)? Ou exportar como
+    PNG/BIN e carregar via asset_store no runtime? (Asset_store ja existe e
+    suporta isso — read API operacional na Etapa 1.)
+    Vantagem do asset_store: trocar arte sem recompilar firmware.
+    >>> RESPOSTA:
+
+15.5 LISTA DE ASSETS NECESSARIOS PARA A DEMO
+    Pelo que entendi:
+    - Background Sala 1 (recepcao) - JA EXISTE
+    - Background Sala 2 (escritorios) - JA EXISTE
+    - Background Sala 3 (servidores) - falta
+    - Background Sala 4 (financeiro) - falta?
+    - Sprite protagonista (4 direcoes x 2-4 frames anim)
+    - Sprite NPC recepcionista
+    - Icones de alerta verde/amarelo/vermelho/azul
+    - Telas de tarefas (senha, HD, DDoS, ransomware, isolamento)
+    - 3 icones de carta NFC
+    - Logo do jogo (splash)
+    - Fonte / glyphs para PT-BR
+    Confirma? Falta alguma coisa?
+    >>> RESPOSTA:
+
+
+================================================================================
+16. NARRATIVA / TEXTO DE DIALOGOS
+================================================================================
+
+16.1 QUEM ESCREVE OS DIALOGOS?
+    Eu posso rascunhar e voce ajusta? Voce ja tem rascunho escrito em algum
+    lugar? Voce prefere que cada um da equipe escreva o seu?
+    >>> RESPOSTA:
+
+16.2 TOM
+    Serio (corporativo, profissional) ou comico (analista atrapalhado no 1o
+    dia)? Educativo formal ou desencanado tipo memes?
+    >>> RESPOSTA:
+
+16.3 SISTEMA DE DIALOGO
+    Caixa de texto com letras aparecendo uma a uma (typewriter)? Texto
+    instantaneo? Tem retrato/portrait do interlocutor? Pode escolher resposta
+    (branching) ou e linear?
+    >>> RESPOSTA:
+
+
+================================================================================
+17. ACESSIBILIDADE / CONSIDERACOES PEDAGOGICAS
+================================================================================
+
+17.1 ALUNOS COM DALTONISMO
+    Como o sistema de cores verde/amarelo/vermelho funciona pra daltonicos?
+    Adicionar icones distintos (! ? !!) alem da cor? Padroes de piscagem
+    diferentes?
+    >>> RESPOSTA:
+
+17.2 PUBLICO ALVO ETARIO
+    Ensino fundamental II, medio, superior? Isso muda o tom dos dialogos e a
+    complexidade dos conceitos explicados nas tarefas.
+    >>> RESPOSTA:
+
+17.3 NIVEL DE LEITURA
+    O jogo precisa ser jogavel por quem nao le bem (depende mais de icones)?
+    Ou pode ser denso textualmente?
+    >>> RESPOSTA:
+
+
+================================================================================
+18. IDEIAS ABSTRATAS / WISH LIST (responde se quiser, sem pressao)
+================================================================================
+
+18.1 Modo cooperativo de 2 cartas: jogador 1 segura uma carta enquanto
+    jogador 2 aproxima outra (combina mecanica de "2FA" educativamente).
+    Vale a pena? Da pra fazer com 1 sensor PN532?
+    >>> RESPOSTA:
+
+18.2 Cartas extras secretas: alem das 3 oficiais, ha "Easter eggs" — cartas
+    nao documentadas que destravam algo (ex: modo dev, paleta alternativa)?
+    >>> RESPOSTA:
+
+18.3 Replay de partida: gravar inputs e replay como demo no menu enquanto
+    ninguem joga (attract mode classico de arcade)?
+    >>> RESPOSTA:
+
+18.4 Multiplos cenarios/empresas: alem da empresa de tecnologia, ha modo
+    "Hospital" (LGPD/dados de saude) ou "Banco" (PCI-DSS)? Mesmo motor, novos
+    assets.
+    >>> RESPOSTA:
+
+18.5 Sistema de "missoes diarias": cada vez que o jogador inicia, vem um
+    briefing diferente (gerado proceduralmente ou de uma lista). Aumenta
+    replayability na mostra.
+    >>> RESPOSTA:
+
+18.6 Modo "demo passiva" no display quando o console fica idle no menu por
+    30s (mostra gameplay automatico). Util pra atrair gente na mostra
+    academica.
+    >>> RESPOSTA:
+
+18.7 Estatistica de rede em tempo real exibida (numeros falsos animados de
+    "requisicoes por segundo", "pacotes bloqueados", etc) so pra ambientacao.
+    Sem efeito mecanico, so visual.
+    >>> RESPOSTA:
+
+
+================================================================================
+19. ARQUITETURA DE SOFTWARE — DECISOES TECNICAS QUE AFETAM GAMEPLAY
+================================================================================
+
+19.1 FSM CENTRAL
+    Confirma o desenho da fsm_core.c proposto na matriz-reacao-ataques.md
+    (estados STATE_ATTACK_*_ACTIVE -> STATE_DEFENSE_SUCCESS/WRONG)? Ou
+    refinar?
+    >>> RESPOSTA:
+
+19.2 TASK ARCHITECTURE (artigo 3.4)
+    Confirma as 4 tasks (Jogo, Grafica, NFC, Audio) ou ja temos divisao
+    diferente nos HALs atuais? Vou consolidar:
+    - hal_bridge ja roda task LVGL interna (e o handler de 5ms)
+    - game_task: vai ler queues de input/NFC, rodar FSM, publicar comandos
+      de UI
+    - audio_task: ja imaginada no feedback_hal
+    Verde?
+    >>> RESPOSTA:
+
+19.3 IPC ENTRE TASKS
+    Queue FreeRTOS pra cada coisa: input_queue, nfc_queue, audio_queue,
+    ui_command_queue? OK?
+    >>> RESPOSTA:
+
+
+================================================================================
+20. DEPLOY / DISTRIBUICAO / DEMO
+================================================================================
+
+20.1 NUMERO DE UNIDADES FISICAS PARA A MOSTRA
+    1 protótipo so? Multiplos (cada visitante joga simultaneamente)?
+    >>> RESPOSTA:
+
+20.2 BATERIA / AUTONOMIA
+    Quanto tempo de uso continuo precisa? Tem TP4056 + bateria Li-Po segundo
+    artigo, mas atualmente isso esta montado e funcionando?
+    >>> RESPOSTA:
+
+20.3 RESET ENTRE JOGADORES
+    Apos cada visitante jogar, volta sozinho ao menu? Botao "encerrar
+    sessao"?
+    >>> RESPOSTA:
+
+
+================================================================================
+FIM DO DOCUMENTO
+================================================================================
+Total de perguntas: ~90 (algumas com sub-itens marcaveis).
+Responda na ordem que quiser, pode pular, pode dizer "voce decide" — tudo que
+nao tiver resposta vira proposta minha registrada em memoria para sua
+aprovacao depois.

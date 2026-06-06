@@ -1,0 +1,435 @@
+{
+  "_doc": "Entidades do CyberGame. pivot=bottom-center. collision_offset_x=-collision_w/2, collision_offset_y=-collision_h. Gerado de ENTIDADES.txt em 2026-06-05. NOTA: MESA_L_RECEPCAO_01 colisao_h corrigido de S77 para 77.",
+  "version": 1,
+  "entities": [
+    {
+      "id": "CADEIRA_ESQUERDA_01",
+      "sala": "recepcao",
+      "file": "CADEIRA_ESQUERDA_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 64
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      }
+    },
+    {
+      "id": "CADEIRA_COSTA_01_REC",
+      "sala": "recepcao",
+      "file": "CADEIRA_COSTA_01_REC.png",
+      "sprite": {
+        "w": 32,
+        "h": 64
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      }
+    },
+    {
+      "id": "CADEIRA_DIREITA_01",
+      "sala": "recepcao",
+      "file": "CADEIRA_DIREITA_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 64
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      }
+    },
+    {
+      "id": "CADEIRA_FRENTE_01",
+      "sala": "recepcao",
+      "file": "CADEIRA_FRENTE_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 64
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      }
+    },
+    {
+      "id": "CADEIRA_SHEET_01",
+      "sala": "recepcao",
+      "file": "CADEIRA_SHEET_01.png",
+      "sprite": {
+        "w": 128,
+        "h": 64
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      }
+    },
+    {
+      "id": "MESA_L_RECEPCAO_01",
+      "sala": "recepcao",
+      "file": "MESA_L_RECEPCAO_01.png",
+      "sprite": {
+        "w": 112,
+        "h": 101
+      },
+      "collision": {
+        "w": 112,
+        "h": 77
+      }
+    },
+    {
+      "id": "BANCO_P_01",
+      "sala": "recepcao",
+      "file": "BANCO_P_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 32
+      },
+      "collision": {
+        "w": 32,
+        "h": 21
+      }
+    },
+    {
+      "id": "MESA_CENTRO_01",
+      "sala": "recepcao",
+      "file": "MESA_CENTRO_01.png",
+      "sprite": {
+        "w": 80,
+        "h": 56
+      },
+      "collision": {
+        "w": 80,
+        "h": 40
+      }
+    },
+    {
+      "id": "PLANTA_VASO_01",
+      "sala": "recepcao",
+      "file": "PLANTA_VASO_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 56
+      },
+      "collision": {
+        "w": 20,
+        "h": 12
+      }
+    },
+    {
+      "id": "SOFA_COSTA_03",
+      "sala": "recepcao",
+      "file": "SOFA_COSTA_03.png",
+      "sprite": {
+        "w": 80,
+        "h": 48
+      },
+      "collision": {
+        "w": 80,
+        "h": 32
+      }
+    },
+    {
+      "id": "PAREDE_REC_01",
+      "sala": "recepcao",
+      "file": "PAREDE_REC_01.png",
+      "sprite": {
+        "w": 17,
+        "h": 39
+      },
+      "collision": {
+        "w": 17,
+        "h": 17
+      }
+    },
+    {
+      "id": "PAREDE_REC_02",
+      "sala": "recepcao",
+      "file": "PAREDE_REC_02.png",
+      "sprite": {
+        "w": 13,
+        "h": 39
+      },
+      "collision": {
+        "w": 13,
+        "h": 7
+      }
+    },
+    {
+      "id": "BEBEDOURO_01",
+      "sala": "recepcao",
+      "file": "BEBEDOURO_01.png",
+      "sprite": {
+        "w": 26,
+        "h": 60
+      },
+      "collision": {
+        "w": 26,
+        "h": 30
+      }
+    },
+    {
+      "id": "LIXEIRA_01",
+      "sala": "recepcao",
+      "file": "LIXEIRA_01.png",
+      "sprite": {
+        "w": 24,
+        "h": 30
+      },
+      "collision": {
+        "w": 24,
+        "h": 18
+      }
+    },
+    {
+      "id": "NPC_01",
+      "sala": "recepcao",
+      "file": "NPC_01.png",
+      "sprite": {
+        "w": 38,
+        "h": 46
+      },
+      "collision": {
+        "w": 25,
+        "h": 8
+      }
+    },
+    {
+      "id": "DIALOGO_01",
+      "sala": "ui",
+      "file": "DIALOGO_01.png",
+      "sprite": {
+        "w": 320,
+        "h": 100
+      },
+      "collision": {
+        "w": 320,
+        "h": 30
+      }
+    },
+    {
+      "id": "CADEIRA_COSTA_01",
+      "sala": "escritorio",
+      "file": "CADEIRA_COSTA_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 48
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      }
+    },
+    {
+      "id": "CADEIRA_ESQUERDA_02",
+      "sala": "escritorio",
+      "file": "CADEIRA_ESQUERDA_02.png",
+      "sprite": {
+        "w": 32,
+        "h": 48
+      },
+      "collision": {
+        "w": 32,
+        "h": 16
+      }
+    },
+    {
+      "id": "CAFETEIRA_01",
+      "sala": "escritorio",
+      "file": "CAFETEIRA_01.png",
+      "sprite": {
+        "w": 48,
+        "h": 60
+      },
+      "collision": {
+        "w": 48,
+        "h": 40
+      }
+    },
+    {
+      "id": "IMPRESSORA_01",
+      "sala": "escritorio",
+      "file": "IMPRESSORA_01.png",
+      "sprite": {
+        "w": 48,
+        "h": 53
+      },
+      "collision": {
+        "w": 48,
+        "h": 32
+      }
+    },
+    {
+      "id": "MESA_L_ESCRITORIO_01",
+      "sala": "escritorio",
+      "file": "MESA_L_ESCRITORIO_01.png",
+      "sprite": {
+        "w": 208,
+        "h": 80
+      },
+      "collision": {
+        "w": 208,
+        "h": 60
+      }
+    },
+    {
+      "id": "MESA_L_ESCRITORIO_02",
+      "sala": "escritorio",
+      "file": "MESA_L_ESCRITORIO_02.png",
+      "sprite": {
+        "w": 32,
+        "h": 73
+      },
+      "collision": {
+        "w": 32,
+        "h": 40
+      }
+    },
+    {
+      "id": "SERVIDOR_01",
+      "sala": "escritorio",
+      "file": "SERVIDOR_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 96
+      },
+      "collision": {
+        "w": 32,
+        "h": 66
+      }
+    },
+    {
+      "id": "PLANTA_VASO_02",
+      "sala": "escritorio",
+      "file": "PLANTA_VASO_02.png",
+      "sprite": {
+        "w": 22,
+        "h": 51
+      },
+      "collision": {
+        "w": 22,
+        "h": 21
+      }
+    },
+    {
+      "id": "PLANTA_VASO_03",
+      "sala": "escritorio",
+      "file": "PLANTA_VASO_03.png",
+      "sprite": {
+        "w": 32,
+        "h": 36
+      },
+      "collision": {
+        "w": 32,
+        "h": 12
+      }
+    },
+    {
+      "id": "PAREDE_REC_03",
+      "sala": "escritorio",
+      "file": "PAREDE_REC_03.png",
+      "sprite": {
+        "w": 12,
+        "h": 21
+      },
+      "collision": {
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "id": "PAREDE_REC_04",
+      "sala": "escritorio",
+      "file": "PAREDE_REC_04.png",
+      "sprite": {
+        "w": 12,
+        "h": 32
+      },
+      "collision": {
+        "w": 12,
+        "h": 12
+      }
+    },
+    {
+      "id": "PAREDE_REC_05",
+      "sala": "escritorio",
+      "file": "PAREDE_REC_05.png",
+      "sprite": {
+        "w": 32,
+        "h": 32
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      }
+    },
+    {
+      "id": "PAREDE_REC_06",
+      "sala": "escritorio",
+      "file": "PAREDE_REC_06.png",
+      "sprite": {
+        "w": 16,
+        "h": 32
+      },
+      "collision": {
+        "w": 16,
+        "h": 20
+      }
+    },
+    {
+      "id": "PAREDE_REC_07",
+      "sala": "escritorio",
+      "file": "PAREDE_REC_07.png",
+      "sprite": {
+        "w": 32,
+        "h": 54
+      },
+      "collision": {
+        "w": 32,
+        "h": 14
+      }
+    },
+    {
+      "id": "NPC_02",
+      "sala": "escritorio",
+      "file": "NPC_02.png",
+      "sprite": {
+        "w": 38,
+        "h": 46
+      },
+      "collision": {
+        "w": 25,
+        "h": 8
+      }
+    },
+    {
+      "id": "NPC_03",
+      "sala": "escritorio",
+      "file": "NPC_03.png",
+      "sprite": {
+        "w": 38,
+        "h": 46
+      },
+      "collision": {
+        "w": 25,
+        "h": 8
+      }
+    },
+    {
+      "id": "PROTAGONISTA",
+      "sala": "player",
+      "file": "PROTAGONISTA_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 48
+      },
+      "collision": {
+        "w": 32,
+        "h": 16
+      }
+    }
+  ]
+}

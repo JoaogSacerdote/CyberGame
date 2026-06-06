@@ -1,0 +1,717 @@
+===== PAGE 1 =====
+Console Embarcado Gamificado como Ferramenta de Apoio
+ao Ensino de Ciberseguranc ¸a
+Caio Pedrosa Godoy1, Iris Costa Pires dos Santos1,
+Jo˜ao Gabriel de Souza1, Klayveer Nascimento Silva1
+1Centro Universit´ario Jorge Amado (Unijorge)
+Salvador – BA – Brazil
+{caiogodoy05, costairis484, Joaog.souza2002, silvaklayveer }@gmail.com
+Abstract. This paper presents the ongoing development of CyberSec: Network
+Defender, an interactive embedded gaming console designed to teach cyberse-
+curity fundamentals through gamification. The escalating volume of cyber thre-
+ats and the increasing digital dependence of society make information-security
+literacy a critical competency for citizens of all ages; nevertheless, educational
+contexts frequently address these topics through abstract theoretical methods
+that hinder comprehension and engagement. Grounded in game-based lear-
+ning, experiential learning theory, and constructivism, the project employs the
+ESP32-S3 dual-core microcontroller, the FreeRTOS real-time operating system,
+and the LVGL embedded graphics library to create a top-down game scenario
+that simulates the defence of a corporate IT infrastructure under cyberattack.
+A central mechanic involves three physical NFC defence cards, each encoding
+a specific cybersecurity countermeasure: network isolation, emergency backup
+restoration, and load balancing against denial-of-service attacks. These phy-
+sical interactions materialise abstract security concepts such as authentication
+and disaster recovery. The current development stage encompasses the finalisa-
+tion of the graphical interface in a local LVGL/SDL2 simulator environment, the
+production of pixel-art game sprites, and the assembly of electronic hardware
+components. The approach demonstrates the potential of low-cost embedded
+hardware to democratise access to interactive pedagogical tools across diverse
+educational settings.
+Resumo. O crescimento exponencial de ameac ¸as cibern ´eticas e a crescente
+dependˆencia digital da sociedade contempor ˆanea tornam o letramento em
+seguranc ¸a da informac ¸˜ao uma compet ˆencia essencial para cidad ˜aos de todas
+as idades. No entanto, o ensino desses conte ´udos frequentemente ocorre por
+meio de abordagens te´oricas e abstratas que dificultam a compreens ˜ao e o en-
+gajamento dos estudantes. Este artigo apresenta o desenvolvimento em anda-
+mento do CyberSec: Network Defender, um console embarcado interativo que
+aplica mecˆanicas de gamificac ¸˜ao para tornar tang´ıveis conceitos fundamentais
+de ciberseguranc ¸a. Uma mecˆanica central envolve trˆes cartas f´ısicas de defesa
+baseadas em NFC, cada uma representando uma contramedida de seguranc ¸a
+distinta: isolamento de rede, restaurac ¸˜ao por backup de emerg ˆencia e balan-
+ceamento de carga contra ataques de negac ¸˜ao de servic ¸o. Fundamentado na
+aprendizagem baseada em jogos, na teoria da aprendizagem experiencial e
+no construtivismo, o dispositivo ´e baseado no microcontrolador ESP32-S3 e
+===== PAGE 2 =====
+integra o sistema operacional de tempo real FreeRTOS, a biblioteca gr ´afica
+LVGL e comunicac ¸˜ao via NFC para simular cen ´arios de defesa de infraestru-
+tura de TI em um jogo top-down. O est ´agio atual de desenvolvimento compre-
+ende a finalizac ¸˜ao da interface gr ´afica em simulador local com LVGL/SDL2,
+a produc ¸˜ao de elementos gr ´aficos em pixel art e a integrac ¸˜ao dos componen-
+tes eletrˆonicos em hardware f´ısico, alinhando-se`as diretrizes da Base Nacional
+Comum Curricular (BNCC) quanto ao letramento digital e ao pensamento com-
+putacional.
+1. Introduc ¸˜ao
+A transformac ¸˜ao digital das ´ultimas d´ecadas consolidou a depend ˆencia da sociedade em
+relac ¸˜ao a redes de computadores, sistemas de informac ¸˜ao e infraestruturas digitais. Nesse
+cen´ario, a ciberseguranc ¸a, entendida como o conjunto de tecnologias, processos e contro-
+les projetados para proteger sistemas, redes, programas, dispositivos e dados contra ata-
+ques, danos ou acessos n ˜ao autorizados [Stallings 2017], tornou-se um pilar estrat ´egico
+para a soberania digital de nac ¸˜oes, organizac ¸˜oes e indiv ´ıduos. No Brasil, os dados do
+Centro de Estudos, Resposta e Tratamento de Incidentes de Seguranc ¸a (CERT.br) evi-
+denciam uma trajet´oria preocupante: os incidentes de seguranc ¸a reportados tˆem crescido
+continuamente, abrangendo desde tentativas de fraude e varreduras de rede at´e ataques de
+ransomware contra infraestruturas cr´ıticas [CERT.br 2024]. Esse panorama evidencia que
+a formac ¸˜ao de uma cultura de seguranc ¸a digital n˜ao pode ser relegada apenas ao ensino
+superior ou ao treinamento corporativo; ela precisa ser constru´ıda em m´ultiplos contextos
+e n´ıveis educacionais.
+A Base Nacional Comum Curricular (BNCC) reconhece essa urg ˆencia ao esta-
+belecer o letramento digital e o pensamento computacional como compet ˆencias gerais a
+serem desenvolvidas transversalmente ao longo de toda a Educac ¸˜ao B´asica [Brasil 2018].
+Contudo, o ensino de ciberseguranc ¸a em contextos educacionais enfrenta um desafio cen-
+tral: a natureza abstrata e t ´ecnica de seus conceitos fundamentais. Fen ˆomenos como
+autenticac ¸˜ao, ransomware, controle de acesso e defesa de infraestrutura de TI s˜ao dif´ıceis
+de visualizar e experienciar em ambientes de ensino tradicionais [Kim e Solomon 2018].
+Quando abordados de forma exclusivamente te ´orica e expositiva, esses conte ´udos fre-
+quentemente resultam em baixo engajamento e compreens ˜ao superficial por parte dos
+estudantes, incapazes de conectar os conceitos abstratos a situac ¸˜oes pr´aticas concretas.
+´E nesse contexto que a gamificac ¸˜ao e a aprendizagem baseada em jogos emergem
+como estrat´egias pedag´ogicas promissoras. A gamificac ¸˜ao, definida como a aplicac ¸˜ao de
+elementos de design de jogos em contextos n˜ao l´udicos [Deterding et al. 2011], e os jogos
+s´erios (serious games), concebidos como jogos com prop´osito prim´ario de treinamento ou
+educac ¸˜ao em vez de entretenimento puro [Prensky 2001], demonstram capacidade signi-
+ficativa de aumentar o engajamento, a motivac ¸˜ao intr´ınseca e a retenc ¸˜ao de conhecimento
+em dom´ınios t´ecnicos complexos [Kapp 2012]. A criac ¸˜ao de experi ˆencias desafiadoras
+e recompensadoras, com resposta imediata e progress ˜ao clara, transforma o estudante de
+receptor passivo em protagonista ativo do processo de aprendizagem.
+Paralelamente, a popularizac ¸˜ao de microcontroladores de baixo custo, como o Ar-
+duino e a fam´ılia ESP32, abriu novas possibilidades para o desenvolvimento de hardware
+educacional acess´ıvel [Monk 2017]. Ao contr´ario de simuladores baseados em software,
+===== PAGE 3 =====
+um console f´ısico proporciona imers˜ao multissensorial: o estudante manipula controles
+f´ısicos, recebe retorno sonoro e visual tang ´ıvel, e interage com tecnologias reais como
+a Comunicac ¸˜ao por Campo Pr ´oximo (NFC). Essa experi ˆencia cria uma ponte concreta
+entre a teoria e a pr ´atica, reduzindo o n´ıvel de abstrac ¸˜ao que dificulta a compreens ˜ao de
+conte´udos t´ecnicos [Barr e Massa 2006].
+Diante desse cen´ario, este trabalho apresenta o desenvolvimento em andamento do
+CyberSec: Network Defender, um console embarcado gamificado de baixo custo voltado
+ao ensino de fundamentos de ciberseguranc ¸a. A quest ˜ao central que orienta a pesquisa
+´e: Como um console embarcado com mecˆanicas de jogo pode tornar tang´ıveis conceitos
+fundamentais de ciberseguranc ¸a, como autenticac ¸˜ao, ransomware e defesa de redes, em
+contextos educacionais? Para respondˆe-la, o objetivo geral ´e desenvolver e avaliar peda-
+gogicamente um dispositivo que una hardware de baixo custo, gamificac ¸ ˜ao e interac ¸˜ao
+f´ısica para facilitar o ensino desses conte ´udos. Os objetivos espec ´ıficos s˜ao: (i) projetar
+e construir o hardware do console com o microcontrolador ESP32-S3 e perif ´ericos as-
+sociados; (ii) implementar a l ´ogica de jogo utilizando FreeRTOS e a biblioteca gr ´afica
+LVGL; (iii) estabelecer conex˜oes expl´ıcitas entre os componentes eletrˆonicos do console
+e conceitos de F´ısica e Matem´atica presentes em curr´ıculos educacionais; e (iv) realizar
+uma validac ¸˜ao pedag´ogica com estudantes para avaliar a efic´acia did´atica do dispositivo.
+Este artigo est ´a organizado da seguinte forma: a Sec ¸˜ao 2 apresenta o referencial
+te´orico que embasa o projeto; a Sec ¸˜ao 3 descreve o nosso projeto e o desenvolvimento
+do CyberSec, incluindo metodologia, concepc ¸˜ao do jogo, arquitetura de hardware e de
+software; a Sec ¸˜ao 4 exp ˜oe os resultados preliminares obtidos; e a Sec ¸˜ao 5 apresenta as
+conclus˜oes e perspectivas futuras.
+2. Fundamentac ¸˜ao Te´orica
+A construc ¸˜ao de um projeto que articula gamificac ¸˜ao, sistemas embarcados e educac ¸˜ao
+em ciberseguranc ¸a exige um di´alogo consistente com a literatura cient ´ıfica pertinente.
+Esta sec ¸˜ao explora as categorias te´oricas centrais que fundamentam o CyberSec: Network
+Defender, estabelecendo as bases conceituais para a compreens ˜ao do seu design e das
+escolhas metodol´ogicas adotadas.
+2.1. Gamificac ¸˜ao no Contexto Educacional
+O conceito de gamificac ¸˜ao foi sistematizado por [Deterding et al. 2011] como o uso
+de elementos de design de jogos, tais como pontuac ¸˜ao, n ´ıveis, distintivos, tabelas de
+classificac ¸˜ao, miss ˜oes e retorno imediato, em contextos que n ˜ao s ˜ao jogos, com o ob-
+jetivo de aumentar o engajamento e a motivac ¸˜ao dos usu´arios. ´E importante ressaltar que
+a gamificac ¸˜ao n˜ao equivale a transformar qualquer atividade em um jogo completo; ela
+incorpora a l ´ogica motivacional dos jogos em sistemas existentes, como plataformas de
+ensino e ambientes de treinamento.
+No contexto educacional, [Kapp 2012] demonstra que a gamificac ¸˜ao pode elevar
+significativamente a retenc ¸˜ao de conhecimento, a motivac ¸˜ao intr´ınseca e o desempenho
+em disciplinas t´ecnicas e cient´ıficas. O autor argumenta que elementos como a progress˜ao
+vis´ıvel de habilidades, a sensac ¸˜ao de conquista imediata e o ambiente de baixo risco para
+errar, onde o fracasso ´e uma etapa do aprendizado e n ˜ao uma punic ¸˜ao definitiva, criam
+condic ¸˜oes ideais para a aprendizagem profunda. No CyberSec: Network Defender, esses
+===== PAGE 4 =====
+princ´ıpios se materializam nas pontuac ¸˜oes exibidas no display, nos diferentes n ´ıveis de
+alertas codificados por cores, no feedback sonoro imediato do buzzer e na progress ˜ao
+narrativa da jornada do analista ao longo do expediente simulado.
+2.2. Aprendizagem Baseada em Jogos e Jogos S ´erios
+A aprendizagem baseada em jogos digitais (Digital Game-Based Learning, DGBL), con-
+ceito introduzido por [Prensky 2001], prop ˜oe que jogos digitais s ˜ao ambientes de apren-
+dizado naturalmente eficazes por combinarem conte ´udo com interatividade, motivac ¸˜ao
+e engajamento. [Gee 2003] reforc ¸a essa perspectiva ao argumentar que jogos bem pro-
+jetados incorporam princ´ıpios pedag´ogicos sofisticados: eles exigem resoluc ¸˜ao ativa de
+problemas, oferecem sistemas de retorno constante e criam identidades projetuais que mo-
+tivam o aprendiz a persistir diante dos desafios, caracter´ısticas que curr´ıculos tradicionais
+raramente conseguem replicar.
+No ˆambito dos jogos s ´erios (serious games), [Romero et al. 2015] demonstram
+que jogos com prop ´osito prim´ario de educac ¸˜ao ou treinamento, em oposic ¸˜ao ao entrete-
+nimento puro, s ˜ao capazes de desenvolver habilidades do s ´eculo XXI, incluindo o pen-
+samento cr´ıtico, a resoluc ¸˜ao de problemas e a capacidade de tomar decis ˜oes sob press˜ao.
+O CyberSec: Network Defender enquadra-se nessa categoria: possui uma narrativa es-
+truturada, regras claras e mec ˆanicas bem definidas, mas seu prop ´osito central ´e ensinar
+conceitos de ciberseguranc ¸a. A mecˆanica das cartas f ´ısicas NFC, que exige que o joga-
+dor selecione e aplique a contramedida correta diante de cada tipo de ameac ¸a, representa
+um exemplo direto de como a jogabilidade pode veicular conceitos t ´ecnicos de forma
+experiencial e memor´avel.
+O projeto utiliza a perspectiva de visualizac ¸˜ao top-down, [adams:14] como uma
+vis˜ao a´erea superior que permite ao jogador observar o cen ´ario de cima para baixo. Esta
+escolha de design ´e estrat´egica para jogos de simulac ¸˜ao, pois facilita a compreens ˜ao es-
+pacial da infraestrutura da empresa e permite uma navegac ¸˜ao clara e estrat ´egica entre os
+setores monitorados, oferecendo ao usu´ario uma vis˜ao hol´ıstica dos incidentes em tempo
+real.
+2.3. Ciberseguranc ¸a e Letramento Digital
+A ciberseguranc ¸a pode ser definida como o conjunto de tecnologias, processos e controles
+projetados para proteger sistemas, redes e dados de ataques cibern´eticos [Stallings 2017].
+Entre os tipos de ameac ¸as mais prevalentes, destaca-se oransomware, um tipo de malware
+que criptografa os dados da v ´ıtima e exige um resgate financeiro para sua recuperac ¸˜ao
+[Kim e Solomon 2018]. Outro ataque relevante ´e o de Negac ¸˜ao de Servic ¸o Distribu´ıdo
+(Distributed Denial of Service , DDoS), que sobrecarrega um sistema com volume ex-
+cessivo de requisic ¸˜oes at´e torn´a-lo inoperante [Stallings 2017]. Outros conceitos centrais
+da ´area incluem a autenticac ¸˜ao, o processo de verificar a identidade de um usu ´ario ou
+sistema antes de conceder acesso [Stallings 2017], o controle de acesso, que determina
+quais recursos um usu ´ario autenticado est ´a autorizado a utilizar, e a recuperac ¸˜ao de de-
+sastres (Disaster Recovery), conjunto de procedimentos para restaurar sistemas ap ´os um
+incidente.
+As contramedidas a esses ataques constituem outro pilar fundamental da
+ciberseguranc ¸a. O isolamento de rede ( network segmentation) ´e uma pr ´atica que con-
+===== PAGE 5 =====
+siste em dividir a infraestrutura em segmentos independentes, de modo que a compro-
+metimento de um setor n ˜ao se propague automaticamente aos demais [Stallings 2017].
+O backup de emerg ˆencia refere-se `a manutenc ¸˜ao de c ´opias de seguranc ¸a dos dados e
+sistemas, permitindo sua restaurac ¸˜ao ap ´os um incidente de ransomware ou falha cr´ıtica
+[Kim e Solomon 2018]. O balanceamento de carga ( load balancing), por sua vez, distri-
+bui o tr ´afego entre m ´ultiplos servidores para evitar sobrecargas e garantir a disponibili-
+dade do servic ¸o mesmo sob picos de acesso ou ataques DDoS [Stallings 2017].
+No contexto brasileiro, o CERT.br reporta uma escalada cont ´ınua nos incidentes
+de seguranc ¸a, reforc ¸ando a necessidade de formar usu´arios digitais mais conscientes e
+preparados em todos os n´ıveis educacionais [CERT.br 2024]. A BNCC, por sua vez, esta-
+belece que as competˆencias digitais, incluindo o pensamento computacional, o letramento
+digital e o uso ´etico e seguro das tecnologias, devem ser desenvolvidas transversalmente
+ao longo de toda a Educac ¸ ˜ao B ´asica [Brasil 2018]. Apesar dessa diretriz, a literatura
+aponta que o ensino eficaz de ciberseguranc ¸a em contextos educacionais ainda esbarra no
+alto n´ıvel de abstrac ¸˜ao dos seus conceitos e na escassez de ferramentas did ´aticas intera-
+tivas e acess´ıveis [Kim e Solomon 2018]. O CyberSec busca preencher exatamente essa
+lacuna, traduzindo conceitos como ransomware, DDoS, isolamento de rede e backup em
+mecˆanicas de jogo palp´aveis e experienci´aveis.
+2.4. Teorias de Aprendizagem Subjacentes ao Projeto
+O design pedag ´ogico do CyberSec ´e fundamentado em teorias consolidadas da psicolo-
+gia da aprendizagem. O Ciclo de Aprendizagem Experiencial de [Kolb 1984] descreve o
+aprendizado como um processo c´ıclico de quatro etapas: experiˆencia concreta, observac ¸˜ao
+reflexiva, conceitualizac ¸˜ao abstrata e experimentac ¸˜ao ativa. O CyberSec percorre esse ci-
+clo a cada sess ˜ao: o jogador experiencia um ataque cibern ´etico (experi ˆencia concreta),
+observa as consequˆencias de suas decis ˜oes nos indicadores do display (observac ¸˜ao refle-
+xiva), compreende o conceito t´ecnico por tr´as da situac ¸˜ao, como a diferenc ¸a entre aplicar
+um backup ou isolar a rede diante de um ransomware (conceitualizac ¸˜ao abstrata), e testa
+novas estrat´egias na rodada seguinte (experimentac ¸˜ao ativa).
+A Teoria do Fluxo ( Flow) de [Csikszentmihalyi 1990] descreve um estado de
+imers˜ao total e satisfac ¸˜ao intr´ınseca que ocorre quando o n ´ıvel de desafio de uma ati-
+vidade ´e perfeitamente equilibrado com as habilidades do indiv ´ıduo. A l ´ogica de pro-
+gress˜ao de eventos do jogo foi projetada deliberadamente para manter o jogador nesse
+estado de equil´ıbrio ´otimo, favorecendo a permanˆencia e o engajamento continuado com
+o conte´udo.
+Por fim, o construcionismo de [Papert 1980] sustenta que a aprendizagem ´e mais
+eficaz quando o aprendiz constr´oi ativamente seu conhecimento por meio da interac ¸˜ao di-
+reta com artefatos do mundo f´ısico. Esse princ´ıpio justifica a escolha de um console f´ısico
+com componentes tang´ıveis, incluindo cartas NFC manipul´aveis, em detrimento de um si-
+mulador de software, tornando o processo de aprendizado mais concreto e significativo.
+A Taxonomia Revisada de Bloom, proposta por [Anderson e Krathwohl 2001], oferece
+ainda um referencial para estruturar os n ´ıveis crescentes de complexidade cognitiva no
+design do jogo: dos objetivos de lembrar e compreender conceitos (o que ´e ransomware?
+o que ´e DDoS?) aos de aplicar e analisar (qual carta usar diante de cada ameac ¸a?) e,
+finalmente, avaliar e criar estrat´egias de defesa.
+===== PAGE 6 =====
+2.5. Sistemas Embarcados de Baixo Custo como Recursos Pedag ´ogicos
+Sistemas embarcados s ˜ao definidos como sistemas computacionais projetados para re-
+alizar func ¸˜oes espec ´ıficas e dedicadas dentro de um sistema maior, frequentemente
+sujeitos a restric ¸˜oes de recursos de mem ´oria, processamento e consumo de energia
+[Barr e Massa 2006]. A popularizac ¸ ˜ao de plataformas de desenvolvimento acess ´ıveis,
+como as baseadas em microcontroladores da fam ´ılia ESP32, reduziu drasticamente as
+barreiras de entrada para a criac ¸˜ao de dispositivos eletrˆonicos interativos com finalidades
+educacionais [Monk 2017].
+O ESP32-S3, fabricado pela Espressif Systems e utilizado como n ´ucleo do Cy-
+berSec, ´e um microcontrolador dual-core com processadores Xtensa LX7 a 240 MHz,
+conectividade Wi-Fi e Bluetooth integrados, e compatibilidade nativa com displays via
+barramento SPI de alta velocidade [Espressif 2023]. O FreeRTOS ( Free Real-Time Ope-
+rating System) ´e um sistema operacional de tempo real de c´odigo aberto amplamente uti-
+lizado em sistemas embarcados de miss ˜ao cr´ıtica. Conforme descrito por [Barry 2016],
+o FreeRTOS permite o escalonamento preemptivo de m ´ultiplas tarefas concorrentes, ga-
+rantindo que processos de alta prioridade, como a detecc ¸˜ao de pressionamento de bot ˜oes
+ou a leitura de cart ˜oes NFC, n˜ao sejam bloqueados por tarefas de menor urg ˆencia, como
+a renderizac ¸˜ao gr´afica.
+Al´em do valor funcional, os componentes eletr ˆonicos do console possuem re-
+levˆancia pedag´ogica intr´ınseca, conectando-se a conte´udos de f´ısica e eletrˆonica presentes
+em curr´ıculos educacionais. O joystick opera por meio de divisores de tens˜ao, fenˆomeno
+diretamente relacionado ao estudo de eletrodin ˆamica e associac ¸˜ao de resistores; o buz-
+zer ´e acionado por um transistor NPN em configurac ¸˜ao de chave eletr ˆonica, ilustrando
+princ´ıpios de amplificac ¸˜ao de sinais; filtros RC passivos realizam o debounce dos bot˜oes,
+demonstrando constantes de tempo e filtragem de ru´ıdo; e o LED RGB exige o dimensi-
+onamento de resistores pelas Leis de Ohm [Monk 2017].
+2.6. Interface Gr ´afica Embarcada: A Biblioteca LVGL
+A LVGL (Light and Versatile Graphics Library) ´e uma biblioteca gr´afica de c´odigo aberto
+projetada para criar interfaces de usu ´ario ricas e animadas em microcontroladores com
+recursos de mem´oria e processamento limitados [LVGL 2024]. Com suporte a elementos
+visuais como bot˜oes, r´otulos, barras de progresso, animac ¸˜oes, mapas de pixels e sistemas
+de estilo baseados em CSS, a LVGL permite a criac ¸˜ao de HUDs (Heads-Up Displays) de
+alta qualidade visual em displays com resoluc ¸˜ao a partir de 240×240 pixels, consumindo
+tipicamente menos de 32 KB de RAM e sem a necessidade de um sistema operacional
+subjacente [LVGL 2024].
+Uma caracter´ıstica fundamental da LVGL para o processo de desenvolvimento do
+CyberSec ´e a disponibilidade de um simulador Computador de mesa desktop baseado na
+biblioteca SDL2 (Simple DirectMedia Layer). Esse simulador permite compilar e execu-
+tar o c´odigo C da interface gr´afica diretamente em um computador, renderizando a tela do
+jogo em uma janela nativa do sistema operacional. Essa capacidade reduz significativa-
+mente o ciclo de iterac ¸˜ao no design da interface, eliminando a necessidade de recompilar
+e gravar o firmware no hardware f ´ısico a cada modificac ¸˜ao, e facilita a produc ¸˜ao e a
+validac ¸˜ao dos elementos gr´aficos e elementos visuais do jogo antes da integrac ¸˜ao com o
+hardware embarcado.
+===== PAGE 7 =====
+O projeto utiliza a est ´etica de pixel art, definida como uma forma de arte digital
+onde as imagens s ˜ao constru´ıdas a partir da manipulac ¸˜ao direta de cada pixel individual.
+Essa t´ecnica n˜ao ´e apenas uma escolha est´etica, mas uma resposta hist´orica `as limitac ¸˜oes
+de mem´oria e processamento de sistemas legados, onde a clareza visual dependia da pre-
+cis˜ao de cada ponto colorido na tela [silber:17]. No contexto do CyberSec, o uso dessa
+arte facilita a renderizac ¸˜ao pela biblioteca gr´afica LVGL em monitores de pequena escala,
+mantendo a responsividade do sistema.
+2.7. Comunicac ¸˜ao NFC e Autenticac ¸˜ao como Conceito Pedag´ogico
+A Comunicac ¸˜ao por Campo Pr ´oximo (Near Field Communication, NFC) ´e uma tecno-
+logia de comunicac ¸˜ao sem fio de curto alcance (tipicamente inferior a 10 cm) baseada
+nos padr ˜oes ISO 14443 e ISO 18092, que permite a troca de dados entre dispositivos
+pr´oximos [Want 2011]. Operando na frequˆencia de 13,56 MHz, a NFC ´e amplamente uti-
+lizada em sistemas de pagamento por aproximac ¸˜ao, controle de acesso f´ısico, passaportes
+eletrˆonicos e identificac ¸˜ao de dispositivos. Ela pode operar em modo ativo, onde ambos
+os dispositivos geram campo eletromagn´etico, ou em modo passivo, onde um dispositivo
+alimenta o outro por induc ¸˜ao eletromagn´etica [Want 2011].
+No CyberSec, o m ´odulo NFC PN532 ´e integrado ao console para implementar o
+sistema de cartas f´ısicas de defesa. Cada carta, quando aproximada ao sensor do console,
+´e identificada pelo seu identificador ´unico (UID) e aciona uma contramedida espec ´ıfica
+no jogo. Esse mecanismo ensina, de forma experiencial, o conceito de autenticac ¸˜ao por
+fator de posse (something you have ), em que a identidade do usu ´ario ou de uma ac ¸˜ao
+´e verificada pela apresentac ¸˜ao de um objeto f ´ısico [Stallings 2017]. O projeto concebeu
+trˆes cartas de defesa distintas, descritas em detalhes na Sec ¸˜ao 3.2, cada uma representando
+uma contramedida de ciberseguranc ¸a real: isolamento de rede, backup de emerg ˆencia e
+balanceamento de carga.
+3. Projeto
+3.1. Metodologia
+O desenvolvimento doCyberSec: Network Defender adota uma abordagem metodol´ogica
+centrada no design de engenharia iterativo, estruturada em quatro fases sequenciais e
+interdependentes. Essa estrutura permite a validac ¸˜ao progressiva das hip´oteses do projeto,
+garantindo que tanto os requisitos t ´ecnicos quanto os pedag ´ogicos sejam atendidos de
+forma sistem´atica.
+A primeira fase, An´alise e Design, compreende o levantamento dos requisitos pe-
+dag´ogicos com base no referencial te ´orico (conceitos de ciberseguranc ¸a a ensinar, perfil
+do p ´ublico-alvo e teorias de aprendizagem), a concepc ¸˜ao do game design e a validac ¸˜ao
+pr´evia dos esquem ´aticos eletr ˆonicos e da l ´ogica de firmware por meio do simulador
+Wokwi. Essa etapa permite o ajuste fino da pinagem do ESP32-S3, do barramento SPI e
+da comunicac ¸˜ao NFC, eliminando erros de projeto sem custo de componentes.
+A segunda fase,Implementac ¸˜ao de Hardware, envolve a montagem do prot´otipo
+f´ısico em laborat´orio, com a integrac ¸˜ao de todos os m ´odulos eletrˆonicos e o dimensiona-
+mento dos componentes de protec ¸˜ao (resistores de pull-up/pull-down, transistor de acio-
+namento do buzzer, filtros RC de debounce e regulador de tens˜ao LDO). A terceira fase,
+Desenvolvimento de Software , abrange a estruturac ¸˜ao do firmware sob o ESP-IDF, a
+===== PAGE 8 =====
+implementac ¸˜ao do escalonamento de tarefas com FreeRTOS, o desenvolvimento da in-
+terface gr´afica com LVGL e a codificac ¸˜ao da l ´ogica de jogo por meio de uma M ´aquina
+de Estados Finitos (FSM). As fases 2 e 3 ocorrem atualmente em paralelo: o desenvolvi-
+mento da interface gr´afica ´e conduzido prioritariamente no simulador local LVGL/SDL2,
+enquanto a montagem e integrac ¸˜ao do hardware f´ısico avanc ¸a simultaneamente.
+A quarta fase, Validac ¸˜ao Pedag ´ogica, ser ´a realizada durante uma mostra
+acadˆemica, na qual o prot ´otipo ser ´a apresentado a estudantes em formato de stand in-
+terativo. Os participantes ser ˜ao convidados a jogar o CyberSec e, ao final, responder
+um question´ario via QR Code contendo: uma nota geral de 0 a 10 sobre a experi ˆencia;
+quest˜oes objetivas de verificac ¸˜ao de compreens ˜ao de conceitos de ciberseguranc ¸a; e um
+campo opcional para coment ´arios qualitativos. Os dados coletados fornecer ˜ao a base
+emp´ırica para a an´alise da efic´acia pedag´ogica do dispositivo.
+3.2. Concepc ¸˜ao do Jogo (Game Design)
+CyberSec: Network Defender surgiu de um processo iterativo de concepc ¸˜ao que passou
+por duas reformulac ¸˜oes significativas antes de chegar ao formato atual. A ideia original
+do projeto consistia em um jogo de camadas (layers) com mecˆanica de quiz: o jogador
+iniciava na base de um mapa vertical e se deparava com uma pergunta sobre um t ´opico
+espec´ıfico, com cinco portas acima, cada uma contendo uma resposta diferente. Escolher
+a porta correta avanc ¸ava o jogador para o pr ´oximo layer, onde uma nova pergunta era
+apresentada; escolher uma porta errada redirecionava o jogador por um caminho alter-
+nativo no mesmo n ´ıvel. O objetivo era alcanc ¸ar a porta final no topo da tela ap ´os uma
+sequˆencia de perguntas, e a competitividade seria incentivada por um temporizador e um
+placar de l ´ıderes (leaderboard), onde o jogador que completasse o percurso no menor
+tempo ocuparia a primeira posic ¸˜ao.
+Ap´os discuss ˜ao com o professor orientador, que considerou a mec ˆanica de quiz
+potencialmente mon´otona e com baixo apelo para engajar jogadores de forma duradoura,
+a equipe optou por um redesign completo da proposta. A segunda concepc ¸˜ao trouxe uma
+mudanc ¸a estrutural mais profunda: um jogo de explorac ¸˜ao com cartas f´ısicas de combate
+baseadas em NFC, ambientado em uma vila inicial a partir da qual o jogador avanc ¸aria
+por cavernas para enfrentar monstros, cada carta representando um monstro diferente com
+atributos pr´oprios. O professor orientador recebeu positivamente a proposta de interac ¸˜ao
+f´ısica com cartas NFC, por´em solicitou que o tema fosse redirecionado para um conte´udo
+com maior aplicabilidade educacional.
+A partir dessa orientac ¸˜ao, a equipe transp ˆos a mec ˆanica de cartas f ´ısicas para o
+contexto de ciberseguranc ¸a: em vez de monstros, as cartas passaram a representar con-
+tramedidas de seguranc ¸a digital, e em vez de uma vila de fantasia, o cen ´ario tornou-se
+o ambiente corporativo de uma empresa de tecnologia. O protagonista passou a ser um
+analista de TI em seu primeiro dia de trabalho, respons´avel pela manutenc ¸˜ao e seguranc ¸a
+da infraestrutura da empresa, narrativa que ser´a detalhada a seguir.
+A narrativa do CyberSec: Network Defender posiciona o jogador como um ana-
+lista de suporte de TI em seu primeiro dia de trabalho em uma empresa de tecnologia.
+Sua responsabilidade ´e gerir a infraestrutura digital da empresa ao longo de um expe-
+diente, respondendo a incidentes de seguranc ¸a em tempo real. Essa restric ¸˜ao temporal
+introduz o conceito de gest˜ao sob press˜ao, simulando a realidade de centros de operac ¸˜oes
+===== PAGE 9 =====
+de seguranc ¸a (SOCs), onde o tempo de resposta a incidentes ´e a m ´etrica central de de-
+sempenho.
+O cen ´ario ´e representado por um mapa top-down que simula uma empresa mo-
+derna dividida em setores estrat ´egicos. Cada setor possui indicadores de integridade
+pr´oprios que s ˜ao afetados quando incidentes de seguranc ¸a n˜ao s ˜ao atendidos dentro do
+prazo estipulado. Essa mec ˆanica traduz o conceito de impacto operacional de um in-
+cidente de seguranc ¸a, conectando a l´ogica do jogo `a realidade de equipes de TI. O de-
+sign detalhado do mapa, a distribuic ¸˜ao dos setores e a identidade visual dos personagens
+encontram-se em fase de concepc ¸˜ao e ser˜ao definidos nas pr´oximas etapas do projeto.
+Para a criac ¸˜ao de toda a identidade visual, cen ´arios e elementos gr ´aficos, foi uti-
+lizado o software Aseprite. A escolha da ferramenta deu-se pela sua interface intuitiva
+e especializada em pixel art, oferecendo um conjunto completo de funcionalidades para
+animac ¸˜ao e edic ¸˜ao de camadas a um custo acess´ıvel, o que facilitou o fluxo de trabalho e
+a manutenc ¸˜ao da est´etica retrˆo de 16 bits pretendida para o console.
+A l ´ogica de eventos do jogo ´e regida por uma M ´aquina de Estados Finitos
+(FSM) que classifica as ocorr ˆencias em categorias de prioridade distintas, sinalizadas
+visualmente por cores no display. Essa escala crom ´atica foi inspirada nos sistemas de
+classificac ¸˜ao de severidade utilizados em operac ¸˜oes reais de seguranc ¸a, como o Common
+Vulnerability Scoring System (CVSS). Os tipos espec ´ıficos de eventos, sua frequˆencia e
+os crit ´erios de pontuac ¸˜ao associados est ˜ao sendo refinados iterativamente durante o de-
+senvolvimento do firmware, em paralelo com a implementac ¸˜ao da interface gr´afica.
+3.2.1. Cartas de Defesa NFC
+O ponto central e mais inovador da mec ˆanica de jogo ´e o sistema de cartas f´ısicas de
+defesa. Ao detectar uma ameac ¸a cr´ıtica, o console emite um alarme sonoro via buzzer
+e o display exibe uma tela de alerta identificando o tipo de ataque em curso. Para neu-
+tralizar a ameac ¸a, o jogador deve selecionar e aproximar a carta NFC correspondente `a
+contramedida adequada ao sensor do console. A escolha incorreta da carta penaliza o
+jogador, incentivando a compreens ˜ao real da correspond ˆencia entre ataque e defesa em
+vez da tentativa aleat´oria.
+Essa mec ˆanica encapsula dois conceitos-chave da seguranc ¸a da informac ¸˜ao, a
+autenticac ¸˜ao por fator de posse, onde a identidade da ac ¸˜ao ´e verificada pela apresentac ¸˜ao
+do objeto f´ısico correto (o cart˜ao NFC), e a tomada de decis ˜ao sob press˜ao, habilidade
+central em equipes de resposta a incidentes. Foram concebidas tr ˆes cartas de defesa, des-
+critas a seguir e sintetizadas na Tabela 1.
+A Carta de Isolamento de Rede representa a t ´ecnica de network segmentation,
+que consiste em isolar o setor infectado, cortando seu acesso aos demais setores da infra-
+estrutura e impedindo que a ameac ¸a se propague. Essa contramedida protege o restante
+da rede ao custo da conectividade local do setor comprometido, ensinando o conceito de
+contenc ¸˜ao de danos e o princ´ıpio de que a disponibilidade parcial´e prefer´ıvel ao compro-
+metimento total.
+A Carta de Backup de Emergˆencia representa os procedimentos de recuperac ¸˜ao
+de desastres (Disaster Recovery). Ao ser aplicada, restaura os arquivos e sistemas do setor
+===== PAGE 10 =====
+afetado por meio de uma c´opia de seguranc ¸a previamente armazenada, sendo a contrame-
+dida principal para neutralizar os danos causados por um ataque de ransomware. Essa
+mecˆanica ensina a importˆancia cr´ıtica da manutenc ¸˜ao regular de backups como estrat´egia
+preventiva de seguranc ¸a.
+A Carta de Balanceamento de Rede representa a t´ecnica de load balancing, que
+distribui o tr ´afego de requisic ¸˜oes entre m ´ultiplos servidores para evitar a sobrecarga de
+um ´unico ponto da infraestrutura. Sua aplicac ¸˜ao no jogo neutraliza ataques de Negac ¸˜ao
+de Servic ¸o Distribu´ıdo (DDoS), impedindo que o sistema seja derrubado durante picos de
+acesso malicioso.
+Tabela 1. Cartas de Defesa NFC do CyberSec: Network Defender .
+Carta Ameac ¸a Neutralizada Conceito Ensinado
+Isolamento de
+Rede
+Propagac ¸˜ao de ameac ¸as en-
+tre setores
+Segmentac ¸˜ao de rede;
+contenc ¸˜ao de danos
+Backup de
+Emergˆencia
+Ransomware (sequestro de
+dados)
+Recuperac ¸˜ao de desastres;
+importˆancia do backup
+Balanceamento de
+Rede
+Ataque DDoS (negac ¸˜ao de
+servic ¸o)
+Load balancing; disponibili-
+dade de sistemas
+A relac ¸˜ao apresentada na tabela acima detalha como os conceitos abstratos de
+seguranc ¸a digital foram convertidos em mecˆanicas de jogo tang´ıveis. Cada ameac ¸a simu-
+lada possui uma contramedida espec´ıfica que o jogador deve aplicar utilizando os recursos
+visuais e f´ısicos do console. Por exemplo, ao identificar um ataque de negac ¸˜ao de servic ¸o,
+a l´ogica do projeto exige que o usu ´ario utilize a t ´ecnica de balanceamento de carga para
+garantir a disponibilidade do sistema. Essa correlac ¸˜ao direta entre o problema t ´ecnico e
+a soluc ¸˜ao pr ´atica visa solidificar o aprendizado, permitindo que o estudante visualize a
+utilidade real de cada procedimento de defesa no ambiente corporativo de TI.
+3.3. Arquitetura de Hardware
+O n´ucleo de processamento do CyberSec ´e o microcontrolador ESP32-S3, escolhido por
+sua arquitetura dual-core Xtensa LX7 que permite executar simultaneamente a pilha de
+comunicac ¸˜ao NFC em um n´ucleo e a interface gr´afica LVGL no segundo, sem degradac ¸˜ao
+de desempenho. A comunicac ¸˜ao com o display TFT ST7796S (resoluc ¸˜ao 320×240 pixels)
+´e realizada via barramento SPI de alta velocidade, enquanto o m ´odulo NFC PN532 ´e
+conectado via barramento I²C.
+Para armazenar os recursos visuais e dados de ´audio sem exceder a capacidade da
+RAM interna do microcontrolador, o sistema utiliza uma mem ´oria NAND Flash externa
+de 128 MB (W25N01G), tamb ´em acessada via SPI. A autonomia do console ´e provida
+por uma bateria de pol´ımero de l´ıtio (Li-Po), gerenciada pelo m´odulo carregador TP4056,
+aliado a um regulador de tens˜ao LDO para estabilizar a alimentac ¸˜ao do circuito.
+Os componentes de interface com o usu ´ario foram selecionados para expor, de
+forma did´atica, fenˆomenos f´ısicos presentes em curr´ıculos educacionais. O joystick opera
+por meio de divisores de tens˜ao: o deslocamento do man´ıpulo altera a resistˆencia e, con-
+sequentemente, a tens ˜ao lida pelos conversores anal ´ogico-digitais (ADC) do ESP32-S3,
+===== PAGE 11 =====
+ilustrando o comportamento de resistores em s´erie. O buzzer ´e acionado por um transistor
+NPN em configurac ¸˜ao de chave eletr ˆonica (regi˜oes de corte e saturac ¸˜ao), demonstrando
+como um sinal de baixa corrente pode controlar cargas maiores. Filtros RC passivos re-
+alizam o debounce dos bot ˜oes de ac ¸˜ao via hardware, ensinando constantes de tempo e
+filtragem de ru ´ıdo el´etrico. O LED RGB de status tem seus resistores dimensionados
+diretamente pela Lei de Ohm, conectando o hardware ao conte ´udo curricular de eletro-
+dinˆamica.
+A Tabela 2 apresenta um resumo dos principais componentes eletr ˆonicos do con-
+sole e suas respectivas func ¸˜oes.
+Tabela 2. Resumo dos Componentes Eletrˆonicos do CyberSec.
+Componente Func ¸ ˜ao Principal Qtd.
+ESP32-S3 (Dual-Core LX7) Processamento central, l ´ogica de jogo e comunicac ¸˜ao 1
+Display TFT ST7796S (SPI) Interface gr ´afica 320×240 px via LVGL 1
+M´odulo NFC PN532 (I²C) Leitura das cartas de defesa NFC 1
+Cartas NFC (MIFARE Classic) Cartas de Defesa: Isolamento, Backup e Balanceamento 3
+Flash NAND W25N01G (SPI) Armazenamento de Elementos gr ´aficos e ´audio (128 MB) 1
+Joystick anal´ogico Controle de movimentac ¸ ˜ao via divisor de tens˜ao (ADC) 1
+Buzzer passivo (PWM) retorno imediato sonoro de alertas e eventos 1
+LED RGB Indicador visual de estado da rede (Lei de Ohm) 1
+Transistor NPN Acionamento de carga do buzzer (chave eletr ˆonica) 1
+Filtros RC Debounce de bot˜oes via hardware –
+Bateria Li-Po + TP4056 + LDO Autonomia e gest ˜ao de energia 1
+A relac ¸˜ao de itens apresentada na tabela acima detalha a infraestrutura f ´ısica ne-
+cess´aria para a execuc ¸˜ao do console interativo. Cada componente foi selecionado para
+cumprir uma func ¸˜ao t ´ecnica espec´ıfica dentro da l´ogica de operac ¸˜ao em tempo real. O
+microcontrolador central gerencia tanto o processamento da interface gr ´afica quanto a
+comunicac ¸˜ao com o sensor de aproximac ¸˜ao, que ´e respons ´avel por identificar as con-
+tramedidas de seguranc ¸a f´ısica apresentadas pelo usu´ario. Al ´em disso, a integrac ¸˜ao de
+dispositivos de controle anal´ogico e indicadores luminosos permite que o projeto v´a al´em
+da simulac ¸˜ao em tela, proporcionando uma experi ˆencia t´atil que facilita a compreens ˜ao
+de conceitos de eletrˆonica e f´ısica previstos no curr´ıculo educacional.
+Para a materializac ¸˜ao do console, foi elaborado um desenho t ´ecnico preliminar
+(Figura 1), representando a concepc ¸˜ao inicial de integrac ¸˜ao dos componentes adquiridos.
+Este esquema visual serviu como guia para a montagem f ´ısica, ilustrando a disposic ¸˜ao
+do microcontrolador ESP32-S3 em relac ¸˜ao ao display TFT de 2.4 polegadas, ao m ´odulo
+sensor NFC e `a interface de controle composta pelo joystick anal ´ogico. O design buscou
+compactac ¸˜ao, portabilidade e ergonomia, garantindo que o sensor NFC estivesse posicio-
+nado para a leitura intuitiva das cartas de defesa.
+===== PAGE 12 =====
+Figura 1. Esquema visual da concepc ¸˜ao inicial da referencial f´ ısica.
+O desenho t´ecnico ilustra a disposic ¸˜ao preliminar do display, m´odulo NFC, joys-
+tick e demais componentes eletrˆonicos no gabinete do console.
+3.4. Arquitetura de Software e Desenvolvimento da Interface Gr ´afica
+O firmware do CyberSec ´e desenvolvido sobre o ESP-IDF ( Espressif IoT Development
+Framework), o framework oficial da Espressif para desenvolvimento de aplicac ¸ ˜oes no
+ESP32-S3. A escolha pelo ESP-IDF em detrimento do framework Arduino justifica-se
+pela necessidade de acesso granular ao FreeRTOS e ao controle fino dos barramentos
+SPI e I²C, essencial para garantir taxa de atualizac ¸˜ao adequada da interface gr ´afica sem
+comprometer a responsividade do sistema de detecc ¸˜ao NFC.
+A arquitetura de programa ´e organizada em quatro tarefas concorrentes gerenci-
+adas pelo sistema operacional: (i) Tarefa de Jogo, de maior prioridade, que executa a
+m´aquina de estados principal, atualiza a situac ¸˜ao do jogo e publica eventos em filas de
+mensagens; (ii) Tarefa Gr´afica, respons´avel por acionar o gerenciador de tarefas da bibli-
+oteca gr´afica a cada 5,ms e transferir o armazenamento de imagem renderizado ao visor
+via comunicac ¸˜ao serial; (iii) Tarefa de Aproximac ¸˜ao (NFC), que monitora continuamente
+o sensor, aguardando a identificac ¸˜ao das cartas de defesa e enviando o identificador´unico
+encontrado para a fila da tarefa de jogo, permitindo que a contramedida correspondente
+seja aplicada ; e (iv) Tarefa de ´Audio, que gerencia o emissor sonoro para produzir avisos
+ac´usticos de retorno imediato. A comunicac ¸˜ao entre as etapas ´e coordenada por filas e
+sinalizadores de controle, garantindo a sincronizac ¸˜ao e evitando conflitos de acesso aos
+dados.
+A interface gr´afica ´e constru´ıda inteiramente com a biblioteca LVGL, que gerencia
+os elementos visuais do painel principal do jogo: o mapa top-down, os indicadores de in-
+tegridade dos setores, o rel´ogio do expediente, os alertas coloridos e as telas de resposta a
+ataques [LVGL 2024]. Para agilizar o ciclo de desenvolvimento, o time adota o simulador
+local da LVGL, compilado com a biblioteca SDL2 para plataformas de Computador de
+mesa. Essa abordagem permite executar o c ´odigo C da interface diretamente no compu-
+tador de desenvolvimento, renderizando a tela do jogo em janela nativa, sem necessidade
+de gravar o firmware no hardware a cada iterac ¸˜ao.
+Os Elementos gr ´aficos do jogo s ˜ao produzidos em estilo pixel art e convertidos
+para arrays C por meio da ferramenta lvgl-image-converter, que os codifica no
+===== PAGE 13 =====
+formato RGB565 compat´ıvel com a LVGL. O design dos personagens e dos elementos
+de cen ´ario est ´a em fase de produc ¸˜ao, sendo desenvolvido e validado iterativamente no
+simulador antes da integrac ¸˜ao ao hardware. Os Arquivos do projeto finalizados ser ˜ao
+armazenados na mem ´oria Flash externa W25N01G e carregados sob demanda durante a
+execuc ¸˜ao, respeitando as limitac ¸˜oes de RAM do microcontrolador.
+4. Resultados Preliminares
+O desenvolvimento do CyberSec: Network Defender encontra-se em fase intermedi ´aria,
+com avanc ¸os concretos e mensur´aveis nas trˆes frentes de trabalho simult ˆaneas: interface
+gr´afica no simulador LVGL, produc ¸˜ao de Arquivos do projeto visuais e integrac ¸ ˜ao do
+hardware f´ısico.
+No ˆambito da interface gr´afica, o ambiente de simulac ¸˜ao LVGL/SDL2 encontra-
+se plenamente operacional, permitindo a visualizac ¸ ˜ao e iterac ¸˜ao das telas do jogo em
+ambiente de ´area de trabalho. Os mapas top-down das salas da empresa foram imple-
+mentados com posicionamento din ˆamico do personagem, detecc ¸˜ao de colis˜ao e exibic ¸˜ao
+de alertas ativos. A Sala 1 (Recepc ¸ ˜ao/ ´Area Principal) e a Sala 2 ( ´Area de Escrit ´orios),
+ilustradas nas Figuras 2 e 4, j ´a exibem a Disposic ¸˜ao visual das cena, NPCs, estac ¸˜oes de
+trabalho e indicadores de evento em tempo real.
+Figura 2. Sala 1 (Recepc ¸˜ao/ ´Area Principal) renderizada no simulador LVGL/SDL2.
+A Sala 1, ilustrada na Figura 2, funciona como a recepc ¸ ˜ao e ´area principal da
+empresa fict´ıcia, tendo sido projetada para estabelecer a imers ˜ao narrativa e o primeiro
+contato do usu ´ario com o sistema. Al ´em da disposic ¸˜ao visual em perspectiva superior
+(top-down), a cena apresenta elementos detalhados em pixel art, como estac ¸ ˜oes de tra-
+balho e mobili ´ario de escrit ´orio que reforc ¸am o ambiente corporativo. O personagem
+jog´avel ´e posicionado estrategicamente pr ´oximo `a entrada para incentivar a explorac ¸˜ao
+inicial, onde um indicador de evento ativo (ponto de exclamac ¸˜ao azul) sinaliza a oportu-
+nidade de interac ¸˜ao com o NPC recepcionista.
+===== PAGE 14 =====
+Figura 3. Tela de interac ¸˜ao com o npc da secret´aria
+Esta interac ¸˜ao, acionada pelo controle anal ´ogico (joystick), inicia um di ´alogo tu-
+torial opcional (Figura 3) que contextualiza o jogador sobre as mecˆanicas fundamentais: a
+identificac ¸˜ao de incidentes pelos indicadores coloridos e o uso das cartas de defesa f´ısica.
+Por ser uma etapa volunt ´aria, o di ´alogo foi concebido para n ˜ao interromper a fluidez de
+usu´arios j´a familiarizados com a proposta, servindo como uma ponte pedag ´ogica entre a
+ambientac ¸˜ao inicial e as tarefas cr´ıticas de seguranc ¸a que ocorrem nos setores seguintes.
+Ao se deslocar pela entrada `a direita da Sala 1, o jogador acessa a Sala 2, a ´area
+de escrit´orios e servidores, onde as tarefas e incidentes ocorrem.
+Figura 4. Sala 2 ( ´Area de Escrit´orios) renderizada no simulador LVGL/SDL2.
+A Sala 2, ilustrada na Figura 4, ´e o espac ¸o central de jogabilidade. ´E nela que o
+jogador identifica, prioriza e resolve os incidentes que surgem ao longo do expediente. O
+simbolo em verde ´e para alertar o jogador que existe uma possivel interac ¸˜ao para ele fazer
+ao se aproximar do computador e apertar no joystick o bot˜ao de interac ¸˜ao.
+As tarefas dispon ´ıveis no estado atual do jogo foram concebidas para cobrir os
+trˆes n´ıveis de urgˆencia jog´aveis e introduzir conceitos reais de ciberseguranc ¸a de forma
+progressiva. O design visual das telas de tarefa ´e tempor ´ario e poder ´a ser refinado nas
+pr´oximas etapas do desenvolvimento.
+===== PAGE 15 =====
+A primeira tarefa implementada ´e a troca de senhas padr ˜ao, classificada como
+tarefa verde. Ela introduz o conceito de higiene b´asica de seguranc ¸a digital: manter senhas
+padr˜ao de f´abrica em dispositivos corporativos representa uma vulnerabilidade elementar,
+e a tarefa ensina ao jogador a importˆancia de configurar credenciais ´unicas como primeira
+linha de defesa.
+Figura 5. Interface da tarefa de troca de credenciais padr ˜ao (Tarefa Verde).
+A primeira atividade pr´atica apresentada ao usu´ario consiste na tarefa de troca de
+credenciais padr˜ao, classificada no projeto como uma tarefa de baixa prioridade (verde).
+Esta interface, desenvolvida integralmente com elementos gr ´aficos em pixel art, simula
+um terminal de acesso onde o jogador deve substituir usu ´arios e senhas gen ´ericas de
+f´abrica por combinac ¸˜oes seguras. O objetivo desta etapa ´e introduzir de forma l ´udica o
+conceito de higiene digital b´asica, demonstrando que a configurac ¸˜ao de credenciais ´unicas
+´e a primeira linha de defesa essencial para mitigar vulnerabilidades de acesso em qualquer
+infraestrutura de tecnologia.
+Figura 6. Tela de gerenciamento f´ ısico de hardware (Tarefa Amarela).
+A segunda tarefa ´e a adic ¸˜ao ou troca de HDs no servidor, classificada como tarefa
+amarela. Ela representa uma atividade de manutenc ¸˜ao de infraestrutura de m ´edia com-
+===== PAGE 16 =====
+plexidade, introduzindo conceitos de gerenciamento f ´ısico de hardware em ambientes
+corporativos de TI.
+Figura 7. Simulac ¸ ˜ao visual de um ataque de Negac ¸ ˜ao de Servic ¸o Distribu´ ıdo
+(DDoS) em curso (Tarefa Vermelha).
+A terceira tarefa ´e o ataque DDoS ao servidor, classificada como tarefa vermelha
+e urgente. Ao ser ativada, o console emite um alarme sonoro via buzzer e o display exibe
+uma tela de alerta identificando o tipo de ataque em curso. O jogador deve responder
+dentro do prazo utilizando a carta de defesa NFC correspondente, neste caso, a Carta de
+Balanceamento de Rede. A escolha da carta incorreta pode penalizar ou n ˜ao o jogador,
+incentivando a compreens˜ao real da correspondˆencia entre ataque e contramedida.
+No que tange ao hardware f´ısico, a comunicac ¸˜ao entre o ESP32-S3 e o display
+TFT ST7796S via barramento SPI foi estabelecida e validada com sucesso. A Figura 8
+demonstra a interface gr ´afica do jogo sendo renderizada diretamente no display f ´ısico,
+confirmando a compatibilidade da pilha LVGL com o hardware alvo e validando as esco-
+lhas de pinagem e protocolo de comunicac ¸˜ao.
+Figura 8. Display TFT ST7796S conectado ao ESP32-S3 exibindo a interface do
+jogo.
+===== PAGE 17 =====
+A fotografia apresentada na Figura 8 exibe o prot ´otipo funcional do console Cy-
+berSec em sua vers ˜ao f´ısica finalizada. Na imagem, ´e poss´ıvel observar a integrac ¸˜ao
+bem-sucedida dos componentes eletrˆonicos no gabinete compacto projetado em pixel art.
+O visor TFT de 2,4 polegadas exibe a interface de usu´ario em execuc ¸˜ao, enquanto o sensor
+de aproximac ¸˜ao (posicionado na parte frontal inferior) est ´a pronto para a leitura das car-
+tas de defesa f´ısicas. Esta montagem materializa a concepc ¸˜ao inicial descrita no projeto,
+validando a ergonomia e a viabilidade t´ecnica da arquitetura de hardware para o ambiente
+educacional.
+No ˆambito do game design, o sistema de cartas NFC de defesa foi completamente
+concebido e documentado. As tr ˆes cartas, Isolamento de Rede, Backup de Emerg ˆencia
+e Balanceamento de Rede, tiveram seus conceitos de ciberseguranc ¸a associados, seus
+efeitos no jogo definidos e suas descric ¸˜oes pedag´ogicas elaboradas, conforme apresentado
+na Sec ¸˜ao 3.2. A l ´ogica de identificac ¸˜ao das cartas via UID pelo m´odulo NFC PN532 est´a
+prevista na arquitetura de firmware, aguardando integrac ¸˜ao na Tarefa NFC.
+A produc ¸˜ao de elementos gr ´aficos e Arquivos do projeto encontra-se em anda-
+mento, com o estilo art ´ısticopixel art definido e os primeiros elementos de cen ´ario em
+fase de produc ¸˜ao no simulador. O design final dos personagens e dos elementos de inter-
+face das cartas ser´a desenvolvido na pr´oxima etapa. A convers˜ao dos Elementos gr´aficos
+j´a produzidos para o formato RGB565 vialvgl-image-converter foi validada com
+sucesso nos testes de renderizac ¸˜ao no simulador.
+Os resultados preliminares confirmam a viabilidade t ´ecnica do prot ´otipo: o
+ESP32-S3 demonstrou capacidade de sustentar a renderizac ¸˜ao LVGL em tempo real via
+SPI sem comprometer a responsividade do sistema. A estrat ´egia de desenvolvimento
+em simulador com portabilidade para hardware provou ser eficaz para reduzir o ciclo de
+iterac ¸˜ao e permitir o avanc ¸o paralelo das frentes de trabalho. A validac ¸ ˜ao pedag ´ogica
+formal est´a planejada para a etapa subsequente, ap´os a conclus˜ao da integrac ¸˜ao completa
+de hardware e software.
+5. Conclus ˜ao
+Este artigo apresentou o desenvolvimento em andamento do CyberSec: Network
+Defender, um console embarcado gamificado de baixo custo voltado ao ensino de
+ciberseguranc ¸a em contextos educacionais diversos. O projeto articula fundamentos da
+gamificac ¸˜ao, da aprendizagem baseada em jogos e de teorias construtivistas para criar
+uma experiˆencia de aprendizado imersiva, na qual conceitos abstratos como autenticac ¸˜ao,
+ransomware, DDoS e defesa de redes s˜ao materializados em mecˆanicas f´ısicas e interati-
+vas, em resposta `as diretrizes de letramento digital da BNCC [Brasil 2018].
+Uma das contribuic ¸˜oes centrais do projeto ´e o sistema de cartas f ´ısicas de defesa
+NFC, que traduz trˆes contramedidas reais de ciberseguranc ¸a, isolamento de rede, backup
+de emergˆencia e balanceamento de carga, em objetos f ´ısicos manipul´aveis pelo jogador.
+Essa abordagem concretiza o construcionismo de [Papert 1980] ao transformar decis ˜oes
+t´ecnicas abstratas em ac ¸˜oes f´ısicas tang´ıveis e consequentes dentro da narrativa do jogo.
+Do ponto de vista tecnol ´ogico, o projeto demonstra a viabilidade de construir
+ferramentas pedag ´ogicas sofisticadas com hardware acess ´ıvel. O uso do ESP32-S3, da
+biblioteca LVGL, do FreeRTOS e da comunicac ¸˜ao NFC viabiliza uma experi ˆencia de
+===== PAGE 18 =====
+jogo responsiva e visualmente rica em um dispositivo de baixo custo, reforc ¸ando o po-
+tencial dessas tecnologias para democratizar o acesso a recursos did ´aticos interativos em
+contextos de recursos limitados [Monk 2017].
+Do ponto de vista pedag´ogico, o embasamento te´orico apresentado demonstra que
+o design doCyberSec est´a alinhado com princ´ıpios consolidados de aprendizagem: o ciclo
+experiencial de [Kolb 1984], a Teoria do Fluxo de [Csikszentmihalyi 1990] e o construci-
+onismo de [Papert 1980].
+Como etapas futuras, o trabalho prev ˆe a finalizac ¸˜ao do design dos personagens
+e dos elementos visuais das cartas, a conclus ˜ao da integrac ¸˜ao de hardware e software, a
+implementac ¸˜ao da l ´ogica de identificac ¸˜ao das cartas NFC no firmware e a realizac ¸˜ao da
+validac ¸˜ao pedag ´ogica com estudantes durante a mostra acad ˆemica. Os dados coletados
+nessa etapa permitir˜ao avaliar empiricamente a efic´acia do CyberSec como ferramenta de
+ensino e subsidiar iterac ¸˜oes futuras do projeto. Espera-se que os resultados confirmem a
+hip´otese central de que a uni ˜ao entre hardware interativo de baixo custo, gamificac ¸˜ao e
+cartas f´ısicas pedagogicamente fundamentadas pode reduzir significativamente a barreira
+de acesso ao conhecimento em ciberseguranc ¸a.
+Referˆencias
+Anderson, L. W. e Krathwohl, D. R. (2001). A Taxonomy for Learning, Teaching, and
+Assessing: A Revision of Bloom’s Taxonomy of Educational Objectives . Longman,
+New York.
+Barr, M. e Massa, A. (2006). Programming Embedded Systems: With C and GNU Deve-
+lopment Tools. O’Reilly Media, Sebastopol, CA, 2ª edic ¸˜ao.
+Barry, R. (2016). Mastering the FreeRTOS Real Time Kernel: A Hands-On Tutorial
+Guide. Real Time Engineers Ltd. Dispon ´ıvel em: https://www.freertos.
+org/Documentation/RTOS_book.html. Acesso em: 20 abr. 2026.
+Brasil (2018). Base Nacional Comum Curricular . Minist ´erio da Educac ¸˜ao, Bras ´ılia.
+Dispon´ıvel em: https://basenacionalcomum.mec.gov.br/. Acesso em:
+16 abr. 2026.
+CERT.br (2024). Estat´ısticas dos Incidentes Reportados ao CERT.br . N ´ucleo de
+Informac ¸˜ao e Coordenac ¸˜ao do Ponto BR (NIC.br), S ˜ao Paulo. Dispon ´ıvel em:
+https://www.cert.br/stats/. Acesso em: 20 abr. 2026.
+Csikszentmihalyi, M. (1990). Flow: The Psychology of Optimal Experience . Harper &
+Row, New York.
+Deterding, S., Dixon, D., Khaled, R., e Nacke, L. (2011). From game design elements
+to gamefulness: defining “gamification”. Em Proceedings of the 15th International
+Academic MindTrek Conference, p´aginas 9–15. ACM, New York.
+Espressif Systems (2023). ESP32-S3 Technical Reference Manual. Vers˜ao 1.3. Espressif
+Systems, Shanghai. Dispon ´ıvel em: https://www.espressif.com/sites/
+default/files/documentation/esp32-s3_technical_reference_
+manual_en.pdf. Acesso em: 16 abr. 2026.
+===== PAGE 19 =====
+Gee, J. P. (2003). What video games have to teach us about learning and literacy. Com-
+puters in Entertainment, 1(1):20. DOI: https://doi.org/10.1145/950566.
+950595.
+Kapp, K. M. (2012). The Gamification of Learning and Instruction: Game-Based
+Methods and Strategies for Training and Education. Pfeiffer, San Francisco.
+Kim, D. e Solomon, M. G. (2018). Fundamentals of Information Systems Security. Jones
+& Bartlett Learning, Burlington, MA, 3ª edic ¸˜ao.
+Kolb, D. A. (1984). Experiential Learning: Experience as the Source of Learning and
+Development. Prentice Hall, Englewood Cliffs, NJ.
+LVGL LLC (2024). LVGL: Light and Versatile Graphics Library — Official Documenta-
+tion. Dispon´ıvel em:https://docs.lvgl.io. Acesso em: 20 abr. 2026.
+Monk, S. (2017). Programming Arduino Next Steps: Going Further with Sketches .
+McGraw-Hill Education, New York, 2ª edic ¸˜ao.
+Papert, S. (1980). Mindstorms: Children, Computers, and Powerful Ideas. Basic Books,
+New York.
+Prensky, M. (2001). Digital Game-Based Learning. McGraw-Hill, New York.
+Romero, M., Usart, M., e Ott, M. (2015). Can serious games contribute to developing and
+sustaining 21st century skills? Games and Culture, 10(1):148–177. DOI: https:
+//doi.org/10.1177/1555412014548919.
+Stallings, W. (2017). Cryptography and Network Security: Principles and Practice . Pe-
+arson, Hoboken, NJ, 7ª edic ¸˜ao.
+Want, R. (2011). Near field communication.IEEE Pervasive Computing, 10(3):4–7. DOI:
+https://doi.org/10.1109/MPRV.2011.55.
+ADAMS, E. Fundamentals of Game Design. New Riders, 3ª edic ¸˜ao, 2014.
+SILBER, D. Pixel Art for Game Developers. CRC Press, 2017.
