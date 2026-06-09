@@ -4,6 +4,7 @@
 #include "entity_pool.h"
 #include "y_sort.h"
 #include "asset_loader.h"
+#include "asset_chao.h"
 #include "game_config.h"   /* PLAYER_FRAME_W/H */
 #include "esp_log.h"
 
@@ -20,6 +21,16 @@ size_t room_layout_spawn(lv_obj_t *parent, const char *room_name,
     if (rl == NULL) {
         ESP_LOGW(TAG, "sala '%s' nao tem layout — nada a instanciar", room_name);
         return 0;
+    }
+
+    /* Chao universal: renderizado ANTES de qualquer entidade (z-order: fundo).
+     * Imagem embutida em flash — sempre disponivel, independente do SD card.
+     * Ignora bg_asset_id do JSON: CHAO e a fonte autoritativa para toda sala. */
+    {
+        lv_obj_t *chao = lv_image_create(parent);
+        lv_image_set_src(chao, asset_chao_get_dsc());
+        lv_obj_remove_flag(chao, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_pos(chao, 0, 0);
     }
 
     size_t spawned = 0;

@@ -11,6 +11,8 @@ typedef enum {
     AREA_PORTA_EMPRESA,
     AREA_PORTA_RECEPCAO,
     AREA_TAREFA_VERDE,
+    AREA_TAREFA_AMARELA,
+    AREA_SERVIDOR,
     AREA_SPAWN,
     AREA_GENERICA,
 } collision_kind_t;

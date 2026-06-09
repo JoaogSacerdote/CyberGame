@@ -1,0 +1,60 @@
+ESTE ARQUIVO TEM INSTRUÇÕES GERAIS DO MINIGAME DE ATAQUE DDOS.
+
+ANIMAÇÕES DE FOGO
+A imagem "FOGO" é uma animação via Sprite Sheet HORIZONTAL. Ela contém 8 frames de fogo medindo 32x64 pixels cada, colocados um ao lado do outro. No cadastro da entidade, ela será configurada com tamanho de exibição de 32,64. Deve rodar em loop infinito e a atualização dos quadros pode ser feita bem devagar.
+
+COMPORTAMENTO DO SERVIDOR
+O servidor, quando estiver funcionando normalmente, deve piscar a imagem do LED_VERMELHO bem rápido (a cada 1 segundo). Se o servidor entrar em ataque DDoS, os leds vermelhos ficam acesos o tempo todo. A imagem base (ID: SERVIDOR) é um servidor com "leds" verdes. Nossa imagem do LED_VERMELHO será apenas uma camada de pixels que cobre perfeitamente os leds do servidor original, dando o efeito de troca de luz.
+
+COMPORTAMENTO DOS ENVELOPES (PACOTES DE REDE)
+Os envelopes irão se mover por pixels específicos. Seja o ENVELOPE (normal) ou ENVELOPE_FOGO (ataque), ambos passarão pela mesma "COORDENADA_DO_ENVELOPE" (ROTAENVELOPE abaixo). O envelope ENVELOPE_FOGO, embora seja maior, usa o pixel 24 como referência para percorrer a mesma linha do envelope normal.
+
+O envelope demora 2 segundos para percorrer toda a sua rota.
+
+Só pode passar um envelope por vez na tela. Assim que um envelope chega no último pixel e some, o próximo deve surgir imediatamente, sem delay.
+
+ATENÇÃO LVGL: A imagem do ENVELOPE_FOGO é um Sprite Sheet VERTICAL (as 8 imagens estão uma em cima da outra). O tamanho de exibição na tela é de 96x32. Sempre que ele pular de pixel na rota, o código deve alterar o offset (no Eixo Y) para exibir um frame novo dentre os 8 disponíveis. A ordem de exibição dos frames não importa.
+
+PROGRESSÃO DO ATAQUE E DERROTA
+Temos 5 posições de fogo ao todo. Cada fogo deve aparecer de forma aleatória nas coordenadas disponíveis a cada 20% de avanço do ataque:
+
+De 0% a 19%: 1 fogo aceso.
+
+Passou de 20%: 2 fogos acesos.
+
+Passou de 40%: 3 fogos acesos.
+
+Passou de 60%: 4 fogos acesos.
+
+Passou de 80%: 5 fogos acesos.
+
+Condição de Derrota: Se a barra chegar em 100%, o ataque é bem-sucedido contra a rede e o jogador perde a vida referente àquele setor.
+
+MITIGAÇÃO DO ATAQUE (AÇÃO NFC)
+Não se esqueça de programar o Botão Y para chamar o leitor NFC! Ao ler a carta de "balanceamento de rede" para mitigar o ataque, o seguinte efeito visual deve ocorrer: a barra de progresso deve voltar para zero bem rápido, e os fogos espalhados devem se apagar um por um rapidamente (rápido o suficiente para o jogador humano visualizar a barra esvaziando e ter o feedback de alívio).
+
+ESTRUTURA DE CAMADAS E COORDENADAS
+BACKGROUND | Camada 00
+
+FOGO_TRAS | Camada 01
+
+SERVIDOR/REDE | Camada 02
+
+FOGO_FRENTE | Camada 03
+
+CAMADA | ENTIDADE | POSICAO
+00 | SERVIDOR_FUNDO | TELACHEIA
+01 | FOGO | 45,143
+01 | FOGO | 89,133
+02 | SERVIDOR | 72,297
+02 | LED_VERMELHO | 72,297
+03 | FOGO | 50,195
+03 | FOGO | 48,291
+03 | FOGO | 94,296
+
+ROTAS E INTERFACE
+ROTAENVELOPE | CAMADA 03 | PX 320,132 > 288,132 > 262,135 > 236,140 > 211,149 > 186,160 > 161,175 > 136,195 > 110,210
+
+BARRA DE PROGRESSO:
+Deve aparecer dividida em aproximadamente 10 partes. Cada parte deverá ser carregada a cada 10% de progresso do ataque, ficando totalmente completa caso o ataque chegue a 100%.
+( LARGURA,ALTURA | POSICAO : 161,19 | 230,44 )

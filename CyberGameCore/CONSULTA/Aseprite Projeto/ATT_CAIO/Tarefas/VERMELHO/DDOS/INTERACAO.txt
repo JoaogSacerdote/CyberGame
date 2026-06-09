@@ -1,0 +1,10 @@
+# FORMATO: ID | LARGURA,ALTURA | POSICAO_X,POSICAO_Y
+
+# Vagas fixas de 32x48 para o programador ativar o fogo quando a barra encher
+PONTO_FOGO_0 | 32,48 | 114,124
+PONTO_FOGO_1 | 32,48 | 38,124
+PONTO_FOGO_2 | 32,48 | 460,202
+PONTO_FOGO_3 | 32,48 | 357,217
+PONTO_FOGO_4 | 32,48 | 118,271
+
+SUBIR_PORCENTAGEM | 161,19 | 230,44

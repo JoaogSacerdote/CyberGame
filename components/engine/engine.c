@@ -1,5 +1,9 @@
 #include "engine.h"
 #include "game_config.h"
+#include "calibracao.h"
+
+/* Escala um valor de brilho LED (0-255) pelo CAL_BRILHO_LED (0-100). */
+#define LED_SCALE(v)  ((uint8_t)((unsigned)(v) * (unsigned)CAL_BRILHO_LED / 100u))
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -11,6 +15,7 @@
 #include "fsm.h"
 #include "fsm_gameplay.h"
 #include "ui.h"
+#include "screen_tarefa_amarela.h"
 #include "button_hal.h"
 #include "joystick_hal.h"
 #include "ws2812_hal.h"
@@ -22,13 +27,72 @@
 #include "threat.h"
 #include "gamestate.h"
 #include "game_config.h"
+#include "esp_random.h"
+#include "nfc_hal.h"
+#include "nfc_config.h"
+#include "screen_tarefa_vermelha.h"
+#include <string.h>
 
 /* Combo de toggle do debug overlay: X+Y segurados continuamente por
  * DEBUG_COMBO_HOLD_MS. Botoes opostos, raramente segurados juntos
  * em gameplay normal. Y+START ja eh usado em main.c para detect_dev_combo. */
 #define DEBUG_COMBO_HOLD_MS   2000
 
+/* === LED Animation ======================================================= */
+typedef enum { LED_ANIM_NONE = 0, LED_ANIM_DEFEAT, LED_ANIM_MITIG } led_anim_t;
+
+static led_anim_t s_led_anim    = LED_ANIM_NONE;
+static uint8_t    s_led_step    = 0;     /* 0-5: 3 blinks; step%2==0 → ON */
+static uint32_t   s_led_step_ms = 0;
+static bool       s_req_defeat  = false; /* sinalizado por gameplay_model_tick */
+static bool       s_req_mitig   = false; /* sinalizado por engine_card_resolver */
+static uint32_t   s_chaos_ms    = 0;     /* timer para fase caotica (85%+) */
+
+#define LED_BLINK_STEP_MS    180   /* meio-ciclo ON ou OFF (3 blinks = 1.08 s) */
+#define LED_CHAOS_PERIOD_MS  110   /* taxa de atualizacao caotica (~9 Hz) */
+
 static const char *TAG = "ENGINE";
+
+static bool s_nfc_initialized = false;
+
+static carta_id_t nfc_resolve_uid(const nfc_card_t *card)
+{
+    if (card->uid_len >= 4) {
+        ESP_LOGI(TAG, "NFC UID: %02X:%02X:%02X:%02X (len=%u) — copie para nfc_config.h",
+                 card->uid[0], card->uid[1], card->uid[2], card->uid[3], card->uid_len);
+    }
+    for (int i = 0; i < (int)CARTA_MAX_COUNT; i++) {
+        if (card->uid_len == NFC_CARTAS[i].uid_len &&
+            memcmp(card->uid, NFC_CARTAS[i].uid, card->uid_len) == 0) {
+            ESP_LOGI(TAG, "NFC: carta reconhecida: %s", NFC_CARTAS[i].nome);
+            return NFC_CARTAS[i].carta;
+        }
+    }
+    ESP_LOGW(TAG, "NFC: UID desconhecido — assumindo CARTA_BALANCEAMENTO (atualize nfc_config.h)");
+    return CARTA_BALANCEAMENTO;
+}
+
+static void nfc_poll_tick(void)
+{
+    if (!s_nfc_initialized) return;
+    if (fsm_get_state() != GAME_STATE_GAMEPLAY) return;
+    if (fsm_get_gameplay_sala() != GAMEPLAY_SALA_EMPRESA) return;
+    if (!screen_tarefa_vermelha_is_open()) return;
+
+    nfc_card_t card;
+    if (!nfc_hal_wait_card(&card, 0)) return;
+
+    const carta_id_t carta = nfc_resolve_uid(&card);
+    const defesa_resultado_t r = threat_mitigate(carta);
+    if (r == DEFESA_CORRETO) {
+        s_req_mitig = true;
+        ESP_LOGI(TAG, "NFC: DDoS mitigado com carta %d", (int)carta);
+    } else if (r == DEFESA_AGRAVA) {
+        ESP_LOGW(TAG, "NFC: carta agravou o ataque");
+    } else {
+        ESP_LOGI(TAG, "NFC: sem ataque ativo ou carta inutil (res=%d)", (int)r);
+    }
+}
 
 #define ENGINE_QUEUE_DEPTH    32
 #define ENGINE_TASK_STACK     4096
@@ -89,8 +153,9 @@ static void sync_ui_to_macro(game_state_t macro)
         case GAME_STATE_SPLASH:   ui_show_splash();  break;
         case GAME_STATE_MENU:     ui_show_menu();    break;
         case GAME_STATE_GAMEPLAY: sync_gameplay_sala_to_ui(fsm_get_gameplay_sala()); break;
-        case GAME_STATE_PAUSE:    ui_show_pause();   break;
-        default:                  /* sem tela ainda */ break;
+        case GAME_STATE_PAUSE:     ui_show_pause();     break;
+        case GAME_STATE_GAME_OVER: ui_show_game_over(); break;
+        default:                   /* sem tela ainda */ break;
     }
 }
 
@@ -143,7 +208,126 @@ static int engine_card_resolver(int mock_card)
         carta = (certa == CARTA_ISOLAMENTO) ? CARTA_BACKUP : CARTA_ISOLAMENTO;
     }
     const defesa_resultado_t r = threat_mitigate(carta);
+    if (r == DEFESA_CORRETO) s_req_mitig = true;
     return (r == DEFESA_CORRETO) ? 0 : (r == DEFESA_INUTIL ? 1 : 2);
+}
+
+/* LEDs durante GAMEPLAY (empresa):
+ *
+ *  Sem ataque:   LED0=verde (tarefa verde)  LED1=amarelo (tarefa amarela)  LED2=apagado
+ *
+ *  Ataque ativo (progress %):
+ *    0–29 %  : LED2 vermelho; LED0+LED1 normais
+ *   30–59 %  : LED1+LED2 vermelho; LED0 normal
+ *   60–84 %  : todos 3 vermelho solido
+ *   85–99 %  : todos 3 piscam individualmente de forma caotica/aleatoria
+ *
+ *  Animacao de derrota  (ataque expirou):  3x piscam vermelho juntos (1.08s)
+ *  Animacao de mitigacao (carta correta):  3x piscam verde juntos    (1.08s)
+ */
+static void gameplay_leds_tick(uint32_t dt_ms)
+{
+    if (fsm_get_state() != GAME_STATE_GAMEPLAY) return;
+
+    if (fsm_get_gameplay_sala() != GAMEPLAY_SALA_EMPRESA) {
+        ws2812_hal_clear();
+        ws2812_hal_refresh();
+        s_led_anim   = LED_ANIM_NONE;
+        s_req_defeat = false;
+        s_req_mitig  = false;
+        s_chaos_ms   = 0;
+        return;
+    }
+
+    /* Inicia animacao se solicitada e nenhuma estiver rodando.
+     * Derrota tem prioridade sobre mitigacao se ambas chegarem juntas. */
+    if (s_led_anim == LED_ANIM_NONE) {
+        if (s_req_defeat) {
+            s_led_anim = LED_ANIM_DEFEAT;
+            s_led_step = 0; s_led_step_ms = 0;
+            s_req_defeat = false; s_req_mitig = false;
+        } else if (s_req_mitig) {
+            s_led_anim = LED_ANIM_MITIG;
+            s_led_step = 0; s_led_step_ms = 0;
+            s_req_mitig = false;
+        }
+    }
+
+    /* Avanca e exibe animacao ativa */
+    if (s_led_anim != LED_ANIM_NONE) {
+        s_led_step_ms += dt_ms;
+        if (s_led_step_ms >= LED_BLINK_STEP_MS) {
+            s_led_step_ms -= LED_BLINK_STEP_MS;
+            s_led_step++;
+            if (s_led_step >= 6) {   /* 3 blinks completos */
+                s_led_anim = LED_ANIM_NONE;
+            }
+        }
+        if (s_led_anim != LED_ANIM_NONE) {
+            const bool on = ((s_led_step & 1u) == 0);
+            ws2812_hal_clear();
+            if (on) {
+                const uint8_t r = (s_led_anim == LED_ANIM_DEFEAT) ? LED_SCALE(120) : 0;
+                const uint8_t g = (s_led_anim == LED_ANIM_MITIG)  ? LED_SCALE(80)  : 0;
+                ws2812_hal_set_pixel(0, r, g, 0);
+                ws2812_hal_set_pixel(1, r, g, 0);
+                ws2812_hal_set_pixel(2, r, g, 0);
+            }
+            ws2812_hal_refresh();
+            return;
+        }
+        /* Animacao terminou: cai para comportamento normal abaixo */
+    }
+
+    /* Comportamento normal baseado no progresso do ataque */
+    threat_state_t ts;
+    const bool atk = threat_get_active(&ts);
+    const uint8_t pct = atk ? threat_progress_pct() : 0;
+
+    if (!atk) {
+        /* LED acende apenas se a tarefa esta DISPONIVEL (nao concluida, nao pendente). */
+        const bool vd_on = (gamestate_verde_estado()   == TAREFA_DISPONIVEL);
+        const bool am_on = (gamestate_amarela_estado()  == TAREFA_DISPONIVEL);
+        ws2812_hal_set_pixel(0, 0, vd_on ? LED_SCALE(80) : 0, 0);
+        ws2812_hal_set_pixel(1, am_on ? LED_SCALE(100) : 0, am_on ? LED_SCALE(100) : 0, 0);
+        ws2812_hal_set_pixel(2, 0, 0, 0);
+        ws2812_hal_refresh();
+        return;
+    }
+
+    /* 85–99%: caos — cada LED pisca individualmente de forma aleatoria */
+    if (pct >= 85) {
+        s_chaos_ms += dt_ms;
+        if (s_chaos_ms >= LED_CHAOS_PERIOD_MS) {
+            s_chaos_ms -= LED_CHAOS_PERIOD_MS;
+            const uint32_t rnd = esp_random();
+            ws2812_hal_clear();
+            if (rnd & 1u) ws2812_hal_set_pixel(0, LED_SCALE(120), 0, 0);
+            if (rnd & 2u) ws2812_hal_set_pixel(1, LED_SCALE(120), 0, 0);
+            if (rnd & 4u) ws2812_hal_set_pixel(2, LED_SCALE(120), 0, 0);
+            ws2812_hal_refresh();
+        }
+        return;
+    }
+
+    ws2812_hal_clear();
+    if (pct >= 60) {
+        /* 60–84%: todos 3 vermelho solido */
+        ws2812_hal_set_pixel(0, LED_SCALE(120), 0, 0);
+        ws2812_hal_set_pixel(1, LED_SCALE(120), 0, 0);
+        ws2812_hal_set_pixel(2, LED_SCALE(120), 0, 0);
+    } else if (pct >= 30) {
+        /* 30–59%: LED1+LED2 vermelho; LED0 normal */
+        ws2812_hal_set_pixel(0, 0,              LED_SCALE(80),  0);
+        ws2812_hal_set_pixel(1, LED_SCALE(120), 0,              0);
+        ws2812_hal_set_pixel(2, LED_SCALE(120), 0,              0);
+    } else {
+        /* 0–29%: so LED2 vermelho; LED0+LED1 normais */
+        ws2812_hal_set_pixel(0, 0,              LED_SCALE(80),  0);
+        ws2812_hal_set_pixel(1, LED_SCALE(100), LED_SCALE(100), 0);
+        ws2812_hal_set_pixel(2, LED_SCALE(120), 0,              0);
+    }
+    ws2812_hal_refresh();
 }
 
 /* Tick do modelo durante GAMEPLAY: relogio + ataques + vitoria/derrota. */
@@ -154,14 +338,25 @@ static void gameplay_model_tick(uint32_t dt_ms)
     }
     gamestate_tick(dt_ms);
 
-    if (threat_tick(dt_ms)) {            /* ataque expirou -> setor destruido */
-        gamestate_perder_vida();
-        ESP_LOGW(TAG, "[LOOP] setor destruido! vidas=%u", gamestate_get_vidas());
-        if (gamestate_get_vidas() == 0) {
-            gamestate_set_result(RESULT_DERROTA);
-            ESP_LOGW(TAG, "[LOOP] sem vidas -> DERROTA");
-            fsm_set_state(GAME_STATE_GAME_OVER);
-            return;
+    /* Mantém flag de ataque na FSM para que as telas UI possam ler
+     * sem dependência circular em threat.h. */
+    {
+        threat_state_t ts_flag;
+        fsm_set_attack_active(threat_get_active(&ts_flag));
+    }
+
+    /* Ataques vermelhos so iniciam apos TAREFA_VERMELHO_MIN_MS de expediente. */
+    if (gamestate_vermelho_pode_spawnar()) {
+        if (threat_tick(dt_ms)) {        /* ataque expirou -> setor destruido */
+            s_req_defeat = true;
+            gamestate_perder_vida();
+            ESP_LOGW(TAG, "[LOOP] setor destruido! vidas=%u", gamestate_get_vidas());
+            if (gamestate_get_vidas() == 0) {
+                gamestate_set_result(RESULT_DERROTA);
+                ESP_LOGW(TAG, "[LOOP] sem vidas -> DERROTA");
+                fsm_set_state(GAME_STATE_GAME_OVER);
+                return;
+            }
         }
     }
 
@@ -316,9 +511,9 @@ static void rainbow_leds_tick(uint32_t dt_ms)
         const uint8_t fi = (from + i) % 3u;
         const uint8_t ti = (to   + i) % 3u;
         ws2812_hal_set_pixel(i,
-            lerp8(COLORS[fi][0], COLORS[ti][0], t),
-            lerp8(COLORS[fi][1], COLORS[ti][1], t),
-            lerp8(COLORS[fi][2], COLORS[ti][2], t));
+            LED_SCALE(lerp8(COLORS[fi][0], COLORS[ti][0], t)),
+            LED_SCALE(lerp8(COLORS[fi][1], COLORS[ti][1], t)),
+            LED_SCALE(lerp8(COLORS[fi][2], COLORS[ti][2], t)));
     }
     ws2812_hal_refresh();
 }
@@ -359,6 +554,8 @@ static void engine_task(void *pv)
             fsm_handle_event(&tick_evt);
             update_debug_combo(dt_ms);
             gameplay_model_tick(dt_ms);   /* relogio + ataques + vitoria/derrota */
+            gameplay_leds_tick(dt_ms);    /* LEDs de tarefa/perigo */
+            nfc_poll_tick();              /* NFC — mitiga DDoS via carta fisica */
             if (fsm_get_state() == GAME_STATE_MENU) {
                 rainbow_leds_tick(dt_ms);
             }
@@ -376,8 +573,8 @@ static void engine_task(void *pv)
         const game_state_t    cur_macro = fsm_get_state();
         const gameplay_sala_t cur_sala  = fsm_get_gameplay_sala();
         if (cur_macro != last_macro) {
-            /* Saiu do MENU: apaga os LEDs do arco-iris. */
-            if (last_macro == GAME_STATE_MENU) {
+            /* Saiu do MENU ou do GAMEPLAY: apaga LEDs. */
+            if (last_macro == GAME_STATE_MENU || last_macro == GAME_STATE_GAMEPLAY) {
                 ws2812_hal_clear();
                 ws2812_hal_refresh();
             }
@@ -386,6 +583,12 @@ static void engine_task(void *pv)
             if (cur_macro == GAME_STATE_GAMEPLAY && last_macro != GAME_STATE_PAUSE) {
                 gamestate_reset();
                 threat_init();
+                screen_tarefa_amarela_reset();
+                fsm_set_attack_active(false);
+                s_led_anim   = LED_ANIM_NONE;
+                s_req_defeat = false;
+                s_req_mitig  = false;
+                s_chaos_ms   = 0;
                 ESP_LOGI(TAG, "[LOOP] nova run: relogio + ataques zerados");
             }
             sync_ui_to_macro(cur_macro);
@@ -415,6 +618,16 @@ esp_err_t engine_init(void)
     defense_matrix_selftest();   /* loga a matriz no boot (validacao remota) */
     gameplay_sim_selftest();     /* simula o loop no boot (validacao remota) */
 
+    {
+        const esp_err_t nfc_err = nfc_hal_init();
+        if (nfc_err == ESP_OK) {
+            s_nfc_initialized = true;
+            ESP_LOGI(TAG, "NFC HAL inicializado");
+        } else {
+            ESP_LOGW(TAG, "NFC HAL falhou (%s) — NFC desabilitado", esp_err_to_name(nfc_err));
+        }
+    }
+
     const esp_err_t ui_err = ui_init();
     if (ui_err != ESP_OK) {
         ESP_LOGE(TAG, "ui_init falhou (%s) — abortando engine_init", esp_err_to_name(ui_err));
@@ -432,6 +645,11 @@ esp_err_t engine_start(void)
     ESP_RETURN_ON_FALSE(s_initialized, ESP_ERR_INVALID_STATE, TAG, "chame engine_init antes");
     if (s_task != NULL) {
         return ESP_OK;
+    }
+
+    if (s_nfc_initialized) {
+        nfc_hal_start_scanning();
+        ESP_LOGI(TAG, "NFC scanning iniciado");
     }
 
     const BaseType_t rd = xTaskCreate(button_reader_task, "btn_reader",

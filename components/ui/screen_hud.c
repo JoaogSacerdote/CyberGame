@@ -40,6 +40,9 @@ void screen_hud_build(lv_obj_t *parent)
     lv_label_set_text(s_lbl_clock, "08:00");
     lv_obj_set_style_text_color(s_lbl_clock, lv_color_hex(0xE6E6E6), LV_PART_MAIN);
     lv_obj_align(s_lbl_clock, LV_ALIGN_LEFT_MID, 8, 0);
+    if (!gamestate_expediente_ativo()) {
+        lv_obj_add_flag(s_lbl_clock, LV_OBJ_FLAG_HIDDEN);
+    }
 
     s_lbl_vidas = lv_label_create(s_root);
     lv_label_set_text(s_lbl_vidas, "Vidas: 3");
@@ -65,15 +68,24 @@ void screen_hud_tick(void)
 {
     if (!s_root) return;
 
-    /* Clock (HH:MM) */
+    /* Clock (HH:MM) — visivel apenas apos 1a entrada no escritorio */
     if (s_lbl_clock) {
-        const uint16_t mins = gamestate_get_clock_minutes();
-        if (mins != s_last_minutes) {
-            s_last_minutes = mins;
-            char buf[8];
-            snprintf(buf, sizeof(buf), "%02u:%02u",
-                     (unsigned)(mins / 60), (unsigned)(mins % 60));
-            lv_label_set_text(s_lbl_clock, buf);
+        if (!gamestate_expediente_ativo()) {
+            if (!lv_obj_has_flag(s_lbl_clock, LV_OBJ_FLAG_HIDDEN))
+                lv_obj_add_flag(s_lbl_clock, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            if (lv_obj_has_flag(s_lbl_clock, LV_OBJ_FLAG_HIDDEN)) {
+                lv_obj_remove_flag(s_lbl_clock, LV_OBJ_FLAG_HIDDEN);
+                s_last_minutes = 0xFFFF; /* forca update de texto ao revelar */
+            }
+            const uint16_t mins = gamestate_get_clock_minutes();
+            if (mins != s_last_minutes) {
+                s_last_minutes = mins;
+                char buf[8];
+                snprintf(buf, sizeof(buf), "%02u:%02u",
+                         (unsigned)(mins / 60), (unsigned)(mins % 60));
+                lv_label_set_text(s_lbl_clock, buf);
+            }
         }
     }
 

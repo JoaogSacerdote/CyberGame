@@ -14,6 +14,7 @@ typedef enum {
     UI_SCREEN_PAUSE,
     UI_SCREEN_RECEPCAO,
     UI_SCREEN_EMPRESA,
+    UI_SCREEN_GAME_OVER,
 } ui_screen_t;
 
 /* ui_init: cria a tela ativa raiz com fundo neutro e prepara o roteador.
@@ -28,6 +29,7 @@ void ui_show_placeholder(void);   /* legacy — manter por compat */
 void ui_show_pause(void);
 void ui_show_recepcao(void);
 void ui_show_empresa(void);
+void ui_show_game_over(void);
 
 ui_screen_t ui_get_active(void);
 

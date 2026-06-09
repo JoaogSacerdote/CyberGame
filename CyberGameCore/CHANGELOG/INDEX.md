@@ -2,6 +2,15 @@
 
 Ordenado do mais recente pro mais antigo.
 
+## 2026-06-09 — Menu de servidor + tela DDoS + NFC + fix tarefa amarela
+
+- [2026-06-09T1100 — Fix troca de painel enquanto segura HD](entries/2026-06-09T1100-fix-amarela-panel-switch.md) — `fix` — removido `!s_holding` da condição de troca de painel; ESTOQUE↔BAIA agora funciona com HD em mãos
+- [2026-06-09T1000 — Menu de servidor + tela DDoS + NFC integrado](entries/2026-06-09T1000-menu-servidor-ddos-nfc.md) — `add+edit` — menu "[ SERVIDOR ]" em ambos os servidores; tela WEB com detecção DDoS; NFC poll no engine_task; fallback UID → CARTA_BALANCEAMENTO
+
+## 2026-06-08 — Telas de tarefa + wiring empresa
+
+- [2026-06-08T1800 — Wiring das telas de tarefa no screen_empresa](entries/2026-06-08T1800-wiring-tarefas-empresa.md) — `edit` — tarefa verde e amarela conectadas ao empresa_tick; placeholder removido; header screen_tarefa_amarela.h criado
+
 ## 2026-05-28 — Feedback HAL (LED + buzzer) + microSD + PSRAM + layout
 
 - [2026-05-28T1110 — Tuning do pacing + selftest write/read do SD](entries/2026-05-28T1110-pacing-tune-sd-selftest.md) — `edit+add` — vermelho 30s/1o aos 10s (loop perdivel: SIM A=VITORIA, B=DERROTA); sd_hal_selftest grava+le arquivo

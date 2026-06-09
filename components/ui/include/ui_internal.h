@@ -30,6 +30,9 @@ void screen_recepcao_destroy(void);
 void screen_empresa_build(void);
 void screen_empresa_destroy(void);
 
+void screen_game_over_build(void);
+void screen_game_over_destroy(void);
+
 /* HUD: barra superior persistente em recepcao/empresa. Construido como
  * filho da tela atual; nao tem ciclo de vida proprio no router. */
 #define UI_HUD_HEIGHT_PX  32

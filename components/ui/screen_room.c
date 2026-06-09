@@ -101,7 +101,7 @@ void room_anim_step(room_player_anim_t *a, lv_obj_t *player_img,
     if (dx != 0 || dy != 0) {
         a->walk_ms += dt_ms;
         if (a->walk_ms >= PLAYER_WALK_PERIOD_MS) {
-            a->walk_ms = 0;
+            a->walk_ms -= PLAYER_WALK_PERIOD_MS;   /* carrega sobra p/ proximo ciclo */
             a->walk_idx = (a->walk_idx + 1) % WALK_SEQ_LEN;
         }
     } else {

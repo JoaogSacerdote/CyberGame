@@ -50,7 +50,7 @@ extern "C" {
 #define BOARD_PIN_DISP_MOSI          GPIO_NUM_15  /* compartilhado com microSD */
 #define BOARD_PIN_DISP_SCK           GPIO_NUM_16  /* compartilhado com microSD */
 #define BOARD_PIN_DISP_BL            GPIO_NUM_17  /* backlight via LEDC PWM */
-#define BOARD_PIN_DISP_PWR_EN        GPIO_NUM_42  /* NPN driver: 1=liga VCC, 0=corta */
+#define BOARD_PIN_DISP_PWR_EN        GPIO_NUM_42  /* PNP BC327 driver: 0=liga VCC, 1=corta */
 
 /* --- Feedback ao jogador (LED enderecavel + buzzer) ------------------------- */
 #define BOARD_PIN_WS2812_DATA        GPIO_NUM_8   /* 3 LEDs WS2812 via RMT */

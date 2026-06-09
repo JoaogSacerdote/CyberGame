@@ -1,0 +1,19 @@
+# FORMATO: LOCAL | POSICAO_X,POSICAO_Y
+
+# Slots dos HDs por cima do fundo
+BAIA | 82,127
+BAIA | 146,127
+BAIA | 210,127
+BAIA | 274,127
+BAIA | 338,127
+BAIA | 402,127
+
+# Slots do inventário de reserva (painel de baixo)
+ESTOQUE | 104,277
+ESTOQUE | 192,277
+ESTOQUE | 282,277
+ESTOQUE | 379,277
+
+
+# FORMATO: ID | POSICAO_X,POSICAO_Y
+FUNDO_TELA | 240,320

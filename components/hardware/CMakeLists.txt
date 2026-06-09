@@ -8,7 +8,8 @@ idf_component_register(SRCS "pmu.c"
                             "buzzer_hal.c"
                             "sd_hal.c"
                        INCLUDE_DIRS "include"
-                       REQUIRES esp_driver_gpio
+                       REQUIRES calibracao
+                                esp_driver_gpio
                                 esp_driver_spi
                                 esp_driver_ledc
                                 esp_driver_i2c

@@ -1,5 +1,5 @@
 {
-  "_doc": "Entidades do CyberGame. pivot=bottom-center. collision_offset_x=-collision_w/2, collision_offset_y=-collision_h. Gerado de ENTIDADES.txt em 2026-06-05. NOTA: MESA_L_RECEPCAO_01 colisao_h corrigido de S77 para 77.",
+  "_doc": "ENTIDADES.json — gerado por atualizar_entidades_json.py. NAO EDITE A MAO.",
   "version": 1,
   "entities": [
     {
@@ -13,58 +13,10 @@
       "collision": {
         "w": 32,
         "h": 20
-      }
-    },
-    {
-      "id": "CADEIRA_COSTA_01_REC",
-      "sala": "recepcao",
-      "file": "CADEIRA_COSTA_01_REC.png",
-      "sprite": {
+      },
+      "real_size": {
         "w": 32,
         "h": 64
-      },
-      "collision": {
-        "w": 32,
-        "h": 20
-      }
-    },
-    {
-      "id": "CADEIRA_DIREITA_01",
-      "sala": "recepcao",
-      "file": "CADEIRA_DIREITA_01.png",
-      "sprite": {
-        "w": 32,
-        "h": 64
-      },
-      "collision": {
-        "w": 32,
-        "h": 20
-      }
-    },
-    {
-      "id": "CADEIRA_FRENTE_01",
-      "sala": "recepcao",
-      "file": "CADEIRA_FRENTE_01.png",
-      "sprite": {
-        "w": 32,
-        "h": 64
-      },
-      "collision": {
-        "w": 32,
-        "h": 20
-      }
-    },
-    {
-      "id": "CADEIRA_SHEET_01",
-      "sala": "recepcao",
-      "file": "CADEIRA_SHEET_01.png",
-      "sprite": {
-        "w": 128,
-        "h": 64
-      },
-      "collision": {
-        "w": 32,
-        "h": 20
       }
     },
     {
@@ -78,6 +30,10 @@
       "collision": {
         "w": 112,
         "h": 77
+      },
+      "real_size": {
+        "w": 112,
+        "h": 101
       }
     },
     {
@@ -91,6 +47,10 @@
       "collision": {
         "w": 32,
         "h": 21
+      },
+      "real_size": {
+        "w": 32,
+        "h": 32
       }
     },
     {
@@ -104,6 +64,10 @@
       "collision": {
         "w": 80,
         "h": 40
+      },
+      "real_size": {
+        "w": 80,
+        "h": 56
       }
     },
     {
@@ -117,58 +81,44 @@
       "collision": {
         "w": 20,
         "h": 12
+      },
+      "real_size": {
+        "w": 32,
+        "h": 56
       }
     },
     {
-      "id": "SOFA_COSTA_03",
-      "sala": "recepcao",
-      "file": "SOFA_COSTA_03.png",
+      "id": "PLANTA_VASO_02",
+      "sala": "",
+      "file": "PLANTA_VASO_02.png",
       "sprite": {
-        "w": 80,
-        "h": 48
+        "w": 22,
+        "h": 52
       },
       "collision": {
-        "w": 80,
-        "h": 32
-      }
-    },
-    {
-      "id": "PAREDE_REC_01",
-      "sala": "recepcao",
-      "file": "PAREDE_REC_01.png",
-      "sprite": {
-        "w": 17,
-        "h": 39
+        "w": 22,
+        "h": 21
       },
-      "collision": {
-        "w": 17,
-        "h": 17
+      "real_size": {
+        "w": 22,
+        "h": 51
       }
     },
     {
-      "id": "PAREDE_REC_02",
+      "id": "ESTANTE_01",
       "sala": "recepcao",
-      "file": "PAREDE_REC_02.png",
+      "file": "ESTANTE_01.png",
       "sprite": {
-        "w": 13,
-        "h": 39
-      },
-      "collision": {
-        "w": 13,
-        "h": 7
-      }
-    },
-    {
-      "id": "BEBEDOURO_01",
-      "sala": "recepcao",
-      "file": "BEBEDOURO_01.png",
-      "sprite": {
-        "w": 26,
+        "w": 60,
         "h": 60
       },
       "collision": {
-        "w": 26,
-        "h": 30
+        "w": 60,
+        "h": 22
+      },
+      "real_size": {
+        "w": 60,
+        "h": 60
       }
     },
     {
@@ -182,6 +132,44 @@
       "collision": {
         "w": 24,
         "h": 18
+      },
+      "real_size": {
+        "w": 24,
+        "h": 30
+      }
+    },
+    {
+      "id": "BEBEDOURO_01",
+      "sala": "",
+      "file": "BEBEDOURO_01.png",
+      "sprite": {
+        "w": 26,
+        "h": 60
+      },
+      "collision": {
+        "w": 26,
+        "h": 30
+      },
+      "real_size": {
+        "w": 26,
+        "h": 60
+      }
+    },
+    {
+      "id": "SOFA_COSTA_03",
+      "sala": "recepcao",
+      "file": "SOFA_COSTA_03.png",
+      "sprite": {
+        "w": 80,
+        "h": 48
+      },
+      "collision": {
+        "w": 80,
+        "h": 32
+      },
+      "real_size": {
+        "w": 80,
+        "h": 48
       }
     },
     {
@@ -193,8 +181,12 @@
         "h": 46
       },
       "collision": {
-        "w": 25,
-        "h": 8
+        "w": 28,
+        "h": 12
+      },
+      "real_size": {
+        "w": 38,
+        "h": 46
       }
     },
     {
@@ -208,50 +200,83 @@
       "collision": {
         "w": 320,
         "h": 30
+      },
+      "real_size": {
+        "w": 320,
+        "h": 100
       }
     },
     {
-      "id": "CADEIRA_COSTA_01",
-      "sala": "escritorio",
-      "file": "CADEIRA_COSTA_01.png",
+      "id": "PAREDE_SUPERIOR",
+      "sala": "recepcao",
+      "file": "PAREDE_SUPERIOR.png",
       "sprite": {
-        "w": 32,
-        "h": 48
+        "w": 448,
+        "h": 65
       },
       "collision": {
-        "w": 32,
-        "h": 20
+        "w": 448,
+        "h": 65
+      },
+      "real_size": {
+        "w": 448,
+        "h": 66
       }
     },
     {
-      "id": "CADEIRA_ESQUERDA_02",
-      "sala": "escritorio",
-      "file": "CADEIRA_ESQUERDA_02.png",
+      "id": "PAREDE_ESQUERDA",
+      "sala": "recepcao",
+      "file": "PAREDE_ESQUERDA.png",
       "sprite": {
-        "w": 32,
-        "h": 48
+        "w": 16,
+        "h": 320
       },
       "collision": {
-        "w": 32,
-        "h": 16
+        "w": 16,
+        "h": 320
+      },
+      "real_size": {
+        "w": 16,
+        "h": 320
       }
     },
     {
-      "id": "CAFETEIRA_01",
-      "sala": "escritorio",
-      "file": "CAFETEIRA_01.png",
+      "id": "PAREDE_DIREITA_SUPERIOR",
+      "sala": "recepcao",
+      "file": "PAREDE_DIREITA_SUPERIOR.png",
       "sprite": {
-        "w": 48,
-        "h": 60
+        "w": 17,
+        "h": 150
       },
       "collision": {
-        "w": 48,
-        "h": 40
+        "w": 17,
+        "h": 150
+      },
+      "real_size": {
+        "w": 17,
+        "h": 150
+      }
+    },
+    {
+      "id": "PAREDE_DIREITA_INFERIOR",
+      "sala": "recepcao",
+      "file": "PAREDE_DIREITA_INFERIOR.png",
+      "sprite": {
+        "w": 17,
+        "h": 132
+      },
+      "collision": {
+        "w": 17,
+        "h": 100
+      },
+      "real_size": {
+        "w": 17,
+        "h": 132
       }
     },
     {
       "id": "IMPRESSORA_01",
-      "sala": "escritorio",
+      "sala": "empresa",
       "file": "IMPRESSORA_01.png",
       "sprite": {
         "w": 48,
@@ -260,63 +285,32 @@
       "collision": {
         "w": 48,
         "h": 32
+      },
+      "real_size": {
+        "w": 48,
+        "h": 53
       }
     },
     {
-      "id": "MESA_L_ESCRITORIO_01",
-      "sala": "escritorio",
-      "file": "MESA_L_ESCRITORIO_01.png",
+      "id": "CAFETEIRA_01",
+      "sala": "empresa",
+      "file": "CAFETEIRA_01.png",
       "sprite": {
-        "w": 208,
-        "h": 80
+        "w": 48,
+        "h": 60
       },
       "collision": {
-        "w": 208,
+        "w": 48,
+        "h": 40
+      },
+      "real_size": {
+        "w": 48,
         "h": 60
       }
     },
     {
-      "id": "MESA_L_ESCRITORIO_02",
-      "sala": "escritorio",
-      "file": "MESA_L_ESCRITORIO_02.png",
-      "sprite": {
-        "w": 32,
-        "h": 73
-      },
-      "collision": {
-        "w": 32,
-        "h": 40
-      }
-    },
-    {
-      "id": "SERVIDOR_01",
-      "sala": "escritorio",
-      "file": "SERVIDOR_01.png",
-      "sprite": {
-        "w": 32,
-        "h": 96
-      },
-      "collision": {
-        "w": 32,
-        "h": 66
-      }
-    },
-    {
-      "id": "PLANTA_VASO_02",
-      "sala": "escritorio",
-      "file": "PLANTA_VASO_02.png",
-      "sprite": {
-        "w": 22,
-        "h": 51
-      },
-      "collision": {
-        "w": 22,
-        "h": 21
-      }
-    },
-    {
       "id": "PLANTA_VASO_03",
-      "sala": "escritorio",
+      "sala": "empresa",
       "file": "PLANTA_VASO_03.png",
       "sprite": {
         "w": 32,
@@ -325,37 +319,185 @@
       "collision": {
         "w": 32,
         "h": 12
+      },
+      "real_size": {
+        "w": 32,
+        "h": 36
       }
     },
     {
-      "id": "PAREDE_REC_03",
-      "sala": "escritorio",
-      "file": "PAREDE_REC_03.png",
+      "id": "MESA_L_ESCRITORIO_01",
+      "sala": "empresa",
+      "file": "MESA_L_ESCRITORIO_01.png",
       "sprite": {
-        "w": 12,
-        "h": 21
+        "w": 208,
+        "h": 80
       },
       "collision": {
-        "w": 12,
-        "h": 9
+        "w": 208,
+        "h": 60
+      },
+      "real_size": {
+        "w": 208,
+        "h": 80
       }
     },
     {
-      "id": "PAREDE_REC_04",
-      "sala": "escritorio",
-      "file": "PAREDE_REC_04.png",
+      "id": "MESA_L_ESCRITORIO_02",
+      "sala": "empresa",
+      "file": "MESA_L_ESCRITORIO_02.png",
+      "sprite": {
+        "w": 32,
+        "h": 73
+      },
+      "collision": {
+        "w": 32,
+        "h": 58
+      },
+      "real_size": {
+        "w": 32,
+        "h": 73
+      }
+    },
+    {
+      "id": "CADEIRA_ESQUERDA_02",
+      "sala": "empresa",
+      "file": "CADEIRA_ESQUERDA_02.png",
+      "sprite": {
+        "w": 32,
+        "h": 48
+      },
+      "collision": {
+        "w": 32,
+        "h": 16
+      },
+      "real_size": {
+        "w": 32,
+        "h": 48
+      }
+    },
+    {
+      "id": "CADEIRA_COSTA_01",
+      "sala": "empresa",
+      "file": "CADEIRA_COSTA_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 48
+      },
+      "collision": {
+        "w": 32,
+        "h": 20
+      },
+      "real_size": {
+        "w": 32,
+        "h": 48
+      }
+    },
+    {
+      "id": "PAREDE_SUPERIOR_01",
+      "sala": "empresa",
+      "file": "PAREDE_SUPERIOR_01.png",
+      "sprite": {
+        "w": 432,
+        "h": 66
+      },
+      "collision": {
+        "w": 432,
+        "h": 66
+      },
+      "real_size": {
+        "w": 432,
+        "h": 66
+      }
+    },
+    {
+      "id": "PAREDE_ESQUERDA_SUPERIOR",
+      "sala": "empresa",
+      "file": "PAREDE_ESQUERDA_SUPERIOR.png",
+      "sprite": {
+        "w": 32,
+        "h": 75
+      },
+      "collision": {
+        "w": 32,
+        "h": 75
+      },
+      "real_size": {
+        "w": 32,
+        "h": 75
+      }
+    },
+    {
+      "id": "PAREDE_ESQUERDA_INFERIOR",
+      "sala": "empresa",
+      "file": "PAREDE_ESQUERDA_INFERIOR.png",
+      "sprite": {
+        "w": 32,
+        "h": 128
+      },
+      "collision": {
+        "w": 32,
+        "h": 128
+      },
+      "real_size": {
+        "w": 32,
+        "h": 128
+      }
+    },
+    {
+      "id": "PAREDE_DIREITA",
+      "sala": "empresa",
+      "file": "PAREDE_DIREITA.png",
+      "sprite": {
+        "w": 17,
+        "h": 320
+      },
+      "collision": {
+        "w": 17,
+        "h": 320
+      },
+      "real_size": {
+        "w": 17,
+        "h": 320
+      }
+    },
+    {
+      "id": "PAREDE_REC_01",
+      "sala": "empresa",
+      "file": "PAREDE_REC_01.png",
       "sprite": {
         "w": 12,
-        "h": 32
+        "h": 48
       },
       "collision": {
         "w": 12,
-        "h": 12
+        "h": 48
+      },
+      "real_size": {
+        "w": 12,
+        "h": 48
+      }
+    },
+    {
+      "id": "PAREDE_REC_02",
+      "sala": "empresa",
+      "file": "PAREDE_REC_02.png",
+      "sprite": {
+        "w": 12,
+        "h": 96
+      },
+      "collision": {
+        "w": 12,
+        "h": 96
+      },
+      "real_size": {
+        "w": 12,
+        "h": 96
       }
     },
     {
       "id": "PAREDE_REC_05",
-      "sala": "escritorio",
+      "sala": "empresa",
       "file": "PAREDE_REC_05.png",
       "sprite": {
         "w": 32,
@@ -364,11 +506,15 @@
       "collision": {
         "w": 32,
         "h": 20
+      },
+      "real_size": {
+        "w": 32,
+        "h": 32
       }
     },
     {
       "id": "PAREDE_REC_06",
-      "sala": "escritorio",
+      "sala": "empresa",
       "file": "PAREDE_REC_06.png",
       "sprite": {
         "w": 16,
@@ -377,11 +523,49 @@
       "collision": {
         "w": 16,
         "h": 20
+      },
+      "real_size": {
+        "w": 16,
+        "h": 32
+      }
+    },
+    {
+      "id": "PAREDE_REC_03",
+      "sala": "empresa",
+      "file": "PAREDE_REC_03.png",
+      "sprite": {
+        "w": 12,
+        "h": 21
+      },
+      "collision": {
+        "w": 12,
+        "h": 9
+      },
+      "real_size": {
+        "w": 12,
+        "h": 21
+      }
+    },
+    {
+      "id": "PAREDE_REC_04",
+      "sala": "empresa",
+      "file": "PAREDE_REC_04.png",
+      "sprite": {
+        "w": 12,
+        "h": 32
+      },
+      "collision": {
+        "w": 12,
+        "h": 12
+      },
+      "real_size": {
+        "w": 12,
+        "h": 32
       }
     },
     {
       "id": "PAREDE_REC_07",
-      "sala": "escritorio",
+      "sala": "empresa",
       "file": "PAREDE_REC_07.png",
       "sprite": {
         "w": 32,
@@ -390,45 +574,78 @@
       "collision": {
         "w": 32,
         "h": 14
+      },
+      "real_size": {
+        "w": 32,
+        "h": 54
+      }
+    },
+    {
+      "id": "SERVIDOR_01",
+      "sala": "empresa",
+      "file": "SERVIDOR_01.png",
+      "sprite": {
+        "w": 32,
+        "h": 96
+      },
+      "collision": {
+        "w": 32,
+        "h": 66
+      },
+      "real_size": {
+        "w": 32,
+        "h": 96
       }
     },
     {
       "id": "NPC_02",
-      "sala": "escritorio",
+      "sala": "empresa",
       "file": "NPC_02.png",
       "sprite": {
-        "w": 38,
+        "w": 32,
         "h": 46
       },
       "collision": {
-        "w": 25,
-        "h": 8
+        "w": 28,
+        "h": 12
+      },
+      "real_size": {
+        "w": 32,
+        "h": 46
       }
     },
     {
       "id": "NPC_03",
-      "sala": "escritorio",
+      "sala": "empresa",
       "file": "NPC_03.png",
       "sprite": {
-        "w": 38,
+        "w": 32,
         "h": 46
       },
       "collision": {
-        "w": 25,
-        "h": 8
+        "w": 28,
+        "h": 12
+      },
+      "real_size": {
+        "w": 32,
+        "h": 46
       }
     },
     {
-      "id": "PROTAGONISTA",
-      "sala": "player",
-      "file": "PROTAGONISTA_01.png",
+      "id": "CHAO_02",
+      "sala": "empresa",
+      "file": "CHAO_02.png",
       "sprite": {
-        "w": 32,
-        "h": 48
+        "w": 480,
+        "h": 320
       },
       "collision": {
-        "w": 32,
-        "h": 16
+        "w": 0,
+        "h": 0
+      },
+      "real_size": {
+        "w": 480,
+        "h": 320
       }
     }
   ]

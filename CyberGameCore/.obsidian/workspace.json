@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/video_lcd_display/README.md",
+                "file": "CHANGELOG/entries/2026-05-26T2015-fix-audit-findings.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "README"
+              "title": "2026-05-26T2015-fix-audit-findings"
             }
           }
         ]
@@ -183,6 +183,7 @@
   },
   "active": "86edf9788cbc1c32",
   "lastOpenFiles": [
+    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/video_lcd_display/README.md",
     "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp_video/examples/image_storage/usb_msc/components/example_video_common/README.md",
     "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/xiaozhi-esp32/main/boards/movecall-cuican-esp32s3/README.md",
     "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/lvgl_sw_rotation/components/lvgl__lvgl/demos/README.md",
@@ -218,7 +219,6 @@
     "10_Arquitetura/matriz-reacao-ataques.md",
     "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/lvgl_sw_rotation/components/lvgl__lvgl/tests/README.md",
     "CHANGELOG/entries/2026-05-27T1054-vault-reorganizacao-agente.md",
-    "CONSULTA/JC4880P443C_I_W/1-Demo/idf_examples/ESP-IDF/esp_brookesia_phone/components/espressif__esp_video/README.md",
     "CONSULTA/tela (1).jpeg",
     "CONSULTA/tela.jpeg"
   ]
