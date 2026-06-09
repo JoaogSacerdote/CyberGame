@@ -20,13 +20,14 @@ static const char *TAG = "TAREFA_AM";
 #define N_SERVER  6   /* slots no rack de servidores (painel superior) */
 #define N_STOCK   4   /* slots de estoque (painel inferior) */
 
-/* Posições dos slots (INTERACOES.txt — slot center → lv top-left)
- * Servidor: 6 slots a partir de (82,127) com passo 64
- * Estoque : 4 slots a partir de (104,277) com passos variáveis */
-static const int16_t SRV_X[N_SERVER] = { 82, 146, 210, 274, 338, 402 };
-static const int16_t SRV_Y           = 127;
-static const int16_t STK_X[N_STOCK]  = { 104, 192, 282, 379 };
-static const int16_t STK_Y           = 277;
+/* Posições dos slots (INTERACOES.txt — pivot bottom-center → draw top-left)
+ * draw_x = bc_x - SLOT_W/2    draw_y = bc_y - SLOT_H
+ * Servidor: bc_y=127  → draw_y=45   | bc_x={82,146,...} → draw_x={50,114,...}
+ * Estoque : bc_y=277  → draw_y=195  | bc_x={104,192,...} → draw_x={72,160,...} */
+static const int16_t SRV_X[N_SERVER] = { 50, 114, 178, 242, 306, 370 };
+static const int16_t SRV_Y           = 45;
+static const int16_t STK_X[N_STOCK]  = { 72, 160, 250, 347 };
+static const int16_t STK_Y           = 195;
 #define SLOT_W  64
 #define SLOT_H  82
 
@@ -291,6 +292,7 @@ static lv_obj_t *make_slot(lv_obj_t *parent, int16_t x, int16_t y)
     lv_obj_set_style_border_color(w, lv_color_hex(0x444444), LV_PART_MAIN);
     lv_obj_set_style_border_width(w, 1, LV_PART_MAIN);
     lv_obj_set_style_pad_all(w, 0, LV_PART_MAIN);
+    lv_obj_set_style_radius(w, 0, LV_PART_MAIN);
     no_scroll(w);
 
     lv_obj_t *img = lv_image_create(w);
@@ -352,7 +354,7 @@ void screen_tarefa_amarela_build(tarefa_am_cb_t done_cb)
 
     /* Status */
     s_lbl_status = lv_label_create(s_overlay);
-    lv_obj_set_pos(s_lbl_status, 160, 220);
+    lv_obj_set_pos(s_lbl_status, 160, 285);
     lv_obj_set_style_text_color(s_lbl_status, lv_color_hex(0xFF8800), LV_PART_MAIN);
     lv_obj_set_style_bg_color(s_lbl_status, lv_color_black(), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(s_lbl_status, LV_OPA_70, LV_PART_MAIN);

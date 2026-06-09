@@ -457,7 +457,9 @@ void screen_tarefa_verde_build(tarefa_vd_cb_t done_cb)
         s_sel_pass = 0xFF;
         s_conf_error = false;
     } else {
-        s_step = STEP_CONCLUIDA;
+        s_step     = STEP_CONCLUIDA;
+        s_sel_user = 0xFF;
+        s_sel_pass = 0xFF;
     }
 
     /* ── Overlay full-screen ── */

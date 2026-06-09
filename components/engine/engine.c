@@ -31,6 +31,7 @@
 #include "nfc_hal.h"
 #include "nfc_config.h"
 #include "screen_tarefa_vermelha.h"
+#include "screen_web_setor.h"
 #include <string.h>
 
 /* Combo de toggle do debug overlay: X+Y segurados continuamente por
@@ -77,12 +78,32 @@ static void nfc_poll_tick(void)
     if (!s_nfc_initialized) return;
     if (fsm_get_state() != GAME_STATE_GAMEPLAY) return;
     if (fsm_get_gameplay_sala() != GAMEPLAY_SALA_EMPRESA) return;
-    if (!screen_tarefa_vermelha_is_open()) return;
+
+    const bool vm_open = screen_tarefa_vermelha_is_open();
+    const bool ws_esq  = screen_web_setor_is_open(WEB_SETOR_ESQUERDA);
+    const bool ws_dir  = screen_web_setor_is_open(WEB_SETOR_DIREITA);
+    if (!vm_open && !ws_esq && !ws_dir) return;
 
     nfc_card_t card;
     if (!nfc_hal_wait_card(&card, 0)) return;
 
     const carta_id_t carta = nfc_resolve_uid(&card);
+
+    /* Setor web tem prioridade — carta vai para a tela visual E para o threat. */
+    if (ws_esq || ws_dir) {
+        extern void lv_lock(void);
+        extern void lv_unlock(void);
+        lv_lock();
+        if (ws_esq) screen_web_setor_on_carta(WEB_SETOR_ESQUERDA, carta);
+        if (ws_dir) screen_web_setor_on_carta(WEB_SETOR_DIREITA,  carta);
+        lv_unlock();
+        /* Mantém o threat system sincronizado (LEDs de mitigação, vidas, etc.). */
+        const defesa_resultado_t r = threat_mitigate(carta);
+        if (r == DEFESA_CORRETO) s_req_mitig = true;
+        return;
+    }
+
+    /* Tarefa vermelha: fluxo existente via threat_mitigate. */
     const defesa_resultado_t r = threat_mitigate(carta);
     if (r == DEFESA_CORRETO) {
         s_req_mitig = true;
@@ -357,6 +378,30 @@ static void gameplay_model_tick(uint32_t dt_ms)
                 fsm_set_state(GAME_STATE_GAME_OVER);
                 return;
             }
+        }
+    }
+
+    /* Sincroniza ataques com a tela do setor web se ela estiver aberta.
+     * ddos_start/ransomware_start são idempotentes: retornam imediatamente
+     * se o ataque visual já foi iniciado, então é seguro chamar cada tick. */
+    {
+        threat_state_t ts_ws;
+        if (threat_get_active(&ts_ws)) {
+            extern void lv_lock(void);
+            extern void lv_unlock(void);
+            lv_lock();
+            if (ts_ws.tipo == ATAQUE_DDOS) {
+                if (screen_web_setor_is_open(WEB_SETOR_ESQUERDA))
+                    screen_web_setor_ddos_start(WEB_SETOR_ESQUERDA);
+                if (screen_web_setor_is_open(WEB_SETOR_DIREITA))
+                    screen_web_setor_ddos_start(WEB_SETOR_DIREITA);
+            } else if (ts_ws.tipo == ATAQUE_RANSOMWARE) {
+                if (screen_web_setor_is_open(WEB_SETOR_ESQUERDA))
+                    screen_web_setor_ransomware_start(WEB_SETOR_ESQUERDA);
+                if (screen_web_setor_is_open(WEB_SETOR_DIREITA))
+                    screen_web_setor_ransomware_start(WEB_SETOR_DIREITA);
+            }
+            lv_unlock();
         }
     }
 

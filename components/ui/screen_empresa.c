@@ -22,7 +22,7 @@
 #include "screen_tarefa_verde.h"
 #include "screen_tarefa_amarela.h"
 #include "screen_servidor_menu.h"
-#include "screen_tarefa_vermelha.h"
+#include "screen_web_setor.h"
 
 static const char *TAG = "UI_EMPRESA";
 
@@ -99,7 +99,7 @@ static void on_servidor_menu_done(servidor_menu_result_t result)
     if (result == SERVIDOR_MENU_BACKUP) {
         screen_tarefa_amarela_build(on_tarefa_am_done);
     } else if (result == SERVIDOR_MENU_WEB) {
-        screen_tarefa_vermelha_build();
+        screen_web_setor_build(WEB_SETOR_ESQUERDA);
     }
     /* CANCELADO: retoma exploracao sem acao */
 }
@@ -125,7 +125,9 @@ static void empresa_tick(lv_timer_t *t)
     }
 
     if (screen_tarefa_verde_is_open()   || screen_tarefa_amarela_is_open() ||
-        screen_servidor_menu_is_open() || screen_tarefa_vermelha_is_open()) return;
+        screen_servidor_menu_is_open() ||
+        screen_web_setor_is_open(WEB_SETOR_ESQUERDA) ||
+        screen_web_setor_is_open(WEB_SETOR_DIREITA)) return;
 
     /* Sub-FSM NFC ativa (terminal/waiting/lock/deploy): bloqueia movimento.
      * A FSM controla esses sub-estados via queue de botões. */

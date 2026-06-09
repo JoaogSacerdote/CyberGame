@@ -83,6 +83,12 @@ set(SIM_SOURCES
     ${FW_ROOT}/components/ui/room_layout_loader.c
     ${FW_ROOT}/components/ui/screen_tarefa_verde.c
     ${FW_ROOT}/components/ui/screen_tarefa_amarela.c
+    ${FW_ROOT}/components/ui/screen_tarefa_vermelha.c
+    ${FW_ROOT}/components/ui/screen_servidor_menu.c
+    ${FW_ROOT}/components/ui/screen_web_setor.c
+
+    # Stub: asset_chao usa EMBED_FILES do ESP-IDF — substituído por versão sem chão
+    hal_fake/asset_chao_sim.c
 )
 
 add_executable(cybersim ${SIM_SOURCES})
@@ -114,6 +120,7 @@ target_include_directories(cybersim PRIVATE
     ${FW_ROOT}/components/engine/include
     ${FW_ROOT}/components/ui/include
     ${FW_ROOT}/components/hardware/include
+    ${FW_ROOT}/components/calibracao/include
 )
 
 target_link_libraries(cybersim PRIVATE lvgl ${SDL2_LIBRARIES} m pthread)

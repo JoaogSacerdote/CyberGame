@@ -1,12 +1,13 @@
 @echo off
-cd /d "%~dp0"
+cd /d "%~dp0\bin"
 
-if not exist "bin\cybersim.exe" (
-    echo ERRO: bin\cybersim.exe nao encontrado.
+if not exist cybersim.exe (
+    echo ERRO: cybersim.exe nao encontrado.
     echo Execute COMPILAR.bat primeiro.
     pause
     exit /b 1
 )
 
-set PATH=C:\msys64\mingw64\bin;%PATH%
-start "" /D "%~dp0bin" "%~dp0bin\cybersim.exe"
+echo Iniciando CyberSim...
+cybersim.exe
+pause
