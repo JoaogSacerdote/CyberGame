@@ -26,6 +26,11 @@ void           fsm_set_player_at_equipment(bool at);
 typedef int (*fsm_card_resolver_t)(int mock_card);
 void           fsm_set_card_resolver(fsm_card_resolver_t cb);
 
+/* Ataque vermelho ativo — setado pelo engine, lido pelas telas UI para
+ * ajustar velocidade do player sem dependencia circular em threat.h. */
+void           fsm_set_attack_active(bool active);
+bool           fsm_get_attack_active(void);
+
 #ifdef __cplusplus
 }
 #endif

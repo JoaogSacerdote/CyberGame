@@ -14,6 +14,7 @@ static gameplay_sala_t     s_sala                = GAMEPLAY_SALA_RECEPCAO;
 static gameplay_sala_t     s_sala_prev           = GAMEPLAY_SALA_RECEPCAO;
 static uint32_t            s_phase_ms            = 0;   /* tempo decorrido no sub-estado atual */
 static bool                s_player_at_equipment = false; /* setado pelo tick do screen ativo */
+static bool                s_attack_active       = false; /* ataque vermelho ativo (setado pelo engine) */
 static fsm_card_resolver_t s_card_resolver       = NULL;  /* registrado pelo engine */
 
 void fsm_set_card_resolver(fsm_card_resolver_t cb) { s_card_resolver = cb; }
@@ -59,6 +60,9 @@ gameplay_sala_t fsm_get_gameplay_sala_prev(void) { return s_sala_prev; }
 void fsm_set_player_at_equipment(bool at)        { s_player_at_equipment = at; }
 bool fsm_get_player_at_equipment(void)           { return s_player_at_equipment; }
 
+void fsm_set_attack_active(bool active)          { s_attack_active = active; }
+bool fsm_get_attack_active(void)                 { return s_attack_active; }
+
 void fsm_set_gameplay_sala(gameplay_sala_t sala)
 {
     if (sala >= GAMEPLAY_SALA_MAX || sala == s_sala) return;
@@ -92,6 +96,7 @@ esp_err_t fsm_init(void)
     s_sala_prev           = GAMEPLAY_SALA_RECEPCAO;
     s_phase_ms            = 0;
     s_player_at_equipment = false;
+    s_attack_active       = false;
     ESP_LOGI(TAG, "fsm init -> %s", state_name(s_current));
     return ESP_OK;
 }
@@ -122,6 +127,7 @@ void fsm_set_state(game_state_t new_state)
         s_phase_ms            = 0;
         s_sala                = GAMEPLAY_SALA_RECEPCAO;
         s_player_at_equipment = false;
+        s_attack_active       = false;
     }
 
     /* Entrada em GAME_OVER zera phase_ms pra contar o timeout de 30s. */
@@ -131,7 +137,7 @@ void fsm_set_state(game_state_t new_state)
 }
 
 /* Handler do sub-FSM de gameplay. Botoes A/B/X/Y disparam transicoes de
- * sub-estado; START sobe macro pra PAUSE; B em EXPLORANDO sai pro MENU.
+ * sub-estado; START sobe macro pra PAUSE.
  * NFC real e timeline entram nos sub-blocos seguintes da Etapa C. */
 static void gameplay_handle_event(const fsm_event_t *evt)
 {
@@ -170,7 +176,6 @@ static void gameplay_handle_event(const fsm_event_t *evt)
              * gatilho de equipamento. Quem mantem a flag e o tick do screen
              * ativo via fsm_set_player_at_equipment(). */
             if (btn == BTN_Y && s_player_at_equipment) set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
-            else if (btn == BTN_B) fsm_set_state(GAME_STATE_MENU);
             break;
         case GAMEPLAY_SUB_TERMINAL_ABERTO:
             if (btn == BTN_A) set_sub(GAMEPLAY_SUB_WAITING_CARD);

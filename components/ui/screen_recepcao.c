@@ -19,6 +19,7 @@
 #include "room_layout_loader.h"
 #include "entity_pool.h"
 #include "entity.h"
+#include "y_sort.h"
 
 static const char *TAG = "UI_RECEPCAO";
 
@@ -42,9 +43,12 @@ static bool    s_npc_facing = false;
 static bool    s_icon_visible = true;
 static uint32_t s_icon_blink_ms = 0;
 
-static lv_obj_t   *s_root        = NULL;
-static lv_obj_t   *s_player      = NULL;
-static lv_obj_t   *s_npc         = NULL;
+static lv_obj_t   *s_root          = NULL;
+static lv_obj_t   *s_game_layer    = NULL;   /* piso + entidades; Y-sort opera aqui */
+static lv_obj_t   *s_ui_layer      = NULL;   /* overlays UI — sempre na frente */
+static lv_obj_t   *s_player        = NULL;
+static entity_t   *s_player_entity = NULL;   /* referencia para atualizar sort_y */
+static lv_obj_t   *s_npc           = NULL;
 static lv_obj_t   *s_icone       = NULL;
 static lv_obj_t   *s_prompt      = NULL;   /* "[A]" — aparece sobre o player perto de gatilho */
 static lv_obj_t   *s_dlg_box     = NULL;   /* PNG caixa de dialogo (oculto por default) */
@@ -204,7 +208,8 @@ static void recepcao_tick(lv_timer_t *t)
     const joystick_data_t j = joystick_hal_get_state();
     const int jx = j.x;
     const int jy = j.y;
-    const int sx_mag = room_speed_from_mag(jx < 0 ? -jx : jx);
+    const int jx_mag = (jx < 0 ? -jx : jx) * (int)JOY_X_BOOST_PCT / 100;
+    const int sx_mag = room_speed_from_mag(jx_mag > 100 ? 100 : jx_mag);
     const int sy_mag = room_speed_from_mag(jy < 0 ? -jy : jy);
     const int dx = (sx_mag == 0) ? 0 : (jx > 0 ? +1 : -1);
     const int dy = (sy_mag == 0) ? 0 : (jy > 0 ? +1 : -1);
@@ -221,6 +226,11 @@ static void recepcao_tick(lv_timer_t *t)
     }
 
     lv_obj_set_pos(s_player, s_px, s_py);
+    if (s_player_entity) {
+        s_player_entity->x = (int16_t)(s_px + PLAYER_FRAME_W / 2);
+        s_player_entity->y = (int16_t)(s_py + PLAYER_FRAME_H);
+        y_sort_mark_dirty();
+    }
     room_anim_step(&s_anim, s_player, dx, dy, UI_TICK_MS, PLAYER_FRAME_W, PLAYER_FRAME_H);
 
     const collision_rect_t *g = room_gatilho_at(&s_room_col, &s_player_box, s_px, s_py);
@@ -341,24 +351,43 @@ void screen_recepcao_build(void)
     lv_obj_set_style_pad_all(s_root, 0, LV_PART_MAIN);
     no_scroll(s_root);
 
-    /* L0 — piso (cobre 480x320, desenhado antes das entidades) */
-    layer_full(s_root, &s_assets[A_PISO].dsc, 0, 0);
+    s_game_layer = lv_obj_create(s_root);
+    lv_obj_set_size(s_game_layer, 480, 320);
+    lv_obj_set_pos(s_game_layer, 0, 0);
+    lv_obj_set_style_bg_opa(s_game_layer, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_game_layer, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_game_layer, 0, LV_PART_MAIN);
+    no_scroll(s_game_layer);
+
+    s_ui_layer = lv_obj_create(s_root);
+    lv_obj_set_size(s_ui_layer, 480, 320);
+    lv_obj_set_pos(s_ui_layer, 0, 0);
+    lv_obj_set_style_bg_opa(s_ui_layer, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_ui_layer, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_ui_layer, 0, LV_PART_MAIN);
+    no_scroll(s_ui_layer);
+
+    /* L0 — piso: CHAO_01.png e 464x254, cobre o interior da sala apos
+     * parede_esquerda (x=16) e parede_superior (y=65). */
+    layer_full(s_game_layer, &s_assets[A_PISO].dsc, 16, 65);
 
     /* Instancia furniture + NPC + player a partir do JSON de layout no SD card.
      * asset_loader tem cache load-once: sprites que ja foram carregados
      * (NPC_IDLE, PLAYER) sao cache hit — sem double-load na PSRAM. */
     entity_t *player_entity = NULL;
-    room_layout_spawn(s_root, "recepcao", &player_entity);
+    room_layout_spawn(s_game_layer, "recepcao", &player_entity);
 
     /* Obtem o lv_obj do player a partir da entidade spawnada. Converte pivot
      * bottom-center do JSON para top-left (lv_pos) usado pelo tick. */
     if (player_entity != NULL && player_entity->lv_obj != NULL) {
-        s_player = player_entity->lv_obj;
+        s_player        = player_entity->lv_obj;
+        s_player_entity = player_entity;
         s_px = player_entity->x - PLAYER_FRAME_W / 2;
         s_py = player_entity->y - PLAYER_FRAME_H;
     } else {
         /* Fallback manual (nao deve ocorrer se o JSON e o SD estiverem ok) */
-        s_player = lv_image_create(s_root);
+        s_player        = lv_image_create(s_game_layer);
+        s_player_entity = NULL;
         lv_image_set_src(s_player, &s_assets[A_PLAYER].dsc);
         lv_obj_set_size(s_player, PLAYER_FRAME_W, PLAYER_FRAME_H);
         lv_image_set_inner_align(s_player, LV_IMAGE_ALIGN_TOP_LEFT);
@@ -367,9 +396,9 @@ void screen_recepcao_build(void)
     }
 
     /* Spawn do player ao voltar da Empresa — posicao exata de SPOWN_RETORNO_DO_ESCRITORIO
-     * no INTERACOES.txt (466,168 = pivot bottom-center → lv_pos). */
+     * no INTERACOES.txt (460,168 = pivot bottom-center → lv_pos). */
     if (fsm_get_gameplay_sala_prev() == GAMEPLAY_SALA_EMPRESA) {
-        s_px = 466 - PLAYER_FRAME_W / 2;
+        s_px = 460 - PLAYER_FRAME_W / 2;
         s_py = 168 - PLAYER_FRAME_H;
     }
 
@@ -380,6 +409,8 @@ void screen_recepcao_build(void)
         }
     }
     s_anim.dir = 1; s_anim.walk_idx = 1; s_anim.walk_ms = 0;
+    s_a_cache = button_hal_peek(BTN_A);   /* evita edge fantasma no 1o tick */
+    s_b_cache = button_hal_peek(BTN_B);
     lv_obj_set_pos(s_player, s_px, s_py);
     room_anim_step(&s_anim, s_player, 0, 0, 0, PLAYER_FRAME_W, PLAYER_FRAME_H);
 
@@ -398,8 +429,8 @@ void screen_recepcao_build(void)
         }
     }
 
-    /* Icone notif (em cima do NPC — z-order por ordem de criacao no s_root) */
-    s_icone = lv_image_create(s_root);
+    /* Icone notif */
+    s_icone = lv_image_create(s_ui_layer);
     lv_image_set_src(s_icone, &s_assets[A_ICONE].dsc);
     lv_obj_set_pos(s_icone, s_assets[A_ICONE].off_x, s_assets[A_ICONE].off_y);
     no_scroll(s_icone);
@@ -407,7 +438,7 @@ void screen_recepcao_build(void)
     s_icon_blink_ms = 0;
 
     /* Prompt "[A]" */
-    s_prompt = lv_label_create(s_root);
+    s_prompt = lv_label_create(s_ui_layer);
     lv_label_set_text(s_prompt, "[A]");
     lv_obj_set_style_text_color(s_prompt, lv_color_hex(0xFFD000), LV_PART_MAIN);
     lv_obj_set_style_bg_color(s_prompt, lv_color_black(), LV_PART_MAIN);
@@ -417,14 +448,14 @@ void screen_recepcao_build(void)
     lv_obj_add_flag(s_prompt, LV_OBJ_FLAG_HIDDEN);
 
     /* === Dialogo do recepcionista (overlay, oculto por default) === */
-    s_dlg_box = lv_image_create(s_root);
+    s_dlg_box = lv_image_create(s_ui_layer);
     lv_image_set_src(s_dlg_box, &s_assets[A_CAIXA_DIALOGO].dsc);
     lv_obj_set_pos(s_dlg_box, s_assets[A_CAIXA_DIALOGO].off_x,
                               s_assets[A_CAIXA_DIALOGO].off_y);
     no_scroll(s_dlg_box);
     lv_obj_add_flag(s_dlg_box, LV_OBJ_FLAG_HIDDEN);
 
-    s_dlg_text = lv_label_create(s_root);
+    s_dlg_text = lv_label_create(s_ui_layer);
     lv_label_set_text(s_dlg_text, "");
     lv_label_set_long_mode(s_dlg_text, LV_LABEL_LONG_WRAP);
     lv_obj_set_width(s_dlg_text, s_assets[A_CAIXA_TEXTO].dsc.header.w - 8);
@@ -434,7 +465,7 @@ void screen_recepcao_build(void)
     no_scroll(s_dlg_text);
     lv_obj_add_flag(s_dlg_text, LV_OBJ_FLAG_HIDDEN);
 
-    s_dlg_hint = lv_label_create(s_root);
+    s_dlg_hint = lv_label_create(s_ui_layer);
     lv_label_set_text(s_dlg_hint, "[A] >>  [B] Pular");
     lv_obj_set_style_text_color(s_dlg_hint, lv_color_hex(0xFFA500), LV_PART_MAIN);
     lv_obj_set_pos(s_dlg_hint,
@@ -448,7 +479,7 @@ void screen_recepcao_build(void)
     s_dlg_line = 0;
     s_dlg_char = 0;
 
-    screen_hud_build(s_root);
+    screen_hud_build(s_ui_layer);
 
     s_timer = lv_timer_create(recepcao_tick, UI_TICK_MS, NULL);
     ESP_LOGI(TAG, "recepcao built (player @ %d,%d)", s_px, s_py);
@@ -461,11 +492,13 @@ void screen_recepcao_destroy(void)
     /* Limpa entidades antes do lv_obj_delete(s_root) para evitar double-delete
      * pelo cascade do parent nos lv_objs das entidades. */
     entity_pool_clear();
-    s_player = NULL;
-    s_npc    = NULL;
+    s_player        = NULL;
+    s_player_entity = NULL;
+    s_npc           = NULL;
     if (s_root) {
         lv_obj_delete(s_root);
         s_root = NULL;
+        s_game_layer = s_ui_layer = NULL;
         s_icone = s_prompt = NULL;
         s_dlg_box = s_dlg_text = s_dlg_hint = NULL;
     }

@@ -19,9 +19,11 @@
 
 static const char *TAG = "ROOM_LAYOUT_SD";
 
+#ifndef LAYOUT_SD_DIR
 #define LAYOUT_SD_DIR   "/sd/assets/layout"
+#endif
 #define MAX_ROOMS        4
-#define MAX_ENTITIES    32
+#define MAX_ENTITIES    64
 #define MAX_NAME_LEN    24
 
 /* ── armazenamento estatico ──────────────────────────────────────── */

@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 
 echo ================================================
-echo  CyberSim — Compilar (Etapa 1)
+echo  CyberSim — Compilar (simulador completo)
 echo ================================================
 
 set MINGW=C:\msys64\mingw64\bin

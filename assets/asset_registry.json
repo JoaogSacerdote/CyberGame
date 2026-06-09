@@ -1,51 +1,494 @@
 {
-  "_doc": "Fonte unica de verdade dos assets do CyberGame. IDs 0-19: recepcao (sprites individuais). IDs 20-40: empresa (sprites individuais). ID 28: player. ID 29: rec_dialog. crop=true recorta ao bounding box (economiza PSRAM); crop=false preserva imagem inteira.",
+  "_doc": "Fonte unica de verdade dos assets do CyberGame. IDs 0-19: recepcao. IDs 20-27: empresa. ID 28: player. ID 29: rec_dialog. IDs 30-52: empresa continuacao. IDs 53-54: tarefa verde. IDs 55-58: tarefa amarela. IDs 59-63: tarefa vermelha. IDs 64-65: telas finais. IDs 66-69: novos (emp_bebedouro, emp_lixeira, rec_dialogo_01, rec_planta_02). crop=true recorta ao bounding box; crop=false preserva imagem inteira.",
   "assets": [
-    { "file": "recepcao/PISO_CAMADA_00.png",                                                   "type": "sprite", "id":  0, "name": "rec_piso",              "crop": false },
-
-    { "file": "recepcao/BANCO_P_01.png",                                                       "type": "sprite", "id":  1, "name": "rec_banco_p",           "crop": true  },
-    { "file": "recepcao/BEBEDOURO_01.png",                                                     "type": "sprite", "id":  2, "name": "rec_bebedouro",         "crop": true  },
-    { "file": "recepcao/CADEIRA_ESQUERDA_01.png",                                              "type": "sprite", "id":  3, "name": "rec_cadeira_esq",       "crop": true  },
-    { "file": "recepcao/CADEIRA_COSTA_01_REC.png",                                             "type": "sprite", "id":  4, "name": "rec_cadeira_costa",     "crop": true  },
-    { "file": "recepcao/CADEIRA_DIREITA_01.png",                                               "type": "sprite", "id":  5, "name": "rec_cadeira_dir",       "crop": true  },
-    { "file": "recepcao/CADEIRA_FRENTE_01.png",                                                "type": "sprite", "id":  6, "name": "rec_cadeira_frt",       "crop": true  },
-    { "file": "recepcao/MESA_L_RECEPCAO_01.png",                                               "type": "sprite", "id":  7, "name": "rec_mesa_l",            "crop": true  },
-    { "file": "recepcao/MESA_CENTRO_01.png",                                                   "type": "sprite", "id":  8, "name": "rec_mesa_centro",       "crop": true  },
-    { "file": "recepcao/SOFA_COSTA_03.png",                                                    "type": "sprite", "id":  9, "name": "rec_sofa",              "crop": true  },
-    { "file": "recepcao/PLANTA_VASO_01.png",                                                   "type": "sprite", "id": 10, "name": "rec_planta",            "crop": true  },
-    { "file": "recepcao/PAREDE_REC_01.png",                                                    "type": "sprite", "id": 11, "name": "rec_parede_01",         "crop": true  },
-    { "file": "recepcao/PAREDE_REC_02.png",                                                    "type": "sprite", "id": 12, "name": "rec_parede_02",         "crop": true  },
-    { "file": "recepcao/LIXEIRA_01.png",                                                       "type": "sprite", "id": 13, "name": "rec_lixeira",           "crop": true  },
-
-    { "file": "recepcao/NPC_01_IDLE.png",                                                      "type": "sprite", "id": 14, "name": "rec_npc_01_idle",       "crop": true  },
-    { "file": "recepcao/NPC_01_DIALOG.png",                                                    "type": "sprite", "id": 15, "name": "rec_npc_01_dialog",     "crop": true  },
-    { "file": "recepcao/ICONE_DE_NOTIFICACAO_RECEPCIONISTA_04.png",                            "type": "sprite", "id": 16, "name": "rec_icone_notif",       "crop": true  },
-    { "file": "recepcao/RECEPCIONISTA_OLHANDO_PARA_JOGADOR_ENQUANTO_ACONTECE_DIALOGO_06.png",  "type": "sprite", "id": 17, "name": "rec_recep_dialog_full", "crop": true  },
-    { "file": "recepcao/CAIXA_DE_DIALOGO_RECEPCIONISTA_07.png",                                "type": "sprite", "id": 18, "name": "rec_caixa_dialogo",     "crop": true  },
-    { "file": "recepcao/CAIXA_DELIMITADORA_ONDE_PODE_APARECER_O_TEXTO_DO_DIALOGO_08.png",      "type": "sprite", "id": 19, "name": "rec_caixa_texto",       "crop": true  },
-
-    { "file": "empresa/PISO_CAMADA_00.png",                                                    "type": "sprite", "id": 20, "name": "emp_piso",              "crop": false },
-    { "file": "empresa/IMPRESSORA_01.png",                                                     "type": "sprite", "id": 21, "name": "emp_impressora",        "crop": true  },
-    { "file": "empresa/CAFETEIRA_01.png",                                                      "type": "sprite", "id": 22, "name": "emp_cafeteira",         "crop": true  },
-    { "file": "empresa/PLANTA_VASO_02.png",                                                    "type": "sprite", "id": 23, "name": "emp_planta_02",         "crop": true  },
-    { "file": "empresa/MESA_L_ESCRITORIO_01.png",                                              "type": "sprite", "id": 24, "name": "emp_mesa_l_01",         "crop": true  },
-    { "file": "empresa/MESA_L_ESCRITORIO_02.png",                                              "type": "sprite", "id": 25, "name": "emp_mesa_l_02",         "crop": true  },
-    { "file": "empresa/CADEIRA_ESQUERDA_02.png",                                               "type": "sprite", "id": 26, "name": "emp_cadeira_esq",       "crop": true  },
-    { "file": "empresa/CADEIRA_COSTA_01.png",                                                  "type": "sprite", "id": 27, "name": "emp_cadeira_costa",     "crop": true  },
-
-    { "file": "Sprite_PLAYER.png",                                                             "type": "sprite", "id": 28, "name": "player",               "crop": false },
-    { "file": "DIALOGO.txt",                                                                   "type": "sprite", "id": 29, "name": "rec_dialog" },
-
-    { "file": "empresa/PAREDE_REC_03.png",                                                     "type": "sprite", "id": 30, "name": "emp_parede_03",         "crop": true  },
-    { "file": "empresa/PAREDE_REC_04.png",                                                     "type": "sprite", "id": 31, "name": "emp_parede_04",         "crop": true  },
-    { "file": "empresa/PAREDE_REC_05.png",                                                     "type": "sprite", "id": 32, "name": "emp_parede_05",         "crop": true  },
-    { "file": "empresa/PAREDE_REC_06.png",                                                     "type": "sprite", "id": 33, "name": "emp_parede_06",         "crop": true  },
-    { "file": "empresa/PAREDE_REC_07.png",                                                     "type": "sprite", "id": 34, "name": "emp_parede_07",         "crop": true  },
-    { "file": "empresa/SERVIDOR_01.png",                                                       "type": "sprite", "id": 35, "name": "emp_servidor",          "crop": true  },
-    { "file": "empresa/NPC_02_IDLE.png",                                                       "type": "sprite", "id": 36, "name": "emp_npc_02_idle",       "crop": true  },
-    { "file": "empresa/NPC_02_DIALOG.png",                                                     "type": "sprite", "id": 37, "name": "emp_npc_02_dialog",     "crop": true  },
-    { "file": "empresa/NPC_03_IDLE.png",                                                       "type": "sprite", "id": 38, "name": "emp_npc_03_idle",       "crop": true  },
-    { "file": "empresa/ICONE_TAREFA_VERDE_04.png",                                             "type": "sprite", "id": 39, "name": "emp_icone_verde",       "crop": true  },
-    { "file": "empresa/ICONE_TAREFA_AMARELA_05.png",                                           "type": "sprite", "id": 40, "name": "emp_icone_amarelo",     "crop": true  }
+    {
+      "file": "recepcao/CHAO_01.png",
+      "type": "sprite",
+      "id": 0,
+      "name": "rec_piso",
+      "crop": false
+    },
+    {
+      "file": "recepcao/BANCO_P_01.png",
+      "type": "sprite",
+      "id": 1,
+      "name": "rec_banco_p",
+      "crop": true
+    },
+    {
+      "file": "recepcao/BEBEDOURO_01.png",
+      "type": "sprite",
+      "id": 2,
+      "name": "rec_bebedouro",
+      "crop": true
+    },
+    {
+      "file": "recepcao/CADEIRA_ESQUERDA_01.png",
+      "type": "sprite",
+      "id": 3,
+      "name": "rec_cadeira_esq",
+      "crop": true
+    },
+    {
+      "file": "recepcao/CadeiraCosta.png",
+      "type": "sprite",
+      "id": 4,
+      "name": "rec_cadeira_costa",
+      "crop": true
+    },
+    {
+      "file": "recepcao/CadeiraDireita.png",
+      "type": "sprite",
+      "id": 5,
+      "name": "rec_cadeira_dir",
+      "crop": true
+    },
+    {
+      "file": "recepcao/CadeiraFrente.png",
+      "type": "sprite",
+      "id": 6,
+      "name": "rec_cadeira_frt",
+      "crop": true
+    },
+    {
+      "file": "recepcao/MESA_L_RECEPCAO_01.png",
+      "type": "sprite",
+      "id": 7,
+      "name": "rec_mesa_l",
+      "crop": true
+    },
+    {
+      "file": "recepcao/MESA_CENTRO_01.png",
+      "type": "sprite",
+      "id": 8,
+      "name": "rec_mesa_centro",
+      "crop": true
+    },
+    {
+      "file": "recepcao/SOFA_COSTA_03.png",
+      "type": "sprite",
+      "id": 9,
+      "name": "rec_sofa",
+      "crop": true
+    },
+    {
+      "file": "recepcao/PLANTA_VASO_01.png",
+      "type": "sprite",
+      "id": 10,
+      "name": "rec_planta",
+      "crop": true
+    },
+    {
+      "file": "recepcao/PAREDE_REC_01.png",
+      "type": "sprite",
+      "id": 11,
+      "name": "rec_parede_01",
+      "crop": true
+    },
+    {
+      "file": "recepcao/PAREDE_REC_02.png",
+      "type": "sprite",
+      "id": 12,
+      "name": "rec_parede_02",
+      "crop": true
+    },
+    {
+      "file": "recepcao/LIXEIRA_01.png",
+      "type": "sprite",
+      "id": 13,
+      "name": "rec_lixeira",
+      "crop": true
+    },
+    {
+      "file": "recepcao/NPC_01.png",
+      "type": "sprite",
+      "id": 14,
+      "name": "rec_npc_01_idle",
+      "crop": true
+    },
+    {
+      "file": "recepcao/NPC_01_DIALOG.png",
+      "type": "sprite",
+      "id": 15,
+      "name": "rec_npc_01_dialog",
+      "crop": true
+    },
+    {
+      "file": "recepcao/ICONE_DE_NOTIFICACAO_RECEPCIONISTA_04.png",
+      "type": "sprite",
+      "id": 16,
+      "name": "rec_icone_notif",
+      "crop": true
+    },
+    {
+      "file": "recepcao/RECEPCIONISTA_OLHANDO_PARA_JOGADOR_ENQUANTO_ACONTECE_DIALOGO_06.png",
+      "type": "sprite",
+      "id": 17,
+      "name": "rec_recep_dialog_full",
+      "crop": true
+    },
+    {
+      "file": "recepcao/CAIXA_DE_DIALOGO_RECEPCIONISTA_07.png",
+      "type": "sprite",
+      "id": 18,
+      "name": "rec_caixa_dialogo",
+      "crop": true
+    },
+    {
+      "file": "recepcao/CAIXA_DELIMITADORA_ONDE_PODE_APARECER_O_TEXTO_DO_DIALOGO_08.png",
+      "type": "sprite",
+      "id": 19,
+      "name": "rec_caixa_texto",
+      "crop": true
+    },
+    {
+      "file": "empresa/CHAO_02.png",
+      "type": "sprite",
+      "id": 20,
+      "name": "emp_piso",
+      "crop": false
+    },
+    {
+      "file": "empresa/IMPRESSORA_01.png",
+      "type": "sprite",
+      "id": 21,
+      "name": "emp_impressora",
+      "crop": true
+    },
+    {
+      "file": "empresa/CAFETEIRA_01.png",
+      "type": "sprite",
+      "id": 22,
+      "name": "emp_cafeteira",
+      "crop": true
+    },
+    {
+      "file": "empresa/PLANTA_VASO_02.png",
+      "type": "sprite",
+      "id": 23,
+      "name": "emp_planta_02",
+      "crop": true
+    },
+    {
+      "file": "empresa/MESA_L_ESCRITORIO_01.png",
+      "type": "sprite",
+      "id": 24,
+      "name": "emp_mesa_l_01",
+      "crop": true
+    },
+    {
+      "file": "empresa/MESA_L_ESCRITORIO_02.png",
+      "type": "sprite",
+      "id": 25,
+      "name": "emp_mesa_l_02",
+      "crop": true
+    },
+    {
+      "file": "empresa/CADEIRA_ESQUERDA_02.png",
+      "type": "sprite",
+      "id": 26,
+      "name": "emp_cadeira_esq",
+      "crop": true
+    },
+    {
+      "file": "empresa/CADEIRA_COSTA_01.png",
+      "type": "sprite",
+      "id": 27,
+      "name": "emp_cadeira_costa",
+      "crop": true
+    },
+    {
+      "file": "Sprite_PLAYER.png",
+      "type": "sprite",
+      "id": 28,
+      "name": "player",
+      "crop": false
+    },
+    {
+      "file": "DIALOGO.txt",
+      "type": "sprite",
+      "id": 29,
+      "name": "rec_dialog"
+    },
+    {
+      "file": "empresa/PAREDE_REC_03.png",
+      "type": "sprite",
+      "id": 30,
+      "name": "emp_parede_03",
+      "crop": true
+    },
+    {
+      "file": "empresa/PAREDE_REC_04.png",
+      "type": "sprite",
+      "id": 31,
+      "name": "emp_parede_04",
+      "crop": true
+    },
+    {
+      "file": "empresa/PAREDE_REC_05.png",
+      "type": "sprite",
+      "id": 32,
+      "name": "emp_parede_05",
+      "crop": true
+    },
+    {
+      "file": "empresa/PAREDE_REC_06.png",
+      "type": "sprite",
+      "id": 33,
+      "name": "emp_parede_06",
+      "crop": true
+    },
+    {
+      "file": "empresa/PAREDE_REC_07.png",
+      "type": "sprite",
+      "id": 34,
+      "name": "emp_parede_07",
+      "crop": true
+    },
+    {
+      "file": "empresa/SERVIDOR_01.png",
+      "type": "sprite",
+      "id": 35,
+      "name": "emp_servidor",
+      "crop": true
+    },
+    {
+      "file": "empresa/NPC_02.png",
+      "type": "sprite",
+      "id": 36,
+      "name": "emp_npc_02_idle",
+      "crop": true
+    },
+    {
+      "file": "empresa/NPC_02_DIALOG.png",
+      "type": "sprite",
+      "id": 37,
+      "name": "emp_npc_02_dialog",
+      "crop": true
+    },
+    {
+      "file": "empresa/NPC_03.png",
+      "type": "sprite",
+      "id": 38,
+      "name": "emp_npc_03_idle",
+      "crop": true
+    },
+    {
+      "file": "empresa/ICONE_TAREFA_VERDE_04.png",
+      "type": "sprite",
+      "id": 39,
+      "name": "emp_icone_verde",
+      "crop": true
+    },
+    {
+      "file": "empresa/ICONE_TAREFA_AMARELA_05.png",
+      "type": "sprite",
+      "id": 40,
+      "name": "emp_icone_amarelo",
+      "crop": true
+    },
+    {
+      "file": "recepcao/ESTANTE_01.png",
+      "type": "sprite",
+      "id": 41,
+      "name": "rec_estante_01",
+      "crop": true
+    },
+    {
+      "file": "recepcao/PAREDE_SUPERIOR.png",
+      "type": "sprite",
+      "id": 42,
+      "name": "rec_parede_sup",
+      "crop": false
+    },
+    {
+      "file": "recepcao/PAREDE_ESQUERDA.png",
+      "type": "sprite",
+      "id": 43,
+      "name": "rec_parede_esq",
+      "crop": false
+    },
+    {
+      "file": "recepcao/PAREDE_DIREITA_SUPERIOR.png",
+      "type": "sprite",
+      "id": 44,
+      "name": "rec_parede_dir_sup",
+      "crop": false
+    },
+    {
+      "file": "recepcao/PAREDE_DIREITA_INFERIOR.png",
+      "type": "sprite",
+      "id": 45,
+      "name": "rec_parede_dir_inf",
+      "crop": false
+    },
+    {
+      "id": 46,
+      "name": "emp_planta_03",
+      "file": "empresa/PLANTA_VASO_03.png",
+      "type": "sprite",
+      "crop": true
+    },
+    {
+      "id": 47,
+      "name": "emp_parede_sup_01",
+      "file": "empresa/PAREDE_SUPERIOR_01.png",
+      "type": "sprite",
+      "crop": false
+    },
+    {
+      "id": 48,
+      "name": "emp_parede_esq_sup",
+      "file": "empresa/PAREDE_ESQUERDA_SUPERIOR.png",
+      "type": "sprite",
+      "crop": false
+    },
+    {
+      "id": 49,
+      "name": "emp_parede_esq_inf",
+      "file": "empresa/PAREDE_ESQUERDA_INFERIOR.png",
+      "type": "sprite",
+      "crop": false
+    },
+    {
+      "id": 50,
+      "name": "emp_parede_dir",
+      "file": "empresa/PAREDE_DIREITA.png",
+      "type": "sprite",
+      "crop": false
+    },
+    {
+      "id": 51,
+      "name": "emp_parede_01",
+      "file": "empresa/PAREDE_REC_01.png",
+      "type": "sprite",
+      "crop": false
+    },
+    {
+      "id": 52,
+      "name": "emp_parede_02",
+      "file": "empresa/PAREDE_REC_02.png",
+      "type": "sprite",
+      "crop": false
+    },
+    {
+      "file": "tarefas/CREDENCIAL_GERAL.png",
+      "type": "sprite",
+      "id": 53,
+      "name": "tarefa_vd_fundo",
+      "crop": false
+    },
+    {
+      "file": "tarefas/CREDENCIAL_OPCOES.png",
+      "type": "sprite",
+      "id": 54,
+      "name": "tarefa_vd_opcoes",
+      "crop": true
+    },
+    {
+      "file": "tarefas/FUNDO_TELA.png",
+      "type": "sprite",
+      "id": 55,
+      "name": "tarefa_am_fundo",
+      "crop": false
+    },
+    {
+      "file": "tarefas/HD_01.png",
+      "type": "sprite",
+      "id": 56,
+      "name": "tarefa_am_hd_bom",
+      "crop": true
+    },
+    {
+      "file": "tarefas/HD_02.png",
+      "type": "sprite",
+      "id": 57,
+      "name": "tarefa_am_hd_ruim",
+      "crop": true
+    },
+    {
+      "file": "tarefas/SELETORES.png",
+      "type": "sprite",
+      "id": 58,
+      "name": "tarefa_am_seletor",
+      "crop": true
+    },
+    {
+      "file": "tarefas/DDOS_FUNDO.png",
+      "type": "sprite",
+      "id": 59,
+      "name": "tarefa_vm_fundo",
+      "crop": false
+    },
+    {
+      "file": "tarefas/SERVIDOR_OK.png",
+      "type": "sprite",
+      "id": 60,
+      "name": "tarefa_vm_servidor_ok",
+      "crop": true
+    },
+    {
+      "file": "tarefas/SERVIDOR_ALERTA.png",
+      "type": "sprite",
+      "id": 61,
+      "name": "tarefa_vm_servidor_al",
+      "crop": true
+    },
+    {
+      "file": "tarefas/ENVELOPE.png",
+      "type": "sprite",
+      "id": 62,
+      "name": "tarefa_vm_envelope",
+      "crop": true
+    },
+    {
+      "file": "tarefas/FOGO_DDOS.png",
+      "type": "sprite",
+      "id": 63,
+      "name": "tarefa_vm_fogo",
+      "crop": true
+    },
+    {
+      "file": "tarefas/TELA_VITORIA.png",
+      "type": "sprite",
+      "id": 64,
+      "name": "tela_vitoria",
+      "crop": false
+    },
+    {
+      "file": "tarefas/TELA_DERROTA.png",
+      "type": "sprite",
+      "id": 65,
+      "name": "tela_derrota",
+      "crop": false
+    },
+    {
+      "id": 66,
+      "name": "emp_bebedouro",
+      "file": "empresa/BEBEDOURO_01.png",
+      "type": "sprite",
+      "crop": true
+    },
+    {
+      "id": 67,
+      "name": "emp_lixeira",
+      "file": "empresa/LIXEIRA_01.png",
+      "type": "sprite",
+      "crop": true
+    },
+    {
+      "id": 68,
+      "name": "rec_dialogo_01",
+      "file": "recepcao/DIALOGO_01.png",
+      "type": "sprite",
+      "crop": true
+    },
+    {
+      "id": 69,
+      "name": "rec_planta_02",
+      "file": "recepcao/PLANTA_VASO_02.png",
+      "type": "sprite",
+      "crop": true
+    }
   ]
 }

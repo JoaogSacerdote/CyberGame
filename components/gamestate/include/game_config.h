@@ -1,68 +1,110 @@
 #pragma once
 
-/* Constantes parametrizaveis do gameplay. Pode ajustar sem mexer na FSM. */
+/*
+ * game_config.h — Constantes derivadas da calibração.
+ * Não edite aqui: use calibracao.h para ajustar os valores do jogo.
+ */
 
-/* === Tempos do expediente === */
-#define EXPEDIENTE_DURACAO_MS         (3 * 60 * 1000)   /* 3 min reais = 08h-18h no jogo */
-#define HORA_INICIO_JOGO_MIN          (8 * 60)          /* expediente comeca 08:00 */
-#define HORA_FIM_JOGO_MIN             (18 * 60)         /* expediente termina 18:00 (hard stop) */
+#include "calibracao.h"
 
-/* === Vidas === */
-#define VIDAS_INICIAIS                3
+/* ── Duração do expediente ──────────────────────────────────────────────────
+ * CAL_VELOCIDADE_TEMPO 0→5min  50→3min  100→50s  */
+#ifdef CYBERSIM
+  #define EXPEDIENTE_DURACAO_MS     (30 * 60 * 1000)
+#else
+  #define EXPEDIENTE_DURACAO_MS     (300000 - (uint32_t)(CAL_VELOCIDADE_TEMPO) * 2500u)
+#endif
 
-/* === Intervalos de spawn (Etapa C+) ===
- * Pacing ajustado 2026-05-28 pra deixar a partida de 3 min TENSA/perdivel:
- * vermelho a cada 30s (era 90s) com 1o ataque cedo (10s). Com 3 vidas e
- * VERMELHO_TIMER 20s, ignorar tudo leva a derrota por volta dos ~16:00.
- * Numeros de game design — ajustar a gosto. */
-#define EVENTO_VERDE_INTERVALO_MS     (30 * 1000)
-#define EVENTO_AMARELA_INTERVALO_MS   (60 * 1000)
-#define EVENTO_VERMELHO_INTERVALO_MS  (30 * 1000)   /* entre ataques vermelhos */
-#define EVENTO_VERMELHO_PRIMEIRO_MS   (10 * 1000)   /* atraso do 1o ataque da run */
-#define EVENTO_COOLDOWN_GLOBAL_MS     (5 * 1000)
+#define HORA_INICIO_JOGO_MIN        (8  * 60)
+#define HORA_FIM_JOGO_MIN           (18 * 60)
 
-/* === Mecanica de carta NFC (Etapa C) === */
-#define ACTION_LOCK_MS                1500
-#define SYSTEM_DEPLOY_MS              4000
-#define VERMELHO_TIMER_MS             20000             /* tempo ate destruir o setor */
-#define VERMELHO_AGRAVADO_MULT_PCT    50                /* carta AGRAVA acelera o timer em 50% */
-#define NFC_LEITURA_COOLDOWN_MS       1000              /* nao re-le mesmo UID dentro deste prazo */
+/* ── Vidas ──────────────────────────────────────────────────────────────────*/
+#define VIDAS_INICIAIS              CAL_VIDAS_INICIAIS
 
-/* === Pontuacao === */
-#define SCORE_VERDE                   10
-#define SCORE_AMARELA                 20
-#define SCORE_VERMELHO_BASE           50
-#define SCORE_VELOCIDADE_MAX          50                /* bonus por reflexo no vermelho */
+/* ── Spawn de tarefas ───────────────────────────────────────────────────────
+ * MIN = tempo mínimo de expediente antes de a tarefa poder aparecer.
+ * RAND = janela aleatória adicional (aparece em MIN+random(0..RAND)).
+ * GAP = intervalo mínimo entre dois spawns de tipos diferentes.          */
+#ifdef CYBERSIM
+  #define TAREFA_VERDE_MIN_MS       (30 * 1000)
+  #define TAREFA_VERDE_RAND_MS      (30 * 1000)
+  #define TAREFA_AMARELA_MIN_MS     (2 * 60 * 1000)
+  #define TAREFA_AMARELA_RAND_MS    (60 * 1000)
+  #define TAREFA_VERMELHO_MIN_MS    (5 * 60 * 1000)
+  #define TAREFA_SPAWN_GAP_MS       (20 * 1000)
+#else
+  /* CAL_TAREFA_VERDE_INICIO:   0→2s  50→6s  100→10s */
+  #define TAREFA_VERDE_MIN_MS       ((uint32_t)(2 + (CAL_TAREFA_VERDE_INICIO) * 8  / 100) * 1000u)
+  /* Janela aleatória = mesma duração do mínimo */
+  #define TAREFA_VERDE_RAND_MS      TAREFA_VERDE_MIN_MS
 
-/* === Concorrencia (Teoria do Fluxo) === */
-#define MAX_VERMELHOS_SIMULTANEOS     1
+  /* CAL_TAREFA_AMARELA_INICIO: 0→10s  50→20s  100→30s */
+  #define TAREFA_AMARELA_MIN_MS     ((uint32_t)(10 + (CAL_TAREFA_AMARELA_INICIO) * 20 / 100) * 1000u)
+  #define TAREFA_AMARELA_RAND_MS    TAREFA_AMARELA_MIN_MS
 
-/* === UI === */
-#define TIMEOUT_TELA_FINAL_MS         (30 * 1000)       /* idle na tela final -> volta pra splash */
-#define MENU_NAV_DEBOUNCE_MS          300               /* joystick discreto no menu */
-#define JOYSTICK_DEFLEXAO_MIN         50                /* joystick e int8_t -100..+100; 50 = ~meia deflexao */
+  /* CAL_TAREFA_VERMELHO_INICIO: 0→20s  50→40s  100→60s */
+  #define TAREFA_VERMELHO_MIN_MS    ((uint32_t)(20 + (CAL_TAREFA_VERMELHO_INICIO) * 40 / 100) * 1000u)
 
-/* === Ticks === */
-#define ENGINE_TICK_PERIOD_MS         100               /* ticks da FSM */
+  #define TAREFA_SPAWN_GAP_MS       (10 * 1000u)
+#endif
 
-/* === Player (sprite e movimento) ===
- * Todos os personagens-player do MVP usam o mesmo sprite-sheet 32x48 (4
- * linhas DOWN/LEFT/RIGHT/UP x 3 frames). Se aparecer um personagem com
- * sheet diferente, parametrizar no screen_room. */
-#define PLAYER_FRAME_W                32
-#define PLAYER_FRAME_H                48
+/* ── Ataques vermelhos ──────────────────────────────────────────────────────
+ * CAL_DIFICULDADE_ATAQUES 0=fácil  50=padrão  100=brutal               */
+#ifdef CYBERSIM
+  #define EVENTO_VERMELHO_INTERVALO_MS  (3 * 60 * 1000)
+  #define EVENTO_VERMELHO_PRIMEIRO_MS   (30 * 1000)
+  #define VERMELHO_TIMER_MS             (60 * 1000)
+#else
+  /* Intervalo entre ataques: 0→60s  50→35s  100→10s */
+  #define EVENTO_VERMELHO_INTERVALO_MS  ((uint32_t)(10 + (100 - CAL_DIFICULDADE_ATAQUES) * 50 / 100) * 1000u)
+  /* Delay após o gate de 40s abrir antes do 1º ataque */
+  #define EVENTO_VERMELHO_PRIMEIRO_MS   1000u
+  /* Tempo do jogador para mitigar: 0→40s  50→22s  100→5s */
+  #define VERMELHO_TIMER_MS             ((uint32_t)(5 + (100 - CAL_DIFICULDADE_ATAQUES) * 35 / 100) * 1000u)
+#endif
 
-/* Animacao walk: ~8 fps (4 frames a cada 500 ms). */
-#define PLAYER_WALK_PERIOD_MS         125
+#define VERMELHO_AGRAVADO_MULT_PCT      50
+#define NFC_LEITURA_COOLDOWN_MS         1000u
+#define EVENTO_COOLDOWN_GLOBAL_MS       (5 * 1000u)
+#define MAX_VERMELHOS_SIMULTANEOS       1
 
-/* Curva de velocidade do joystick (px/tick em funcao da deflexao). */
-#define PLAYER_JOY_DEADZONE           30                /* |eixo| <= 30 -> parado */
-#define PLAYER_STEP_MIN_PX            2                 /* px/tick com deflexao minima */
-#define PLAYER_STEP_MAX_PX            6                 /* px/tick com deflexao maxima */
+/* ── Pontuação ──────────────────────────────────────────────────────────────*/
+#define SCORE_VERDE                     10
+#define SCORE_AMARELA                   20
+#define SCORE_VERMELHO_BASE             50
+#define SCORE_VELOCIDADE_MAX            50
 
-/* Margem de seguranca alem de PLAYER_FRAME_W quando o spawn nasce ao lado
- * de um gatilho de porta — evita loop de troca de sala no 1o tick. */
-#define SPAWN_DOOR_MARGIN_PX          16
+/* ── NFC / Deploy ───────────────────────────────────────────────────────────*/
+#define ACTION_LOCK_MS                  1500u
+#define SYSTEM_DEPLOY_MS                4000u
 
-/* === Dialogo (typewriter) === */
-#define DIALOG_TYPE_PERIOD_MS         30                /* ~33 cps */
+/* ── UI ─────────────────────────────────────────────────────────────────────*/
+#define TIMEOUT_TELA_FINAL_MS           (30 * 1000u)
+#define MENU_NAV_DEBOUNCE_MS            300u
+
+/* ── Ticks ──────────────────────────────────────────────────────────────────*/
+#define ENGINE_TICK_PERIOD_MS           100u
+
+/* ── Jogador ────────────────────────────────────────────────────────────────
+ * Sprite fixo 32×48 (4 linhas × 3 frames). Não altere W/H aqui.          */
+#define PLAYER_FRAME_W                  32
+#define PLAYER_FRAME_H                  48
+
+/* Velocidade de movimento: CAL_VELOCIDADE_JOGADOR 0→max=1  50→max=3  100→max=6 */
+#define PLAYER_STEP_MIN_PX              (1u + (unsigned)(CAL_VELOCIDADE_JOGADOR) / 67u)
+#define PLAYER_STEP_MAX_PX              (1u + (unsigned)(CAL_VELOCIDADE_JOGADOR) * 5u / 100u)
+
+/* Deadzone do joystick: CAL_ZONA_MORTA_JOYSTICK 0→0  50→30  100→60 */
+#define JOYSTICK_DEFLEXAO_MIN           50u
+#define PLAYER_JOY_DEADZONE             ((unsigned)(CAL_ZONA_MORTA_JOYSTICK) * 60u / 100u)
+
+/* Boost eixo X: CAL_BOOST_EIXO_X 0→×1,0  50→×1,5  100→×2,0 */
+#define JOY_X_BOOST_PCT                 (100u + (unsigned)(CAL_BOOST_EIXO_X))
+
+/* Animação walk: CAL_VELOCIDADE_ANIMACAO 0→200ms  50→125ms  100→50ms */
+#define PLAYER_WALK_PERIOD_MS           (200u - (unsigned)(CAL_VELOCIDADE_ANIMACAO) * 150u / 100u)
+
+#define SPAWN_DOOR_MARGIN_PX            16u
+
+/* ── Diálogo (typewriter) ───────────────────────────────────────────────────*/
+#define DIALOG_TYPE_PERIOD_MS           30u

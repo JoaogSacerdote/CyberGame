@@ -11,7 +11,9 @@ static const char *TAG = "DIALOG_LOADER";
 
 /* Mesmo diretorio dos demais assets no cartao (ver asset_loader.c). O dialogo
  * e o asset (SPRITE, id) gravado como /sd/assets/<type>_<id>.bin. */
+#ifndef ASSET_SD_DIR
 #define ASSET_SD_DIR  "/sd/assets"
+#endif
 
 esp_err_t dialog_loader_load(uint16_t id, dialog_t *out)
 {

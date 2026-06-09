@@ -16,7 +16,7 @@
 #define DISP_PWR_STABILIZE_MS   50
 
 #define DISP_SPI_HOST       SPI2_HOST
-#define DISP_SPI_HZ         (40 * 1000 * 1000) 
+#define DISP_SPI_HZ         (70 * 1000 * 1000)  /* ST7796 max spec: 62.5 MHz */
 #define DISP_CMD_BITS       8
 #define DISP_PARAM_BITS     8
 
@@ -85,7 +85,7 @@ static void display_hal_power_on(void)
         ESP_LOGW(TAG, "pwr_en set 0 failed: %s", esp_err_to_name(err));
         return;
     } **/
-   err = gpio_set_level(BOARD_PIN_DISP_PWR_EN, 1); // <-- Alterado para 1 (NPN LIGA com HIGH)
+    err = gpio_set_level(BOARD_PIN_DISP_PWR_EN, 0); /* PNP BC327 LIGA com LOW */
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "pwr_en set 1 failed: %s", esp_err_to_name(err));
         return;

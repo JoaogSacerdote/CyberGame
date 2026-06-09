@@ -44,6 +44,7 @@ esp_err_t sd_hal_init(void)
      * spi_bus_initialize de novo. */
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     host.slot = SD_SPI_HOST;
+    host.max_freq_khz = 50000;  /* testado estavel a 50 MHz neste cartao */
 
     sdspi_device_config_t slot_cfg = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot_cfg.gpio_cs = BOARD_PIN_SD_CS;

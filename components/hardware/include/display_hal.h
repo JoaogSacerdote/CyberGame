@@ -14,16 +14,12 @@ extern "C" {
 #define DISPLAY_HAL_BYTES_PER_PIXEL     2       /* RGB565 */
 #define DISPLAY_HAL_FRAMEBUFFER_BYTES   (DISPLAY_HAL_WIDTH * DISPLAY_HAL_HEIGHT * DISPLAY_HAL_BYTES_PER_PIXEL)
 
-/* === Calibracao do painel ST7796 deste console ===
- *
- * Os LEDs vermelhos deste painel especifico tem eficiencia luminica menor
- * que verdes/azuis (R aparece ~3x mais escuro que devia). O hal_bridge
- * aplica este multiplicador no canal R do RGB565 antes do byte swap,
- * com clamp em 5 bits — cores ja saturadas (R=31) ficam inalteradas.
- *
- * Se o painel for trocado por outro lote, recalibrar visualmente
- * (testar com bandeira nacional / palette colorida). Setar 1 desliga. */
-#define DISPLAY_HAL_R_BOOST_MULT        2u
+/* Multiplicador do canal vermelho (ST7796).
+ * Derivado de CAL_BOOST_COR_VERMELHA em calibracao.h:
+ *   0→mult=1 (sem correção)  50→mult=2 (padrão)  100→mult=4
+ * hal_bridge aplica antes do byte-swap; clamp em 5 bits. */
+#include "calibracao.h"
+#define DISPLAY_HAL_R_BOOST_MULT  (1u + (unsigned)(CAL_BOOST_COR_VERMELHA) * 3u / 100u)
 
 typedef void (*display_hal_trans_done_cb_t)(void *user_ctx);
 

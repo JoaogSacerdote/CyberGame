@@ -12,7 +12,9 @@ static const char *TAG = "ASSET_LOADER";
 /* Diretorio dos assets no cartao microSD (montado por sd_hal em /sd).
  * Cada asset e um arquivo "<type>_<id>.bin" com layout
  * [asset_blob_header_t 32B][pixels]. */
+#ifndef ASSET_SD_DIR
 #define ASSET_SD_DIR  "/sd/assets"
+#endif
 
 /* ===================== Cache load-once =====================
  * Cada asset e lido do cartao uma unica vez e mantido residente na PSRAM
@@ -21,7 +23,7 @@ static const char *TAG = "ASSET_LOADER";
  *
  * Sem evicao: o MVP tem ~18 assets (~2.2 MB) e 8 MB de PSRAM. Se exceder
  * ASSET_CACHE_MAX, load() retorna ESP_ERR_NO_MEM. */
-#define ASSET_CACHE_MAX  32
+#define ASSET_CACHE_MAX  256
 
 typedef struct {
     bool           valid;

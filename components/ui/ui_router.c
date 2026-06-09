@@ -18,6 +18,7 @@ static void destroy_active(void)
         case UI_SCREEN_PAUSE:       screen_pause_destroy(); break;
         case UI_SCREEN_RECEPCAO:    screen_recepcao_destroy(); break;
         case UI_SCREEN_EMPRESA:     screen_empresa_destroy(); break;
+        case UI_SCREEN_GAME_OVER:   screen_game_over_destroy(); break;
         default: break;
     }
     s_active = UI_SCREEN_NONE;
@@ -68,5 +69,6 @@ void ui_show_placeholder(void) { show_screen(UI_SCREEN_PLACEHOLDER, screen_place
 void ui_show_pause(void)       { show_screen(UI_SCREEN_PAUSE,       screen_pause_build); }
 void ui_show_recepcao(void)    { show_screen(UI_SCREEN_RECEPCAO,    screen_recepcao_build); }
 void ui_show_empresa(void)     { show_screen(UI_SCREEN_EMPRESA,     screen_empresa_build); }
+void ui_show_game_over(void)   { show_screen(UI_SCREEN_GAME_OVER,   screen_game_over_build); }
 
 ui_screen_t ui_get_active(void) { return s_active; }

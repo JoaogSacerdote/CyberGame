@@ -76,8 +76,8 @@ static void flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
     const size_t line_bytes = (size_t)width * DISPLAY_HAL_BYTES_PER_PIXEL;
 
     /* Detecta stride: LVGL pode alinhar linhas e introduzir padding.
-     * Se o draw buf ativo tem stride > line_bytes, copiamos linha-a-linha
-     * para buffer denso antes do display_hal_draw_bitmap. */
+     * Se lv_display_get_buf_active() retorna buffer com stride > line_bytes,
+     * copiamos linha-a-linha para buffer denso antes do display_hal_draw_bitmap. */
     uint8_t *src_buf = px_map;
     uint8_t *temp_buf = NULL;
 
