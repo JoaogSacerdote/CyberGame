@@ -12,6 +12,7 @@
 #include "button_hal.h"
 #include "joystick_hal.h"
 #include "gamestate.h"
+#include "fsm.h"
 
 static const char *TAG = "TAREFA_AM";
 
@@ -35,9 +36,10 @@ static const int16_t STK_Y           = 195;
 
 typedef enum { HD_BOM = 0, HD_RUIM } hd_state_t;
 
-static hd_state_t s_srv[N_SERVER];   /* estado de cada slot do servidor */
-static hd_state_t s_stk[N_STOCK];    /* estado de cada slot do estoque  */
-static bool s_state_initialized = false;
+static hd_state_t s_srv[2][N_SERVER]; /* estado por servidor: [srv_id][slot] */
+static hd_state_t s_stk[2][N_STOCK];
+static bool       s_state_initialized[2] = { false, false };
+static uint8_t    s_active_srv_id        = 0;
 
 /* ── Variáveis da sessão de overlay ─────────────────────────────────────── */
 
@@ -78,7 +80,7 @@ static void no_scroll(lv_obj_t *o)
 
 static hd_state_t *slot_state(panel_t panel, uint8_t col)
 {
-    return (panel == PANEL_SERVER) ? &s_srv[col] : &s_stk[col];
+    return (panel == PANEL_SERVER) ? &s_srv[s_active_srv_id][col] : &s_stk[s_active_srv_id][col];
 }
 
 static uint8_t panel_max(panel_t p) { return (p == PANEL_SERVER) ? N_SERVER : N_STOCK; }
@@ -135,7 +137,7 @@ static void refresh_all_slots(void)
 static bool check_complete(void)
 {
     for (uint8_t i = 0; i < N_SERVER; i++) {
-        if (s_srv[i] != HD_BOM) return false;
+        if (s_srv[s_active_srv_id][i] != HD_BOM) return false;
     }
     return true;
 }
@@ -144,7 +146,7 @@ static void update_status(void)
 {
     if (!s_lbl_status) return;
     uint8_t ruim = 0;
-    for (uint8_t i = 0; i < N_SERVER; i++) if (s_srv[i] == HD_RUIM) ruim++;
+    for (uint8_t i = 0; i < N_SERVER; i++) if (s_srv[s_active_srv_id][i] == HD_RUIM) ruim++;
     char buf[64];
     if (ruim == 0) {
         lv_label_set_text(s_lbl_status, "Todos os HDs OK!");
@@ -173,6 +175,7 @@ static void tarefa_am_tick(lv_timer_t *t)
 {
     (void)t;
     if (!s_overlay) return;
+    if (fsm_get_state() == GAME_STATE_PAUSE) return;   /* sala viva sob o pause */
 
     const joystick_data_t j = joystick_hal_get_state();
     const bool left  = (j.x < -50);
@@ -243,7 +246,7 @@ static void tarefa_am_tick(lv_timer_t *t)
                 ESP_LOGI(TAG, "tarefa amarela CONCLUIDA");
                 refresh_all_slots();
                 update_status();
-                gamestate_concluir_amarela();
+                gamestate_concluir_amarela(s_active_srv_id);
                 tarefa_am_cb_t cb = s_done_cb;
                 screen_tarefa_amarela_destroy();
                 if (cb) cb(TAREFA_AM_CONCLUIDA);
@@ -260,13 +263,11 @@ static void tarefa_am_tick(lv_timer_t *t)
 
 /* ── Build / Destroy ─────────────────────────────────────────────────────── */
 
-static void init_state(void)
+static void init_state(uint8_t srv_id)
 {
-    /* Todos bons no inicio: 6 BAIA + 4 ESTOQUE */
-    for (uint8_t i = 0; i < N_SERVER; i++) s_srv[i] = HD_BOM;
-    for (uint8_t i = 0; i < N_STOCK;  i++) s_stk[i] = HD_BOM;
+    for (uint8_t i = 0; i < N_SERVER; i++) s_srv[srv_id][i] = HD_BOM;
+    for (uint8_t i = 0; i < N_STOCK;  i++) s_stk[srv_id][i] = HD_BOM;
 
-    /* 1 a 4 HDs defeituosos aleatorios na BAIA (descricao: max 4 por round) */
     const uint8_t n_ruim = 1 + (uint8_t)(esp_random() % 4);
     uint8_t picked[4] = {0xFF, 0xFF, 0xFF, 0xFF};
     for (uint8_t k = 0; k < n_ruim; k++) {
@@ -277,10 +278,10 @@ static void init_state(void)
             clash = false;
             for (uint8_t m = 0; m < k; m++) { if (picked[m] == idx) { clash = true; break; } }
         } while (clash);
-        s_srv[idx] = HD_RUIM;
-        picked[k]  = idx;
+        s_srv[srv_id][idx] = HD_RUIM;
+        picked[k] = idx;
     }
-    ESP_LOGI(TAG, "estado inicial: %u HD(s) ruim na BAIA", (unsigned)n_ruim);
+    ESP_LOGI(TAG, "srv%u estado inicial: %u HD(s) ruim na BAIA", (unsigned)srv_id, (unsigned)n_ruim);
 }
 
 static lv_obj_t *make_slot(lv_obj_t *parent, int16_t x, int16_t y)
@@ -302,7 +303,7 @@ static lv_obj_t *make_slot(lv_obj_t *parent, int16_t x, int16_t y)
     return w;
 }
 
-void screen_tarefa_amarela_build(tarefa_am_cb_t done_cb)
+void screen_tarefa_amarela_build(uint8_t srv_id, tarefa_am_cb_t done_cb)
 {
     if (s_overlay) return;
 
@@ -317,12 +318,13 @@ void screen_tarefa_amarela_build(tarefa_am_cb_t done_cb)
         return;
     }
 
-    s_done_cb        = done_cb;
-    s_modo_visualizar = (gamestate_amarela_estado() == TAREFA_CONCLUIDA);
+    s_active_srv_id   = srv_id;
+    s_done_cb         = done_cb;
+    s_modo_visualizar = (gamestate_amarela_estado(srv_id) == TAREFA_CONCLUIDA);
 
-    if (!s_state_initialized) {
-        init_state();
-        s_state_initialized = true;
+    if (!s_state_initialized[srv_id]) {
+        init_state(srv_id);
+        s_state_initialized[srv_id] = true;
     }
 
     s_panel   = PANEL_STOCK;
@@ -393,7 +395,7 @@ void screen_tarefa_amarela_build(tarefa_am_cb_t done_cb)
     }
 
     s_timer = lv_timer_create(tarefa_am_tick, UI_TICK_MS, NULL);
-    ESP_LOGI(TAG, "tarefa amarela aberta%s", s_modo_visualizar ? " (visualizacao)" : "");
+    ESP_LOGI(TAG, "tarefa amarela srv%u aberta%s", (unsigned)s_active_srv_id, s_modo_visualizar ? " (visualizacao)" : "");
 }
 
 void screen_tarefa_amarela_destroy(void)
@@ -411,5 +413,5 @@ void screen_tarefa_amarela_destroy(void)
     ESP_LOGI(TAG, "tarefa amarela fechada");
 }
 
-void screen_tarefa_amarela_reset(void) { s_state_initialized = false; }
+void screen_tarefa_amarela_reset(void) { s_state_initialized[0] = s_state_initialized[1] = false; }
 bool screen_tarefa_amarela_is_open(void) { return s_overlay != NULL; }

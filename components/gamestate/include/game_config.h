@@ -10,7 +10,7 @@
 /* ── Duração do expediente ──────────────────────────────────────────────────
  * CAL_VELOCIDADE_TEMPO 0→5min  50→3min  100→50s  */
 #ifdef CYBERSIM
-  #define EXPEDIENTE_DURACAO_MS     (30 * 60 * 1000)
+  #define EXPEDIENTE_DURACAO_MS     (5 * 60 * 1000)
 #else
   #define EXPEDIENTE_DURACAO_MS     (300000 - (uint32_t)(CAL_VELOCIDADE_TEMPO) * 2500u)
 #endif
@@ -21,52 +21,39 @@
 /* ── Vidas ──────────────────────────────────────────────────────────────────*/
 #define VIDAS_INICIAIS              CAL_VIDAS_INICIAIS
 
-/* ── Spawn de tarefas ───────────────────────────────────────────────────────
- * MIN = tempo mínimo de expediente antes de a tarefa poder aparecer.
- * RAND = janela aleatória adicional (aparece em MIN+random(0..RAND)).
- * GAP = intervalo mínimo entre dois spawns de tipos diferentes.          */
+/* ── Sequência de tarefas (flow scripted) ──────────────────────────────────
+ * As tarefas aparecem numa ordem fixa. srv_primeiro e srv_segundo são
+ * sorteados no reset e determinam qual servidor recebe cada evento.
+ *
+ * VERDE_SPAWN_MS       — verde aparece X ms após o expediente iniciar (tempo real).
+ * AMARELA_TOLERANCIA_MS — se a amarela não for concluída em X ms, vira risco.
+ * RANSOM_END_BEFORE_MS  — ransomware deve TERMINAR X ms antes do fim.
+ * TAREFA_SPAWN_GAP_MS   — gap mínimo entre spawns consecutivos da sequência.
+ *
+ * Obs: CAL_TAREFA_VERDE_INICIO / CAL_TAREFA_AMARELA_INICIO / CAL_TAREFA_VERMELHO_INICIO
+ * de calibracao.h não controlam mais os tempos de spawn (sequência agora é fixa). */
+#define VERDE_SPAWN_MS              5000u
+#define AMARELA_TOLERANCIA_MS       40000u
+#define RANSOM_END_BEFORE_MS        10000u
 #ifdef CYBERSIM
-  #define TAREFA_VERDE_MIN_MS       (30 * 1000)
-  #define TAREFA_VERDE_RAND_MS      (30 * 1000)
-  #define TAREFA_AMARELA_MIN_MS     (2 * 60 * 1000)
-  #define TAREFA_AMARELA_RAND_MS    (60 * 1000)
-  #define TAREFA_VERMELHO_MIN_MS    (5 * 60 * 1000)
   #define TAREFA_SPAWN_GAP_MS       (20 * 1000)
 #else
-  /* CAL_TAREFA_VERDE_INICIO:   0→2s  50→6s  100→10s */
-  #define TAREFA_VERDE_MIN_MS       ((uint32_t)(2 + (CAL_TAREFA_VERDE_INICIO) * 8  / 100) * 1000u)
-  /* Janela aleatória = mesma duração do mínimo */
-  #define TAREFA_VERDE_RAND_MS      TAREFA_VERDE_MIN_MS
-
-  /* CAL_TAREFA_AMARELA_INICIO: 0→10s  50→20s  100→30s */
-  #define TAREFA_AMARELA_MIN_MS     ((uint32_t)(10 + (CAL_TAREFA_AMARELA_INICIO) * 20 / 100) * 1000u)
-  #define TAREFA_AMARELA_RAND_MS    TAREFA_AMARELA_MIN_MS
-
-  /* CAL_TAREFA_VERMELHO_INICIO: 0→20s  50→40s  100→60s */
-  #define TAREFA_VERMELHO_MIN_MS    ((uint32_t)(20 + (CAL_TAREFA_VERMELHO_INICIO) * 40 / 100) * 1000u)
-
   #define TAREFA_SPAWN_GAP_MS       (10 * 1000u)
 #endif
 
 /* ── Ataques vermelhos ──────────────────────────────────────────────────────
- * CAL_DIFICULDADE_ATAQUES 0=fácil  50=padrão  100=brutal               */
+ * CAL_DIFICULDADE_ATAQUES 0=fácil  50=padrão  100=brutal
+ * Sem respawn automático: cada ataque spawna uma vez por run via gates do gamestate. */
 #ifdef CYBERSIM
-  #define EVENTO_VERMELHO_INTERVALO_MS  (3 * 60 * 1000)
-  #define EVENTO_VERMELHO_PRIMEIRO_MS   (30 * 1000)
   #define VERMELHO_TIMER_MS             (60 * 1000)
 #else
-  /* Intervalo entre ataques: 0→60s  50→35s  100→10s */
-  #define EVENTO_VERMELHO_INTERVALO_MS  ((uint32_t)(10 + (100 - CAL_DIFICULDADE_ATAQUES) * 50 / 100) * 1000u)
-  /* Delay após o gate de 40s abrir antes do 1º ataque */
-  #define EVENTO_VERMELHO_PRIMEIRO_MS   1000u
-  /* Tempo do jogador para mitigar: 0→40s  50→22s  100→5s */
+  /* Tempo para mitigar: 0→40s  50→22s  100→5s */
   #define VERMELHO_TIMER_MS             ((uint32_t)(5 + (100 - CAL_DIFICULDADE_ATAQUES) * 35 / 100) * 1000u)
 #endif
 
 #define VERMELHO_AGRAVADO_MULT_PCT      50
 #define NFC_LEITURA_COOLDOWN_MS         1000u
 #define EVENTO_COOLDOWN_GLOBAL_MS       (5 * 1000u)
-#define MAX_VERMELHOS_SIMULTANEOS       1
 
 /* ── Pontuação ──────────────────────────────────────────────────────────────*/
 #define SCORE_VERDE                     10

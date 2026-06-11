@@ -26,10 +26,15 @@ static void destroy_active(void)
 
 static void show_screen(ui_screen_t target, void (*build_fn)(void))
 {
+    lv_lock();
+    /* O overlay de pause (se aberto) sai em QUALQUER navegacao — inclusive
+     * na retomada para a propria tela ativa (early-out abaixo). */
+    screen_pause_destroy();
     if (s_active == target) {
+        lv_obj_invalidate(lv_screen_active());
+        lv_unlock();
         return;
     }
-    lv_lock();
     destroy_active();
     build_fn();
     /* Forca redraw da tela inteira: sem isso, o partial render so flusha
@@ -66,7 +71,18 @@ esp_err_t ui_init(void)
 void ui_show_splash(void)      { show_screen(UI_SCREEN_SPLASH,      screen_splash_build); }
 void ui_show_menu(void)        { show_screen(UI_SCREEN_MENU,        screen_menu_build); }
 void ui_show_placeholder(void) { show_screen(UI_SCREEN_PLACEHOLDER, screen_placeholder_build); }
-void ui_show_pause(void)       { show_screen(UI_SCREEN_PAUSE,       screen_pause_build); }
+/* PAUSE e um OVERLAY por cima da tela ativa — nao passa por show_screen e
+ * nao destroi a sala: posicao do jogador e estado visual sobrevivem ao
+ * retomar. (Antes destruia/reconstruia a sala e o jogador "teletransportava"
+ * pro spawn do JSON ao despausar.) */
+void ui_show_pause(void)
+{
+    lv_lock();
+    screen_pause_build();
+    lv_obj_invalidate(lv_screen_active());
+    lv_unlock();
+    ESP_LOGI(TAG, "ui_show -> PAUSE (overlay sobre %d)", (int)s_active);
+}
 void ui_show_recepcao(void)    { show_screen(UI_SCREEN_RECEPCAO,    screen_recepcao_build); }
 void ui_show_empresa(void)     { show_screen(UI_SCREEN_EMPRESA,     screen_empresa_build); }
 void ui_show_game_over(void)   { show_screen(UI_SCREEN_GAME_OVER,   screen_game_over_build); }

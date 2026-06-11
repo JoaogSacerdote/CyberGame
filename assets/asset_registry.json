@@ -1,5 +1,5 @@
 {
-  "_doc": "Fonte unica de verdade dos assets do CyberGame. IDs 0-19: recepcao. IDs 20-27: empresa. ID 28: player. ID 29: rec_dialog. IDs 30-52: empresa continuacao. IDs 53-54: tarefa verde. IDs 55-58: tarefa amarela. IDs 59-63: tarefa vermelha. IDs 64-65: telas finais. IDs 66-69: novos (emp_bebedouro, emp_lixeira, rec_dialogo_01, rec_planta_02). crop=true recorta ao bounding box; crop=false preserva imagem inteira.",
+  "_doc": "Fonte unica de verdade dos assets do CyberGame. IDs 0-19: recepcao. IDs 20-27: empresa. ID 28: player. ID 29: rec_dialog. IDs 30-52: empresa continuacao. IDs 53-54: tarefa verde. IDs 55-58: tarefa amarela. IDs 59-63: tarefa vermelha. IDs 64-65: telas finais. IDs 66-69: novos (emp_bebedouro, emp_lixeira, rec_dialogo_01, rec_planta_02). IDs 70-71: tarefa_vm_env_fogo, chiado. NOTA: icone_vermelho embarcado em flash (asset_icone_vermelho.h), nao esta neste registry. crop=true recorta ao bounding box; crop=false preserva imagem inteira.",
   "assets": [
     {
       "file": "recepcao/CHAO_01.png",
@@ -414,21 +414,21 @@
       "crop": true
     },
     {
-      "file": "tarefas/DDOS_FUNDO.png",
+      "file": "tarefas/SERVIDOR_FUNDO.png",
       "type": "sprite",
       "id": 59,
       "name": "tarefa_vm_fundo",
       "crop": false
     },
     {
-      "file": "tarefas/SERVIDOR_OK.png",
+      "file": "tarefas/SERVIDOR.png",
       "type": "sprite",
       "id": 60,
       "name": "tarefa_vm_servidor_ok",
       "crop": true
     },
     {
-      "file": "tarefas/SERVIDOR_ALERTA.png",
+      "file": "tarefas/LED_VERMELHO.png",
       "type": "sprite",
       "id": 61,
       "name": "tarefa_vm_servidor_al",
@@ -442,11 +442,11 @@
       "crop": true
     },
     {
-      "file": "tarefas/FOGO_DDOS.png",
+      "file": "tarefas/FOGO.png",
       "type": "sprite",
       "id": 63,
       "name": "tarefa_vm_fogo",
-      "crop": true
+      "crop": false
     },
     {
       "file": "tarefas/TELA_VITORIA.png",
@@ -489,6 +489,20 @@
       "file": "recepcao/PLANTA_VASO_02.png",
       "type": "sprite",
       "crop": true
-    }
+    },
+    {
+      "id": 70,
+      "name": "tarefa_vm_env_fogo",
+      "file": "tarefas/ENVELOPE_FOGO.png",
+      "type": "sprite",
+      "crop": false
+    },
+    {
+      "id": 71,
+      "name": "chiado",
+      "file": "tarefas/CHIADO.png",
+      "type": "sprite",
+      "crop": false
+    },
   ]
 }

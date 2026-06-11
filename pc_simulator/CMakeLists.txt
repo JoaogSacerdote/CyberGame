@@ -55,6 +55,7 @@ set(SIM_SOURCES
     # Assets (loader + dados de colisao compilados)
     ${FW_ROOT}/components/assets/asset_loader.c
     ${FW_ROOT}/components/assets/dialog_loader.c
+    hal_fake/asset_icone_vermelho_sim.c
     ${FW_ROOT}/components/assets/collision/collision_recepcao.c
     ${FW_ROOT}/components/assets/collision/collision_empresa.c
 

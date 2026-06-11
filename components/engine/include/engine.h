@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -12,16 +13,14 @@ extern "C" {
  * isto antes de engine_start. Default desligado. */
 void engine_set_test_mode(bool enable);
 
-/* engine_init: inicializa fsm + ui + cria a queue de eventos.
- * Nao inicia a task ainda. Idempotente.
- */
 esp_err_t engine_init(void);
-
-/* engine_start: cria a game_task (Core 0) que consome eventos da queue
- * e tickа a FSM a cada ENGINE_TICK_PERIOD_MS. Retorna apos a task estar
- * rodando.
- */
 esp_err_t engine_start(void);
+
+/* true se o servidor srv (0 ou 1) foi destruido por ataque nesta run. */
+bool        engine_server_is_lost(uint8_t srv);
+
+/* Nome do ataque que destruiu srv ("DDoS", "Ransomware"...). "" se nao perdido. */
+const char *engine_server_lost_nome(uint8_t srv);
 
 #ifdef __cplusplus
 }

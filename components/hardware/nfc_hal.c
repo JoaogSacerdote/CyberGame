@@ -30,8 +30,12 @@ static const char *TAG = "NFC_HAL";
 #define NFC_FRAME_BUF_LEN       64          /* maior que qualquer resposta esperada */
 #define NFC_QUEUE_DEPTH         4
 
-#define NFC_POLL_PERIOD_MS      200
-#define NFC_RESP_TIMEOUT_MS     200
+#define NFC_POLL_PERIOD_MS      50
+/* Sem carta no campo, o PN532 so responde "sem alvo" DEPOIS de esgotar as
+ * MxRtyPassiveActivation tentativas — o timeout precisa cobrir esse pior
+ * caso, senao o host desiste cedo, a resposta fica pendente no chip e o
+ * protocolo dessincroniza (loop de "poll falhou"). */
+#define NFC_RESP_TIMEOUT_MS     1200
 
 #define NFC_TASK_STACK          4096
 #define NFC_TASK_PRIO           4
@@ -111,6 +115,15 @@ static esp_err_t pn532_wait_ack(uint32_t timeout_ms)
     return (memcmp(buf, PN532_ACK, sizeof(PN532_ACK)) == 0) ? ESP_OK : ESP_ERR_INVALID_RESPONSE;
 }
 
+/* Frame ACK enviado pelo HOST aborta a resposta pendente no PN532 (UM 6.2.4).
+ * Usado pra re-sincronizar o protocolo depois de timeout: sem isso a resposta
+ * velha fica enfileirada no chip e todo comando seguinte dessincroniza. */
+static void pn532_abort_pending(void)
+{
+    (void)i2c_master_transmit(s_dev, PN532_ACK, sizeof(PN532_ACK), NFC_I2C_TIMEOUT_MS);
+    while (xSemaphoreTake(s_irq, 0) == pdTRUE) { /* drena IRQ remanescente */ }
+}
+
 /* Envia comando e devolve payload da resposta (bytes apos 0xD5+cmd_resp).
  * Retorna numero de bytes do payload, ou negativo em erro. */
 static int pn532_command(uint8_t cmd,
@@ -129,11 +142,13 @@ static int pn532_command(uint8_t cmd,
         return -2;
     }
     if (pn532_wait_ack(NFC_RESP_TIMEOUT_MS) != ESP_OK) {
+        pn532_abort_pending();
         return -3;
     }
 
     uint8_t raw[NFC_FRAME_BUF_LEN];
     if (pn532_read_after_irq(raw, sizeof(raw), NFC_RESP_TIMEOUT_MS) != ESP_OK) {
+        pn532_abort_pending();
         return -4;
     }
 
@@ -171,7 +186,9 @@ static esp_err_t pn532_sam_configure(void)
  *   [0x05] [MxRtyATR=0xFF] [MxRtyPSL=0x01] [MxRtyPassiveActivation]
  * Sem isso, MxRtyPassiveActivation default eh 0xFF (infinito) — InListPassiveTarget
  * fica buscando para sempre e a primeira leitura demora ate o PN532 desbloquear
- * sozinho. Setando 0x01: tenta uma vez (~16ms) e desiste por ciclo de poll. */
+ * sozinho. Com 0x01 (valor antigo) a janela de deteccao era ~16ms a cada 200ms
+ * de poll (<8% do tempo escutando) — encostar a carta rapido falhava. 0x10 da
+ * ~250ms de busca por ciclo, mantendo o duty cycle de escuta acima de 80%. */
 static esp_err_t pn532_set_max_retries(uint8_t mx_passive_activation)
 {
     const uint8_t params[] = { 0x05, 0xFF, 0x01, mx_passive_activation };
@@ -224,6 +241,11 @@ static void nfc_task(void *pv)
         const int r = pn532_poll_iso14443a(&card);
         if (r == 1) {
             if (!last_held || !same_uid(&last, &card)) {
+                /* Log na DETECCAO (independente do consumo pelo engine) —
+                 * permite diagnosticar "nao le" direto no monitor serial. */
+                ESP_LOGI(TAG, "carta detectada UID %02X:%02X:%02X:%02X (len=%u)",
+                         card.uid[0], card.uid[1], card.uid[2], card.uid[3],
+                         card.uid_len);
                 xQueueSend(s_queue, &card, 0);
                 last      = card;
                 last_held = true;
@@ -237,10 +259,56 @@ static void nfc_task(void *pv)
     }
 }
 
+/* true somente apos handshake com o PN532 + task de poll criada. */
+static bool s_chip_ready = false;
+
+/* Handshake com o PN532 + task de poll. Separado do setup de SO/I2C pra
+ * poder ser re-tentado: o primeiro nfc_hal_init() (main.c) pode falhar com
+ * o chip ainda acordando, e o engine chama init de novo mais tarde. */
+static esp_err_t nfc_chip_bringup(void)
+{
+    uint8_t ic, ver, rev, sup;
+    ESP_RETURN_ON_ERROR(pn532_get_firmware(&ic, &ver, &rev, &sup),
+                        TAG, "pn532 firmware version failed (PN532 nao respondeu)");
+    ESP_LOGI(TAG, "PN532 detectado: IC=0x%02X firmware v%d.%d (suporte=0x%02X)",
+             ic, ver, rev, sup);
+
+    ESP_RETURN_ON_ERROR(pn532_sam_configure(), TAG, "pn532 SAM configure failed");
+
+    /* 0x05 ≈ 150-250 ms de busca por ciclo: janela de escuta boa SEM deixar
+     * a resposta "sem alvo" estourar o NFC_RESP_TIMEOUT_MS (0x10 estourava
+     * os 500 ms antigos e dessincronizava o protocolo — nada mais lia).
+     * Best-effort: se o PN532 nao aceitar a configuracao, fica com retries
+     * default (lento na primeira leitura) — mas o boot nao pode quebrar por isso. */
+    if (pn532_set_max_retries(0x05) != ESP_OK) {
+        ESP_LOGW(TAG, "Falha ao configurar MxRtyPassiveActivation — primeira leitura sera lenta. Continuando.");
+    }
+
+    const BaseType_t ok = xTaskCreate(nfc_task, "nfc_hal",
+                                      NFC_TASK_STACK, NULL, NFC_TASK_PRIO, NULL);
+    ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "task create failed");
+
+    s_chip_ready = true;
+    ESP_LOGI(TAG, "nfc_hal initialized (SDA=GPIO%d SCL=GPIO%d IRQ=GPIO%d, %d kHz, poll %d ms, scan OFF)",
+             BOARD_PIN_NFC_SDA, BOARD_PIN_NFC_SCL, BOARD_PIN_NFC_IRQ, NFC_I2C_FREQ_HZ / 1000, NFC_POLL_PERIOD_MS);
+    return ESP_OK;
+}
+
 esp_err_t nfc_hal_init(void)
 {
-    if (s_queue != NULL) {
+    if (s_chip_ready) {
         return ESP_OK;
+    }
+    if (s_queue != NULL) {
+        /* Recursos de SO/I2C ja existem de uma tentativa anterior que falhou
+         * no handshake. Antes isto retornava ESP_OK direto — o engine achava
+         * o NFC operacional sem a task de poll existir e nenhuma carta era
+         * lida. Re-tenta apenas o handshake com o chip. */
+        if (s_dev == NULL) {
+            return ESP_ERR_INVALID_STATE;   /* falha anterior foi no I2C: sem retry */
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+        return nfc_chip_bringup();
     }
 
     s_irq    = xSemaphoreCreateBinary();
@@ -286,27 +354,7 @@ esp_err_t nfc_hal_init(void)
     /* PN532 acorda na primeira atividade I2C — espera estabilizar antes do handshake. */
     vTaskDelay(pdMS_TO_TICKS(50));
 
-    uint8_t ic, ver, rev, sup;
-    ESP_RETURN_ON_ERROR(pn532_get_firmware(&ic, &ver, &rev, &sup),
-                        TAG, "pn532 firmware version failed (PN532 nao respondeu)");
-    ESP_LOGI(TAG, "PN532 detectado: IC=0x%02X firmware v%d.%d (suporte=0x%02X)",
-             ic, ver, rev, sup);
-
-    ESP_RETURN_ON_ERROR(pn532_sam_configure(), TAG, "pn532 SAM configure failed");
-
-    /* Best-effort: se o PN532 nao aceitar a configuracao, fica com retries
-     * default (lento na primeira leitura) — mas o boot nao pode quebrar por isso. */
-    if (pn532_set_max_retries(0x01) != ESP_OK) {
-        ESP_LOGW(TAG, "Falha ao reduzir MxRtyPassiveActivation — primeira leitura sera lenta. Continuando.");
-    }
-
-    const BaseType_t ok = xTaskCreate(nfc_task, "nfc_hal",
-                                      NFC_TASK_STACK, NULL, NFC_TASK_PRIO, NULL);
-    ESP_RETURN_ON_FALSE(ok == pdPASS, ESP_ERR_NO_MEM, TAG, "task create failed");
-
-    ESP_LOGI(TAG, "nfc_hal initialized (SDA=GPIO%d SCL=GPIO%d IRQ=GPIO%d, %d kHz, poll %d ms, scan OFF)",
-             BOARD_PIN_NFC_SDA, BOARD_PIN_NFC_SCL, BOARD_PIN_NFC_IRQ, NFC_I2C_FREQ_HZ / 1000, NFC_POLL_PERIOD_MS);
-    return ESP_OK;
+    return nfc_chip_bringup();
 }
 
 esp_err_t nfc_hal_start_scanning(void)

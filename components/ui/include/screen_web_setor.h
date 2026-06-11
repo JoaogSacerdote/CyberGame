@@ -16,14 +16,14 @@ typedef enum {
 
 /* ── Callback NFC ────────────────────────────────────────────────────────── *
  *
- * Assinatura do listener registrado pela engine quando uma carta NFC é lida
- * com a tela aberta (BTN_Y pressionado → NFC ativo).
+ * Assinatura do listener registrado pela engine quando uma carta NFC é lida.
+ * A leitura é AUTOMÁTICA: o engine faz poll do NFC sempre que esta tela está
+ * aberta com um ataque ativo no servidor — nenhum botão é necessário.
  *
- * Módulo 1 : listener estruturado, lógica pendente.
- * Módulo 2+: implementar resposta por tipo de carta:
+ * Resposta por tipo de carta:
  *   CARTA_BALANCEAMENTO → mitiga DDoS
- *   CARTA_ISOLAMENTO    → isola segmento de rede
- *   CARTA_BACKUP        → não se aplica nesta tela (ignorar ou negar)    */
+ *   CARTA_ISOLAMENTO    → isola o Ransomware (Cenário A/B)
+ *   CARTA_BACKUP        → restaura o sistema após Cenário B              */
 typedef void (*web_setor_carta_cb_t)(web_setor_id_t id, carta_id_t carta);
 
 /* ── API pública ─────────────────────────────────────────────────────────── */
@@ -38,11 +38,12 @@ bool screen_web_setor_is_open(web_setor_id_t id);
 void screen_web_setor_ddos_start(web_setor_id_t id);
 
 /* Inicia o ataque de Ransomware na instância especificada.
- * Mostra o overlay CHIADO (opacidade cresce com o progresso), quebra
- * 1–4 slots aleatórios na BAIA e abre a UI de gestão de HDs.
- * CARTA_ISOLAMENTO (< 50%): fade e restauração automática.
+ * Mostra o overlay CHIADO (opacidade cresce com o progresso) + barra.
+ * Sem chamas/envelope-chama (exclusivos do DDoS) e sem UI de HDs (a troca
+ * de HDs pertence à tarefa amarela, que libera a carta de Backup).
+ * CARTA_ISOLAMENTO (< 50%): progresso zera, CHIADO faz fade (~2 s).
  * CARTA_ISOLAMENTO (≥ 50%): congela e pede CARTA_BACKUP.
- * CARTA_BACKUP: sucesso se todos os slots da BAIA = HD_BOM.            */
+ * CARTA_BACKUP: restaura o sistema e volta ao estado base.              */
 void screen_web_setor_ransomware_start(web_setor_id_t id);
 
 /* Chamado pela engine quando NFC detecta uma carta enquanto esta tela está

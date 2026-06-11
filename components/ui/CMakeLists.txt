@@ -11,6 +11,7 @@ idf_component_register(
         "screen_tarefa_amarela.c"
         "screen_servidor_menu.c"
         "screen_tarefa_vermelha.c"
+        "screen_web_setor.c"
         "screen_room.c"
         "screen_hud.c"
         "screen_game_over.c"
@@ -26,4 +27,5 @@ idf_component_register(
         "entity"
     PRIV_REQUIRES
         "esp_timer"
+        "engine"
 )

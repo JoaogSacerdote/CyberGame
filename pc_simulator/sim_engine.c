@@ -11,6 +11,7 @@
 #include "entity_pool.h"
 #include "y_sort.h"
 #include "screen_tarefa_amarela.h"
+#include "screen_web_setor.h"
 #include "ui.h"
 
 #include "lvgl.h"
@@ -29,21 +30,31 @@ static button_state_t   s_prev_btn[BTN_MAX_COUNT];
 static game_state_t     s_last_macro  = GAME_STATE_SPLASH;
 static gameplay_sala_t  s_last_sala   = GAMEPLAY_SALA_RECEPCAO;
 
+static bool          s_sim_server_lost[THREAT_SERVER_COUNT];
+static ataque_tipo_t s_sim_server_lost_tipo[THREAT_SERVER_COUNT];
+
 /* === Card resolver (mesmo logic do engine.c) ============================ */
 
 static int sim_card_resolver(int mock_card)
 {
+    uint8_t srv = 0;
     threat_state_t st;
-    if (!threat_get_active(&st)) return -1;
+    if (!threat_get_active(0, &st)) {
+        if (!threat_get_active(1, &st)) return -1;
+        srv = 1;
+    }
     carta_id_t carta;
     if (mock_card == 0) {
-        carta = threat_carta_correta(st.tipo);
+        /* Ransomware congelado: a carta "correta" passa a ser o Backup. */
+        carta = threat_is_congelado(srv) ? CARTA_BACKUP
+                                         : threat_carta_correta(st.tipo);
     } else {
         const carta_id_t certa = threat_carta_correta(st.tipo);
         carta = (certa == CARTA_ISOLAMENTO) ? CARTA_BACKUP : CARTA_ISOLAMENTO;
     }
-    const defesa_resultado_t r = threat_mitigate(carta);
-    return (r == DEFESA_CORRETO) ? 0 : (r == DEFESA_INUTIL ? 1 : 2);
+    const defesa_resultado_t r = threat_mitigate(srv, carta);
+    if (r == DEFESA_CORRETO || r == DEFESA_CONTIDO) return 0;
+    return (r == DEFESA_INUTIL) ? 1 : 2;
 }
 
 /* === UI sync ============================================================= */
@@ -79,14 +90,40 @@ static void gameplay_model_tick(uint32_t dt_ms)
 
     {
         threat_state_t ts;
-        fsm_set_attack_active(threat_get_active(&ts));
+        fsm_set_attack_active(threat_get_active(0, &ts) ||
+                              threat_get_active(1, &ts));
     }
 
-    /* Ataques vermelhos so iniciam depois que verde E amarela tiverem spawnado. */
-    if (gamestate_verde_spawned() && gamestate_amarela_spawned()) {
-        if (threat_tick(dt_ms)) {
+    /* Sincroniza ataques com a tela do setor web — por servidor. */
+    {
+        for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
+            threat_state_t ts_ws;
+            if (threat_get_active(srv, &ts_ws)) {
+                const web_setor_id_t wsid = (web_setor_id_t)srv;
+                if (ts_ws.tipo == ATAQUE_DDOS) {
+                    if (screen_web_setor_is_open(wsid))
+                        screen_web_setor_ddos_start(wsid);
+                } else if (ts_ws.tipo == ATAQUE_RANSOMWARE) {
+                    if (screen_web_setor_is_open(wsid))
+                        screen_web_setor_ransomware_start(wsid);
+                }
+            }
+        }
+    }
+
+    /* threat_tick cuida do gating via gamestate — sempre chamar. */
+    for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
+        threat_state_t ts_pre;
+        const bool pre_active = threat_get_active(srv, &ts_pre);
+
+        if (threat_tick(srv, dt_ms)) {
+            if (pre_active) {
+                s_sim_server_lost[srv]      = true;
+                s_sim_server_lost_tipo[srv] = ts_pre.tipo;
+            }
             gamestate_perder_vida();
-            ESP_LOGW(TAG, "setor destruido! vidas=%u", gamestate_get_vidas());
+            ESP_LOGW(TAG, "srv%u destruido! vidas=%u",
+                     (unsigned)srv, gamestate_get_vidas());
             if (gamestate_get_vidas() == 0) {
                 gamestate_set_result(RESULT_DERROTA);
                 fsm_set_state(GAME_STATE_GAME_OVER);
@@ -144,6 +181,8 @@ static void sim_engine_tick(lv_timer_t *t)
             threat_init();
             screen_tarefa_amarela_reset();
             fsm_set_attack_active(false);
+            memset(s_sim_server_lost,      0, sizeof(s_sim_server_lost));
+            memset(s_sim_server_lost_tipo, 0, sizeof(s_sim_server_lost_tipo));
             ESP_LOGI(TAG, "nova run: relogio + ataques zerados");
         }
         sync_ui_to_macro(cur_macro);
@@ -188,3 +227,14 @@ esp_err_t engine_start(void)
 }
 
 void engine_set_test_mode(bool enable) { (void)enable; }
+
+bool engine_server_is_lost(uint8_t srv)
+{
+    return srv < THREAT_SERVER_COUNT && s_sim_server_lost[srv];
+}
+
+const char *engine_server_lost_nome(uint8_t srv)
+{
+    if (!engine_server_is_lost(srv)) return "";
+    return ataque_nome(s_sim_server_lost_tipo[srv]);
+}

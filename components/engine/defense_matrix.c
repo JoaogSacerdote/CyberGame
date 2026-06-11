@@ -6,10 +6,11 @@
 static const char *TAG = "DEFESA";
 
 /* Linhas = carta (CARTA_ISOLAMENTO/BACKUP/BALANCEAMENTO).
- * Colunas = ataque (ATAQUE_DDOS/RANSOMWARE/PROPAGACAO_LATERAL). */
+ * Colunas = ataque (ATAQUE_DDOS/RANSOMWARE/PROPAGACAO_LATERAL).
+ * Ransomware tem regra dinamica por cima desta matriz — ver threat_mitigate(). */
 static const defesa_resultado_t MATRIZ[CARTA_MAX_COUNT][ATAQUE_MAX_COUNT] = {
-    [CARTA_ISOLAMENTO]    = { DEFESA_INUTIL,  DEFESA_INUTIL,  DEFESA_CORRETO },
-    [CARTA_BACKUP]        = { DEFESA_AGRAVA,  DEFESA_CORRETO, DEFESA_INUTIL  },
+    [CARTA_ISOLAMENTO]    = { DEFESA_INUTIL,  DEFESA_CORRETO, DEFESA_CORRETO },
+    [CARTA_BACKUP]        = { DEFESA_AGRAVA,  DEFESA_INUTIL,  DEFESA_INUTIL  },
     [CARTA_BALANCEAMENTO] = { DEFESA_CORRETO, DEFESA_AGRAVA,  DEFESA_INUTIL  },
 };
 
@@ -26,7 +27,7 @@ bool nfc_uid_to_carta(const uint8_t *uid, uint8_t uid_len, carta_id_t *out)
     if (uid == NULL || out == NULL || uid_len == 0) {
         return false;
     }
-    for (int i = 0; i < CARTA_MAX_COUNT; ++i) {
+    for (int i = 0; i < NFC_CARTAS_COUNT; ++i) {
         const nfc_card_entry_t *e = &NFC_CARTAS[i];
         if (e->uid_len == uid_len && memcmp(e->uid, uid, uid_len) == 0) {
             *out = e->carta;
@@ -62,6 +63,7 @@ const char *defesa_resultado_nome(defesa_resultado_t r)
         case DEFESA_CORRETO: return "CORRETO";
         case DEFESA_INUTIL:  return "inutil";
         case DEFESA_AGRAVA:  return "AGRAVA";
+        case DEFESA_CONTIDO: return "CONTIDO";
         default:             return "?";
     }
 }

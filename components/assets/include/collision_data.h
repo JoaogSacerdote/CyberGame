@@ -12,7 +12,8 @@ typedef enum {
     AREA_PORTA_RECEPCAO,
     AREA_TAREFA_VERDE,
     AREA_TAREFA_AMARELA,
-    AREA_SERVIDOR,
+    AREA_SERVIDOR,    /* servidor A (esquerda) */
+    AREA_SERVIDOR_B,  /* servidor B (direita)  */
     AREA_SPAWN,
     AREA_GENERICA,
 } collision_kind_t;

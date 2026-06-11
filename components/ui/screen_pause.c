@@ -13,6 +13,7 @@ static lv_obj_t *s_root = NULL;
 
 void screen_pause_build(void)
 {
+    if (s_root) return;   /* overlay ja aberto */
     s_root = lv_obj_create(lv_screen_active());
     lv_obj_set_size(s_root, 480, 320);
     lv_obj_set_pos(s_root, 0, 0);

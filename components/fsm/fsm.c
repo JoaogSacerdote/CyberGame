@@ -172,10 +172,10 @@ static void gameplay_handle_event(const fsm_event_t *evt)
 
     switch (s_sub) {
         case GAMEPLAY_SUB_EXPLORANDO:
-            /* Y so abre o terminal se o player estiver encostado em um
-             * gatilho de equipamento. Quem mantem a flag e o tick do screen
-             * ativo via fsm_set_player_at_equipment(). */
-            if (btn == BTN_Y && s_player_at_equipment) set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
+            /* Y abre terminal apenas fora da empresa — empresa usa BTN_A direto.
+             * Evita bloquear o tick da empresa se Y for pressionado acidentalmente. */
+            if (btn == BTN_Y && s_player_at_equipment && s_sala != GAMEPLAY_SALA_EMPRESA)
+                set_sub(GAMEPLAY_SUB_TERMINAL_ABERTO);
             break;
         case GAMEPLAY_SUB_TERMINAL_ABERTO:
             if (btn == BTN_A) set_sub(GAMEPLAY_SUB_WAITING_CARD);

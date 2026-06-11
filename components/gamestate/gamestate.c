@@ -6,26 +6,41 @@
 
 static const char *TAG = "GAMESTATE";
 
-static uint32_t        s_elapsed_ms         = 0;
-static uint8_t         s_vidas              = VIDAS_INICIAIS;
-static game_result_t   s_result             = RESULT_EM_ANDAMENTO;
-static bool            s_expediente_ativo   = false;
+static uint32_t        s_elapsed_ms       = 0;
+static uint8_t         s_vidas            = VIDAS_INICIAIS;
+static game_result_t   s_result           = RESULT_EM_ANDAMENTO;
+static bool            s_expediente_ativo = false;
 
 /* Estado das tarefas */
-static tarefa_estado_t s_verde_estado       = TAREFA_AGUARDANDO;
-static tarefa_estado_t s_amarela_estado     = TAREFA_AGUARDANDO;
+static tarefa_estado_t s_verde_estado      = TAREFA_AGUARDANDO;
+static tarefa_estado_t s_amarela_estado[2] = { TAREFA_AGUARDANDO, TAREFA_AGUARDANDO };
 
-/* Momento alvo (ms de expediente) em que cada tarefa spawna — decidido
- * aleatoriamente na primeira vez que o minimo e atingido. 0 = nao decidido. */
-static uint32_t        s_verde_spawn_at     = 0;
-static uint32_t        s_amarela_spawn_at   = 0;
+/* Seleção salva da tarefa verde */
+static const char *s_verde_usuario = NULL;
+static const char *s_verde_senha   = NULL;
 
-/* Momento do ultimo spawn (para garantir gap entre spawns). */
-static uint32_t        s_last_spawn_ms      = 0;
+/* ── Sequência scripted ─────────────────────────────────────────────────────
+ *
+ * Ordem dos eventos por run:
+ *   1. VERDE          (senha)           — t_verde_spawn
+ *   2. AMARELA #1     (srv_primeiro)    — t_am1_spawn
+ *   3. DDoS           (srv_segundo)     — t_ddos_spawn  [gate para threat.c]
+ *   4. AMARELA #2     (srv_segundo)     — t_am2_spawn
+ *   5. RANSOMWARE     (srv_primeiro)    — t_ransom_spawn [gate para threat.c]
+ *                                         calculado para terminar RANSOM_END_BEFORE_MS
+ *                                         antes do fim do expediente, e nunca antes de
+ *                                         AMARELA_TOLERANCIA_MS após amarela #1.
+ *
+ * srv_primeiro e srv_segundo são sorteados no reset (0 ou 1).
+ * ─────────────────────────────────────────────────────────────────────────── */
+static uint8_t  s_srv_primeiro   = 0;
+static uint8_t  s_srv_segundo    = 1;
 
-/* Selecao salva da tarefa verde (ponteiros para literais estaticos). */
-static const char     *s_verde_usuario      = NULL;
-static const char     *s_verde_senha        = NULL;
+static uint32_t s_t_verde_spawn  = 0;
+static uint32_t s_t_am1_spawn    = 0;
+static uint32_t s_t_ddos_spawn   = 0;
+static uint32_t s_t_am2_spawn    = 0;
+static uint32_t s_t_ransom_spawn = 0;
 
 static void reset_all(void)
 {
@@ -33,13 +48,63 @@ static void reset_all(void)
     s_vidas            = VIDAS_INICIAIS;
     s_result           = RESULT_EM_ANDAMENTO;
     s_expediente_ativo = false;
-    s_verde_estado     = TAREFA_AGUARDANDO;
-    s_amarela_estado   = TAREFA_AGUARDANDO;
-    s_verde_spawn_at   = 0;
-    s_amarela_spawn_at = 0;
-    s_last_spawn_ms    = 0;
+    s_verde_estado        = TAREFA_AGUARDANDO;
+    s_amarela_estado[0]   = TAREFA_AGUARDANDO;
+    s_amarela_estado[1]   = TAREFA_AGUARDANDO;
     s_verde_usuario    = NULL;
     s_verde_senha      = NULL;
+
+    /* Sorteia qual servidor recebe amarela #1 e ransomware. */
+    s_srv_primeiro = (uint8_t)(esp_random() & 1u);
+    s_srv_segundo  = 1u - s_srv_primeiro;
+
+    /* Calcula os tempos de spawn distribuídos pelo expediente INTEIRO.
+     *
+     * Cada evento fica ~20% do expediente após o anterior (step = E/5), com
+     * piso de TAREFA_SPAWN_GAP_MS — em qualquer calibração de relógio.
+     *
+     * (Antes: o intervalo [verde, alvo_ransom] era dividido em 4. Com
+     * expediente curto o alvo caía perto do verde e TODOS os eventos
+     * spawnavam praticamente juntos, deixando o resto do dia vazio.)
+     *
+     * Verde ──step── Am1 ──step── DDoS ──step── Am2 ──step── Ransom
+     */
+    const uint32_t ransom_dur = (VERMELHO_TIMER_MS * 13u) / 10u;
+
+    uint32_t step = EXPEDIENTE_DURACAO_MS / 5u;
+    if (step < TAREFA_SPAWN_GAP_MS) step = TAREFA_SPAWN_GAP_MS;
+
+    s_t_verde_spawn  = VERDE_SPAWN_MS;
+    s_t_am1_spawn    = s_t_verde_spawn + step;
+    s_t_ddos_spawn   = s_t_verde_spawn + 2u * step;
+    s_t_am2_spawn    = s_t_verde_spawn + 3u * step;
+    s_t_ransom_spawn = s_t_verde_spawn + 4u * step;
+
+    /* Âncora de fim: se o ransomware couber terminando RANSOM_END_BEFORE_MS
+     * antes das 18:00 sem colar no AMARELA #2, usa esse alvo. Senão mantém
+     * o espaçamento uniforme — o ataque pode atravessar as 18:00 e a
+     * vitória no fim do expediente continua valendo. */
+    if (EXPEDIENTE_DURACAO_MS > RANSOM_END_BEFORE_MS + ransom_dur) {
+        const uint32_t alvo = EXPEDIENTE_DURACAO_MS - RANSOM_END_BEFORE_MS - ransom_dur;
+        if (alvo >= s_t_am2_spawn + TAREFA_SPAWN_GAP_MS) {
+            s_t_ransom_spawn = alvo;
+        }
+    }
+
+    /* Ransomware (mesmo servidor da amarela #1) só vem depois do jogador ter
+     * tido tempo de trocar os HDs. Em expedientes curtos a tolerância é
+     * limitada ao próprio step pra não empurrar o spawn pra fora do dia. */
+    const uint32_t tol = (AMARELA_TOLERANCIA_MS < step) ? AMARELA_TOLERANCIA_MS : step;
+    if (s_t_ransom_spawn < s_t_am1_spawn + tol) {
+        s_t_ransom_spawn = s_t_am1_spawn + tol;
+    }
+
+    ESP_LOGI(TAG,
+        "seq: srv_pri=%u srv_seg=%u | verde=%u am1=%u ddos=%u am2=%u ransom=%u (ms)",
+        (unsigned)s_srv_primeiro, (unsigned)s_srv_segundo,
+        (unsigned)s_t_verde_spawn, (unsigned)s_t_am1_spawn,
+        (unsigned)s_t_ddos_spawn,  (unsigned)s_t_am2_spawn,
+        (unsigned)s_t_ransom_spawn);
 }
 
 void gamestate_init(void)  { reset_all(); }
@@ -65,55 +130,47 @@ void gamestate_tick(uint32_t dt_ms)
     }
 
     /* === Tarefa VERDE === */
-    if (s_verde_estado == TAREFA_AGUARDANDO) {
-        if (s_verde_spawn_at == 0 && s_elapsed_ms >= TAREFA_VERDE_MIN_MS) {
-            uint32_t rnd = (TAREFA_VERDE_RAND_MS > 0)
-                           ? (esp_random() % TAREFA_VERDE_RAND_MS) : 0;
-            s_verde_spawn_at = s_elapsed_ms + rnd;
-        }
-        if (s_verde_spawn_at > 0 && s_elapsed_ms >= s_verde_spawn_at) {
-            uint32_t pode = (s_last_spawn_ms > 0)
-                            ? s_last_spawn_ms + TAREFA_SPAWN_GAP_MS : 0;
-            if (s_elapsed_ms >= pode) {
-                s_verde_estado  = TAREFA_DISPONIVEL;
-                s_last_spawn_ms = s_elapsed_ms;
-                ESP_LOGI(TAG, "tarefa VERDE disponivel (t=%u ms)", (unsigned)s_elapsed_ms);
-            }
-        }
+    if (s_verde_estado == TAREFA_AGUARDANDO && s_elapsed_ms >= s_t_verde_spawn) {
+        s_verde_estado = TAREFA_DISPONIVEL;
+        ESP_LOGI(TAG, "VERDE disponivel (t=%u ms)", (unsigned)s_elapsed_ms);
     }
 
-    /* === Tarefa AMARELA === */
-    if (s_amarela_estado == TAREFA_AGUARDANDO) {
-        if (s_amarela_spawn_at == 0 && s_elapsed_ms >= TAREFA_AMARELA_MIN_MS) {
-            uint32_t rnd = (TAREFA_AMARELA_RAND_MS > 0)
-                           ? (esp_random() % TAREFA_AMARELA_RAND_MS) : 0;
-            s_amarela_spawn_at = s_elapsed_ms + rnd;
-        }
-        if (s_amarela_spawn_at > 0 && s_elapsed_ms >= s_amarela_spawn_at) {
-            uint32_t pode = (s_last_spawn_ms > 0)
-                            ? s_last_spawn_ms + TAREFA_SPAWN_GAP_MS : 0;
-            if (s_elapsed_ms >= pode) {
-                s_amarela_estado = TAREFA_DISPONIVEL;
-                s_last_spawn_ms  = s_elapsed_ms;
-                ESP_LOGI(TAG, "tarefa AMARELA disponivel (t=%u ms)", (unsigned)s_elapsed_ms);
-            }
-        }
+    /* === Tarefa AMARELA #1 (srv_primeiro) === */
+    if (s_amarela_estado[s_srv_primeiro] == TAREFA_AGUARDANDO &&
+        s_elapsed_ms >= s_t_am1_spawn) {
+        s_amarela_estado[s_srv_primeiro] = TAREFA_DISPONIVEL;
+        ESP_LOGI(TAG, "AMARELA #1 srv%u disponivel (t=%u ms)",
+                 (unsigned)s_srv_primeiro, (unsigned)s_elapsed_ms);
+    }
+
+    /* === Tarefa AMARELA #2 (srv_segundo) === */
+    if (s_amarela_estado[s_srv_segundo] == TAREFA_AGUARDANDO &&
+        s_elapsed_ms >= s_t_am2_spawn) {
+        s_amarela_estado[s_srv_segundo] = TAREFA_DISPONIVEL;
+        ESP_LOGI(TAG, "AMARELA #2 srv%u disponivel (t=%u ms)",
+                 (unsigned)s_srv_segundo, (unsigned)s_elapsed_ms);
     }
 }
 
-tarefa_estado_t gamestate_verde_estado(void)   { return s_verde_estado; }
-tarefa_estado_t gamestate_amarela_estado(void) { return s_amarela_estado; }
+tarefa_estado_t gamestate_verde_estado(void) { return s_verde_estado; }
+
+tarefa_estado_t gamestate_amarela_estado(uint8_t srv)
+{
+    return (srv < 2) ? s_amarela_estado[srv] : TAREFA_AGUARDANDO;
+}
 
 void gamestate_concluir_verde(void)
 {
     s_verde_estado = TAREFA_CONCLUIDA;
-    ESP_LOGI(TAG, "tarefa VERDE marcada como concluida");
+    ESP_LOGI(TAG, "VERDE concluida");
 }
 
-void gamestate_concluir_amarela(void)
+void gamestate_concluir_amarela(uint8_t srv)
 {
-    s_amarela_estado = TAREFA_CONCLUIDA;
-    ESP_LOGI(TAG, "tarefa AMARELA marcada como concluida");
+    if (srv < 2) {
+        s_amarela_estado[srv] = TAREFA_CONCLUIDA;
+        ESP_LOGI(TAG, "AMARELA srv%u concluida", (unsigned)srv);
+    }
 }
 
 void gamestate_salvar_verde_selecao(const char *usuario, const char *senha)
@@ -128,9 +185,18 @@ void gamestate_verde_selecao_get(const char **usuario, const char **senha)
     if (senha)   *senha   = s_verde_senha;
 }
 
-bool gamestate_vermelho_pode_spawnar(void)
+bool gamestate_ddos_pode_spawnar(uint8_t srv)
 {
-    return s_expediente_ativo && s_elapsed_ms >= TAREFA_VERMELHO_MIN_MS;
+    return s_expediente_ativo
+        && (srv == s_srv_segundo)
+        && (s_elapsed_ms >= s_t_ddos_spawn);
+}
+
+bool gamestate_ransomware_pode_spawnar(uint8_t srv)
+{
+    return s_expediente_ativo
+        && (srv == s_srv_primeiro)
+        && (s_elapsed_ms >= s_t_ransom_spawn);
 }
 
 uint16_t gamestate_get_clock_minutes(void)

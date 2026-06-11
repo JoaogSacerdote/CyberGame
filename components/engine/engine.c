@@ -19,6 +19,8 @@
 #include "button_hal.h"
 #include "joystick_hal.h"
 #include "ws2812_hal.h"
+#include "buzzer_hal.h"
+#include "melody_player.h"
 
 #include "debug_overlay.h"
 #include "entity_pool.h"
@@ -30,7 +32,6 @@
 #include "esp_random.h"
 #include "nfc_hal.h"
 #include "nfc_config.h"
-#include "screen_tarefa_vermelha.h"
 #include "screen_web_setor.h"
 #include <string.h>
 
@@ -38,6 +39,12 @@
  * DEBUG_COMBO_HOLD_MS. Botoes opostos, raramente segurados juntos
  * em gameplay normal. Y+START ja eh usado em main.c para detect_dev_combo. */
 #define DEBUG_COMBO_HOLD_MS   2000
+
+/* Bip de feedback de clique do BTN_A. Piezo passivo nao tem controle de
+ * amplitude — "baixo" vem da frequencia longe da ressonancia (~4 kHz)
+ * e da duracao curta. */
+#define CLICK_BEEP_FREQ_HZ    1000
+#define CLICK_BEEP_DUR_MS     30
 
 /* === LED Animation ======================================================= */
 typedef enum { LED_ANIM_NONE = 0, LED_ANIM_DEFEAT, LED_ANIM_MITIG } led_anim_t;
@@ -56,62 +63,67 @@ static const char *TAG = "ENGINE";
 
 static bool s_nfc_initialized = false;
 
-static carta_id_t nfc_resolve_uid(const nfc_card_t *card)
-{
-    if (card->uid_len >= 4) {
-        ESP_LOGI(TAG, "NFC UID: %02X:%02X:%02X:%02X (len=%u) — copie para nfc_config.h",
-                 card->uid[0], card->uid[1], card->uid[2], card->uid[3], card->uid_len);
-    }
-    for (int i = 0; i < (int)CARTA_MAX_COUNT; i++) {
-        if (card->uid_len == NFC_CARTAS[i].uid_len &&
-            memcmp(card->uid, NFC_CARTAS[i].uid, card->uid_len) == 0) {
-            ESP_LOGI(TAG, "NFC: carta reconhecida: %s", NFC_CARTAS[i].nome);
-            return NFC_CARTAS[i].carta;
-        }
-    }
-    ESP_LOGW(TAG, "NFC: UID desconhecido — assumindo CARTA_BALANCEAMENTO (atualize nfc_config.h)");
-    return CARTA_BALANCEAMENTO;
-}
-
 static void nfc_poll_tick(void)
 {
     if (!s_nfc_initialized) return;
-    if (fsm_get_state() != GAME_STATE_GAMEPLAY) return;
-    if (fsm_get_gameplay_sala() != GAMEPLAY_SALA_EMPRESA) return;
 
-    const bool vm_open = screen_tarefa_vermelha_is_open();
-    const bool ws_esq  = screen_web_setor_is_open(WEB_SETOR_ESQUERDA);
-    const bool ws_dir  = screen_web_setor_is_open(WEB_SETOR_DIREITA);
-    if (!vm_open && !ws_esq && !ws_dir) return;
+    /* Carta vale sempre que ha ataque ativo na EMPRESA — com ou sem a tela
+     * do setor aberta. (Antes exigia a tela aberta: carta encostada com o
+     * jogador andando pelo escritorio era ignorada.) */
+    const bool in_empresa =
+        (fsm_get_state() == GAME_STATE_GAMEPLAY) &&
+        (fsm_get_gameplay_sala() == GAMEPLAY_SALA_EMPRESA);
+    const bool atk_esq = in_empresa && threat_get_active(0, NULL);
+    const bool atk_dir = in_empresa && threat_get_active(1, NULL);
+
+    if (!atk_esq && !atk_dir) {
+        /* Sem ataque mitigavel: DRENA a fila. Sem isso, carta encostada fora
+         * de hora ficava enfileirada (depth 4) e ou aplicava sozinha quando
+         * o ataque comecava, ou enchia a fila e descartava leituras novas. */
+        nfc_card_t stale;
+        while (nfc_hal_wait_card(&stale, 0)) {
+            ESP_LOGI(TAG, "NFC: carta fora de ataque — ignorada (UID %02X:%02X:%02X:%02X)",
+                     stale.uid[0], stale.uid[1], stale.uid[2], stale.uid[3]);
+        }
+        return;
+    }
 
     nfc_card_t card;
     if (!nfc_hal_wait_card(&card, 0)) return;
 
-    const carta_id_t carta = nfc_resolve_uid(&card);
-
-    /* Setor web tem prioridade — carta vai para a tela visual E para o threat. */
-    if (ws_esq || ws_dir) {
-        extern void lv_lock(void);
-        extern void lv_unlock(void);
-        lv_lock();
-        if (ws_esq) screen_web_setor_on_carta(WEB_SETOR_ESQUERDA, carta);
-        if (ws_dir) screen_web_setor_on_carta(WEB_SETOR_DIREITA,  carta);
-        lv_unlock();
-        /* Mantém o threat system sincronizado (LEDs de mitigação, vidas, etc.). */
-        const defesa_resultado_t r = threat_mitigate(carta);
-        if (r == DEFESA_CORRETO) s_req_mitig = true;
+    carta_id_t carta;
+    if (!nfc_uid_to_carta(card.uid, card.uid_len, &carta)) {
+        /* UID nao cadastrado: nao aplica carta e loga o UID para facilitar cadastro. */
+        if (card.uid_len >= 4) {
+            ESP_LOGW(TAG, "NFC UID desconhecido: %02X:%02X:%02X:%02X... (len=%u) "
+                          "— carta ignorada; atualize nfc_config.h",
+                     card.uid[0], card.uid[1], card.uid[2], card.uid[3], card.uid_len);
+        }
         return;
     }
+    ESP_LOGI(TAG, "NFC: carta reconhecida: %s", carta_nome(carta));
 
-    /* Tarefa vermelha: fluxo existente via threat_mitigate. */
-    const defesa_resultado_t r = threat_mitigate(carta);
-    if (r == DEFESA_CORRETO) {
-        s_req_mitig = true;
-        ESP_LOGI(TAG, "NFC: DDoS mitigado com carta %d", (int)carta);
-    } else if (r == DEFESA_AGRAVA) {
-        ESP_LOGW(TAG, "NFC: carta agravou o ataque");
-    } else {
-        ESP_LOGI(TAG, "NFC: sem ataque ativo ou carta inutil (res=%d)", (int)r);
+    /* UI do setor so e notificada se a tela estiver aberta; o modelo
+     * (threat_mitigate) e aplicado sempre. */
+    extern void lv_lock(void);
+    extern void lv_unlock(void);
+    lv_lock();
+    if (atk_esq && screen_web_setor_is_open(WEB_SETOR_ESQUERDA))
+        screen_web_setor_on_carta(WEB_SETOR_ESQUERDA, carta);
+    if (atk_dir && screen_web_setor_is_open(WEB_SETOR_DIREITA))
+        screen_web_setor_on_carta(WEB_SETOR_DIREITA,  carta);
+    lv_unlock();
+
+    for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
+        if (!(srv == 0 ? atk_esq : atk_dir)) continue;
+        const defesa_resultado_t r = threat_mitigate(srv, carta);
+        if (r == DEFESA_CORRETO) {
+            s_req_mitig = true;
+        } else if (r == DEFESA_CONTIDO) {
+            ESP_LOGI(TAG, "NFC: srv%u — ransomware CONTIDO, falta o Backup", (unsigned)srv);
+        } else if (r == DEFESA_AGRAVA) {
+            ESP_LOGW(TAG, "NFC: srv%u — carta agravou o ataque", (unsigned)srv);
+        }
     }
 }
 
@@ -125,6 +137,9 @@ static TaskHandle_t  s_task          = NULL;
 static bool          s_initialized   = false;
 static bool          s_test_mode     = false;   /* jogador-fantasma (DEV) */
 
+static bool          s_server_lost[THREAT_SERVER_COUNT];
+static ataque_tipo_t s_server_lost_tipo[THREAT_SERVER_COUNT];
+
 void engine_set_test_mode(bool enable) { s_test_mode = enable; }
 
 static void button_reader_task(void *pv)
@@ -133,6 +148,11 @@ static void button_reader_task(void *pv)
     button_event_t bev;
     while (1) {
         if (button_hal_get_event(&bev, UINT32_MAX)) {
+            /* Feedback sonoro de clique: todo aperto de BTN_A passa por aqui
+             * (eventos ja debounced), entao um unico ponto cobre todas as telas. */
+            if (bev.id == BTN_A && bev.state == BTN_PRESSED) {
+                buzzer_hal_beep(CLICK_BEEP_FREQ_HZ, CLICK_BEEP_DUR_MS);
+            }
             const fsm_event_t fev = {
                 .kind = FSM_EVT_BUTTON,
                 .payload.button.id    = (uint8_t)bev.id,
@@ -217,20 +237,26 @@ static void update_debug_combo(uint32_t dt_ms)
  * Retorna 0=CORRETO, 1=INUTIL, 2=AGRAVA, -1=sem ataque ativo. */
 static int engine_card_resolver(int mock_card)
 {
+    /* Usa o servidor com ataque ativo (preferência para o servidor 0). */
+    uint8_t srv = 0;
     threat_state_t st;
-    if (!threat_get_active(&st)) {
-        return -1;
+    if (!threat_get_active(0, &st)) {
+        if (!threat_get_active(1, &st)) return -1;
+        srv = 1;
     }
     carta_id_t carta;
     if (mock_card == 0) {
-        carta = threat_carta_correta(st.tipo);
+        /* Ransomware congelado: a carta "correta" passa a ser o Backup. */
+        carta = threat_is_congelado(srv) ? CARTA_BACKUP
+                                         : threat_carta_correta(st.tipo);
     } else {
         const carta_id_t certa = threat_carta_correta(st.tipo);
         carta = (certa == CARTA_ISOLAMENTO) ? CARTA_BACKUP : CARTA_ISOLAMENTO;
     }
-    const defesa_resultado_t r = threat_mitigate(carta);
+    const defesa_resultado_t r = threat_mitigate(srv, carta);
     if (r == DEFESA_CORRETO) s_req_mitig = true;
-    return (r == DEFESA_CORRETO) ? 0 : (r == DEFESA_INUTIL ? 1 : 2);
+    if (r == DEFESA_CORRETO || r == DEFESA_CONTIDO) return 0;
+    return (r == DEFESA_INUTIL) ? 1 : 2;
 }
 
 /* LEDs durante GAMEPLAY (empresa):
@@ -300,15 +326,20 @@ static void gameplay_leds_tick(uint32_t dt_ms)
         /* Animacao terminou: cai para comportamento normal abaixo */
     }
 
-    /* Comportamento normal baseado no progresso do ataque */
+    /* Comportamento normal: usa o servidor com maior progresso para os LEDs. */
     threat_state_t ts;
-    const bool atk = threat_get_active(&ts);
-    const uint8_t pct = atk ? threat_progress_pct() : 0;
+    const bool atk0 = threat_get_active(0, &ts);
+    const bool atk1 = threat_get_active(1, &ts);
+    const bool atk  = atk0 || atk1;
+    const uint8_t pct0 = atk0 ? threat_progress_pct(0) : 0;
+    const uint8_t pct1 = atk1 ? threat_progress_pct(1) : 0;
+    const uint8_t pct  = (pct0 >= pct1) ? pct0 : pct1;
 
     if (!atk) {
         /* LED acende apenas se a tarefa esta DISPONIVEL (nao concluida, nao pendente). */
         const bool vd_on = (gamestate_verde_estado()   == TAREFA_DISPONIVEL);
-        const bool am_on = (gamestate_amarela_estado()  == TAREFA_DISPONIVEL);
+        const bool am_on = (gamestate_amarela_estado(0) == TAREFA_DISPONIVEL ||
+                             gamestate_amarela_estado(1) == TAREFA_DISPONIVEL);
         ws2812_hal_set_pixel(0, 0, vd_on ? LED_SCALE(80) : 0, 0);
         ws2812_hal_set_pixel(1, am_on ? LED_SCALE(100) : 0, am_on ? LED_SCALE(100) : 0, 0);
         ws2812_hal_set_pixel(2, 0, 0, 0);
@@ -363,15 +394,27 @@ static void gameplay_model_tick(uint32_t dt_ms)
      * sem dependência circular em threat.h. */
     {
         threat_state_t ts_flag;
-        fsm_set_attack_active(threat_get_active(&ts_flag));
+        fsm_set_attack_active(threat_get_active(0, &ts_flag) ||
+                              threat_get_active(1, &ts_flag));
     }
 
-    /* Ataques vermelhos so iniciam apos TAREFA_VERMELHO_MIN_MS de expediente. */
-    if (gamestate_vermelho_pode_spawnar()) {
-        if (threat_tick(dt_ms)) {        /* ataque expirou -> setor destruido */
+    /* threat_tick cuida do gating via gamestate — sempre chamar. */
+    for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
+        /* Captura tipo do ataque antes do tick (apos expirar, o estado e limpo). */
+        threat_state_t ts_pre;
+        const bool pre_active = threat_get_active(srv, &ts_pre);
+
+        if (threat_tick(srv, dt_ms)) {   /* ataque expirou -> setor destruido */
+            if (pre_active) {
+                s_server_lost[srv]      = true;
+                s_server_lost_tipo[srv] = ts_pre.tipo;
+            }
             s_req_defeat = true;
             gamestate_perder_vida();
-            ESP_LOGW(TAG, "[LOOP] setor destruido! vidas=%u", gamestate_get_vidas());
+            ESP_LOGW(TAG, "[LOOP] srv%u destruido por %s! vidas=%u",
+                     (unsigned)srv,
+                     pre_active ? ataque_nome(ts_pre.tipo) : "?",
+                     gamestate_get_vidas());
             if (gamestate_get_vidas() == 0) {
                 gamestate_set_result(RESULT_DERROTA);
                 ESP_LOGW(TAG, "[LOOP] sem vidas -> DERROTA");
@@ -381,28 +424,26 @@ static void gameplay_model_tick(uint32_t dt_ms)
         }
     }
 
-    /* Sincroniza ataques com a tela do setor web se ela estiver aberta.
-     * ddos_start/ransomware_start são idempotentes: retornam imediatamente
-     * se o ataque visual já foi iniciado, então é seguro chamar cada tick. */
+    /* Sincroniza ataques com a tela do setor web (por servidor).
+     * ddos_start/ransomware_start são idempotentes. */
     {
-        threat_state_t ts_ws;
-        if (threat_get_active(&ts_ws)) {
-            extern void lv_lock(void);
-            extern void lv_unlock(void);
-            lv_lock();
-            if (ts_ws.tipo == ATAQUE_DDOS) {
-                if (screen_web_setor_is_open(WEB_SETOR_ESQUERDA))
-                    screen_web_setor_ddos_start(WEB_SETOR_ESQUERDA);
-                if (screen_web_setor_is_open(WEB_SETOR_DIREITA))
-                    screen_web_setor_ddos_start(WEB_SETOR_DIREITA);
-            } else if (ts_ws.tipo == ATAQUE_RANSOMWARE) {
-                if (screen_web_setor_is_open(WEB_SETOR_ESQUERDA))
-                    screen_web_setor_ransomware_start(WEB_SETOR_ESQUERDA);
-                if (screen_web_setor_is_open(WEB_SETOR_DIREITA))
-                    screen_web_setor_ransomware_start(WEB_SETOR_DIREITA);
+        extern void lv_lock(void);
+        extern void lv_unlock(void);
+        lv_lock();
+        for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
+            threat_state_t ts_ws;
+            if (threat_get_active(srv, &ts_ws)) {
+                const web_setor_id_t wsid = (web_setor_id_t)srv;
+                if (ts_ws.tipo == ATAQUE_DDOS) {
+                    if (screen_web_setor_is_open(wsid))
+                        screen_web_setor_ddos_start(wsid);
+                } else if (ts_ws.tipo == ATAQUE_RANSOMWARE) {
+                    if (screen_web_setor_is_open(wsid))
+                        screen_web_setor_ransomware_start(wsid);
+                }
             }
-            lv_unlock();
         }
+        lv_unlock();
     }
 
     if (gamestate_get_clock_minutes() >= HORA_FIM_JOGO_MIN) {
@@ -423,15 +464,17 @@ static void gameplay_sim_selftest(void)
     uint32_t t;
     int mit, perdas;
 
-    ESP_LOGI(TAG, "=== SIM loop A: mitiga sempre ===");
-    gamestate_reset(); threat_init();
+    ESP_LOGI(TAG, "=== SIM loop A: mitiga sempre (srv0) ===");
+    gamestate_reset(); threat_init(); gamestate_iniciar_expediente();
     t = 0; mit = 0; perdas = 0;
     while (gamestate_get_clock_minutes() < HORA_FIM_JOGO_MIN &&
            gamestate_get_vidas() > 0 && t < LIMITE) {
         gamestate_tick(DT);
-        if (threat_tick(DT)) { gamestate_perder_vida(); perdas++; }
-        if (threat_get_active(&st)) {
-            if (threat_mitigate(threat_carta_correta(st.tipo)) == DEFESA_CORRETO) mit++;
+        for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
+            if (threat_tick(srv, DT)) { gamestate_perder_vida(); perdas++; }
+            if (threat_get_active(srv, &st)) {
+                if (threat_mitigate(srv, threat_carta_correta(st.tipo)) == DEFESA_CORRETO) mit++;
+            }
         }
         t += DT;
     }
@@ -440,12 +483,14 @@ static void gameplay_sim_selftest(void)
              gamestate_get_vidas() > 0 ? "VITORIA" : "DERROTA");
 
     ESP_LOGI(TAG, "=== SIM loop B: nunca mitiga ===");
-    gamestate_reset(); threat_init();
+    gamestate_reset(); threat_init(); gamestate_iniciar_expediente();
     t = 0; perdas = 0;
     while (gamestate_get_clock_minutes() < HORA_FIM_JOGO_MIN &&
            gamestate_get_vidas() > 0 && t < LIMITE) {
         gamestate_tick(DT);
-        if (threat_tick(DT)) { gamestate_perder_vida(); perdas++; }
+        for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
+            if (threat_tick(srv, DT)) { gamestate_perder_vida(); perdas++; }
+        }
         t += DT;
     }
     ESP_LOGI(TAG, "  B: perdas=%d vidas=%u relogio=%umin -> %s",
@@ -505,15 +550,17 @@ static void ghost_player_task(void *pv)
             const uint16_t min = gamestate_get_clock_minutes();
             if (min != last_min) {
                 threat_state_t ts;
-                const bool atk = threat_get_active(&ts);
-                ESP_LOGI(TAG, "[GHOST] %02u:%02u | vidas=%u | ataque=%s",
+                const bool atk0 = threat_get_active(0, &ts);
+                const bool atk1 = threat_get_active(1, &ts);
+                ESP_LOGI(TAG, "[GHOST] %02u:%02u | vidas=%u | srv0=%s srv1=%s",
                          min / 60, min % 60, gamestate_get_vidas(),
-                         atk ? ataque_nome(ts.tipo) : "nenhum");
+                         atk0 ? ataque_nome(ts.tipo) : "ok",
+                         atk1 ? ataque_nome(ts.tipo) : "ok");
                 last_min = min;
             }
 
             threat_state_t ts;
-            if (threat_get_active(&ts)) {
+            if (threat_get_active(0, &ts) || threat_get_active(1, &ts)) {
                 switch (fsm_get_gameplay_substate()) {
                     case GAMEPLAY_SUB_EXPLORANDO:      ghost_inject_button(BTN_Y); break;
                     case GAMEPLAY_SUB_TERMINAL_ABERTO: ghost_inject_button(BTN_A); break;
@@ -563,6 +610,44 @@ static void rainbow_leds_tick(uint32_t dt_ms)
     ws2812_hal_refresh();
 }
 
+/* Controla qual melodia toca com base no estado macro da FSM e nos ataques.
+ * Chamado a cada tick; usa variáveis estáticas para detectar mudanças. */
+static void music_tick(void)
+{
+    static game_state_t    s_last_state = (game_state_t)-1;
+    static gameplay_sala_t s_last_sala  = (gameplay_sala_t)-1;
+    static bool            s_last_atk  = false;
+
+    const game_state_t    state = fsm_get_state();
+    const gameplay_sala_t sala  = fsm_get_gameplay_sala();
+    const bool            atk   = fsm_get_attack_active();
+
+    if (state == s_last_state && sala == s_last_sala && atk == s_last_atk) {
+        return;
+    }
+    s_last_state = state;
+    s_last_sala  = sala;
+    s_last_atk   = atk;
+
+    switch (state) {
+        case GAME_STATE_MENU:
+            melody_player_play(MELODY_RECEPCAO, true);
+            break;
+        case GAME_STATE_GAMEPLAY:
+            if (sala == GAMEPLAY_SALA_RECEPCAO) {
+                melody_player_play(MELODY_RECEPCAO, true);
+            } else if (atk) {
+                melody_player_play(MELODY_ATAQUE, true);
+            } else {
+                melody_player_play(MELODY_ESCRITORIO, true);
+            }
+            break;
+        default:
+            melody_player_stop();
+            break;
+    }
+}
+
 static void engine_task(void *pv)
 {
     (void)pv;
@@ -601,6 +686,7 @@ static void engine_task(void *pv)
             gameplay_model_tick(dt_ms);   /* relogio + ataques + vitoria/derrota */
             gameplay_leds_tick(dt_ms);    /* LEDs de tarefa/perigo */
             nfc_poll_tick();              /* NFC — mitiga DDoS via carta fisica */
+            music_tick();                 /* melodia de fundo via buzzer */
             if (fsm_get_state() == GAME_STATE_MENU) {
                 rainbow_leds_tick(dt_ms);
             }
@@ -630,6 +716,8 @@ static void engine_task(void *pv)
                 threat_init();
                 screen_tarefa_amarela_reset();
                 fsm_set_attack_active(false);
+                memset(s_server_lost,      0, sizeof(s_server_lost));
+                memset(s_server_lost_tipo, 0, sizeof(s_server_lost_tipo));
                 s_led_anim   = LED_ANIM_NONE;
                 s_req_defeat = false;
                 s_req_mitig  = false;
@@ -655,6 +743,7 @@ esp_err_t engine_init(void)
     ESP_RETURN_ON_FALSE(s_event_queue != NULL, ESP_ERR_NO_MEM, TAG, "queue alloc failed");
 
     ESP_RETURN_ON_ERROR(fsm_init(), TAG, "fsm_init failed");
+    ESP_RETURN_ON_ERROR(melody_player_init(), TAG, "melody_player_init failed");
     ESP_RETURN_ON_ERROR(entity_pool_init(), TAG, "entity_pool_init failed");
     y_sort_init();
     gamestate_init();
@@ -714,4 +803,15 @@ esp_err_t engine_start(void)
 
     ESP_LOGI(TAG, "engine_start OK (core=%d, prio=%d)", ENGINE_TASK_CORE, ENGINE_TASK_PRIO);
     return ESP_OK;
+}
+
+bool engine_server_is_lost(uint8_t srv)
+{
+    return srv < THREAT_SERVER_COUNT && s_server_lost[srv];
+}
+
+const char *engine_server_lost_nome(uint8_t srv)
+{
+    if (!engine_server_is_lost(srv)) return "";
+    return ataque_nome(s_server_lost_tipo[srv]);
 }

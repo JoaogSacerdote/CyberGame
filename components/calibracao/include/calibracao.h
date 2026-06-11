@@ -66,7 +66,7 @@
  *   50 = ~3 minutos reais  ← PADRÃO — partida desafiadora
  *  100 = ~50 segundos reais (frenético)
  * Dica: enquanto desenvolve, use 20–30 para ter tempo de explorar sem pressão. */
-#define CAL_VELOCIDADE_TEMPO          40
+#define CAL_VELOCIDADE_TEMPO          30
 
 
 /* ============================================================================
@@ -109,7 +109,7 @@
  *   1 = sem erros permitidos
  *   2 = um erro tolerado
  *   3 = padrão  ← RECOMENDADO */
-#define CAL_VIDAS_INICIAIS            3
+#define CAL_VIDAS_INICIAIS            2
 
 
 /* ============================================================================
@@ -126,7 +126,7 @@
  *  100 = correção máxima (vermelho muito intenso, pode saturar)
  * Dica: olhe a tela de game over (vermelho) e a tela de vitória (verde)
  *       e ajuste até as cores parecerem equilibradas. */
-#define CAL_BOOST_COR_VERMELHA        50
+#define CAL_BOOST_COR_VERMELHA        45
 
 
 /* ============================================================================
@@ -141,4 +141,4 @@
  *   75 = padrão recomendado  ← ponto de equilíbrio visual
  *  100 = brilho máximo (muito intenso perto dos olhos)
  * Dica: em sala escura, use 40–60 para não ofuscar. */
-#define CAL_BRILHO_LED                75
+#define CAL_BRILHO_LED                100

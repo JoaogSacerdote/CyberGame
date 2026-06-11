@@ -10,42 +10,42 @@ extern "C" {
 void     gamestate_init(void);
 void     gamestate_reset(void);
 
-/* Inicia o expediente (chamado ao entrar no escritorio pela 1a vez).
- * Idempotente — chamadas subsequentes sao no-op. */
+/* Inicia o expediente (chamado ao entrar no escritório pela 1ª vez). Idempotente. */
 void     gamestate_iniciar_expediente(void);
 bool     gamestate_expediente_ativo(void);
 
-/* Avanca o tempo. PAUSE nao deve chamar — relogio congela.
- * Internamente sorteia e dispara spawns de tarefas. */
+/* Avança o tempo. PAUSE não deve chamar — relógio congela. */
 void     gamestate_tick(uint32_t dt_ms);
 
 /* Estado das tarefas verde e amarela durante a run. */
 typedef enum {
-    TAREFA_AGUARDANDO = 0,   /* ainda nao disponivel */
+    TAREFA_AGUARDANDO = 0,   /* ainda não disponível */
     TAREFA_DISPONIVEL,        /* spawnou, aguarda jogador */
-    TAREFA_CONCLUIDA,         /* concluida; estado salvo */
+    TAREFA_CONCLUIDA,         /* concluída; estado salvo */
 } tarefa_estado_t;
 
 tarefa_estado_t  gamestate_verde_estado(void);
-tarefa_estado_t  gamestate_amarela_estado(void);
+/* srv = 0 (servidor esquerda) ou 1 (servidor direita). */
+tarefa_estado_t  gamestate_amarela_estado(uint8_t srv);
 
-/* Marca tarefa como concluida. Chamado ao confirmar na tela de tarefa. */
+/* Marca tarefa como concluída. Chamado ao confirmar na tela de tarefa. */
 void             gamestate_concluir_verde(void);
-void             gamestate_concluir_amarela(void);
+void             gamestate_concluir_amarela(uint8_t srv);
 
-/* Salva a selecao feita na tarefa verde (ponteiros para literais estaticos). */
+/* Salva a seleção feita na tarefa verde (ponteiros para literais estáticos). */
 void             gamestate_salvar_verde_selecao(const char *usuario, const char *senha);
 void             gamestate_verde_selecao_get(const char **usuario, const char **senha);
 
-/* Retorna true quando o tempo de expediente atingiu TAREFA_VERMELHO_MIN_MS,
- * liberando o spawn de ataques vermelhos. */
-bool             gamestate_vermelho_pode_spawnar(void);
+/* Gates de ataque para threat.c.
+ * Retorna true quando o ataque pode spawnar naquele servidor segundo a sequência. */
+bool             gamestate_ddos_pode_spawnar(uint8_t srv);
+bool             gamestate_ransomware_pode_spawnar(uint8_t srv);
 
 /* Compat: equivalem a estado >= DISPONIVEL. */
-static inline bool gamestate_verde_spawned(void)   { return gamestate_verde_estado()   >= TAREFA_DISPONIVEL; }
-static inline bool gamestate_amarela_spawned(void) { return gamestate_amarela_estado() >= TAREFA_DISPONIVEL; }
+static inline bool gamestate_verde_spawned(void)          { return gamestate_verde_estado()      >= TAREFA_DISPONIVEL; }
+static inline bool gamestate_amarela_spawned(uint8_t srv) { return gamestate_amarela_estado(srv) >= TAREFA_DISPONIVEL; }
 
-/* Hora atual em minutos desde meia-noite (08:00=480 ate 18:00=1080). */
+/* Hora atual em minutos desde meia-noite (08:00=480 até 18:00=1080). */
 uint16_t gamestate_get_clock_minutes(void);
 
 /* Vidas. */

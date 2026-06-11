@@ -57,7 +57,7 @@ const collision_rect_t collision_empresa_gatilhos[] = {
     /* SERVIDOR_ESQUERDA:          32x16  pivot(336,111) → tl(320,95)  */
     { .x = 320, .y =  95, .w =  32, .h =  16, .kind = AREA_SERVIDOR },
     /* SERVIDOR_DIREITA:           32x16  pivot(447,111) → tl(431,95)  */
-    { .x = 431, .y =  95, .w =  32, .h =  16, .kind = AREA_SERVIDOR },
+    { .x = 431, .y =  95, .w =  32, .h =  16, .kind = AREA_SERVIDOR_B },
     /* INTERACAO_NPC_SERVIDOR:     22x26  pivot(363,127) → tl(352,101) */
     { .x = 352, .y = 101, .w =  22, .h =  26, .kind = AREA_INTERACAO_NPC },
 };

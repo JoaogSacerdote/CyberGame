@@ -1,5 +1,6 @@
 #include "joystick_hal.h"
 #include "board_pins.h"
+#include "calibracao.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -29,7 +30,13 @@ _Static_assert(BOARD_PIN_JOY_Y_ADC == GPIO_NUM_2,
 
 #define JOY_SAMPLE_PERIOD_MS    20      /* 50 Hz */
 #define JOY_MA_WINDOW           8
-#define JOY_DEADZONE_PERCENT    5
+
+/* Zona morta efetiva do eixo: CAL_ZONA_MORTA_JOYSTICK 0→0%  50→30%  100→60%.
+ * Tem que ser aplicada AQUI: map_axis quantiza a saida pra 0/±100, entao a
+ * deadzone do game_config (PLAYER_JOY_DEADZONE) nunca filtra nada. Com o
+ * valor fixo antigo de 5%, flutuacao do ADC/centro passava facil e o
+ * personagem andava sozinho. */
+#define JOY_DEADZONE_PERCENT    ((int)((unsigned)(CAL_ZONA_MORTA_JOYSTICK) * 60u / 100u))
 
 #define JOY_CAL_SAMPLES         50
 #define JOY_CAL_INTERVAL_MS     10
@@ -64,7 +71,7 @@ static int8_t map_axis(int raw, int center)
     if (v >= -JOY_DEADZONE_PERCENT && v <= JOY_DEADZONE_PERCENT) {
         return 0;
     }
-    return (int8_t)v;
+    return (int8_t)(v > 0 ? 100 : -100);
 }
 
 static esp_err_t joystick_calibrate_center(void)

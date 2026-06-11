@@ -12,6 +12,7 @@
 #include "button_hal.h"
 #include "joystick_hal.h"
 #include "gamestate.h"
+#include "fsm.h"
 
 static const char *TAG = "TAREFA_VD";
 
@@ -254,6 +255,7 @@ static void tarefa_vd_tick(lv_timer_t *t)
 {
     (void)t;
     if (!s_overlay) return;
+    if (fsm_get_state() == GAME_STATE_PAUSE) return;   /* sala viva sob o pause */
 
     const joystick_data_t j = joystick_hal_get_state();
     const bool left  = (j.x < -50);

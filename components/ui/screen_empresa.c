@@ -23,6 +23,9 @@
 #include "screen_tarefa_amarela.h"
 #include "screen_servidor_menu.h"
 #include "screen_web_setor.h"
+#include "engine.h"
+#include "threat.h"
+#include "asset_icone_vermelho.h"
 
 static const char *TAG = "UI_EMPRESA";
 
@@ -39,13 +42,23 @@ static lv_obj_t   *s_ui_layer      = NULL;   /* overlays UI — sempre na frente
 static lv_obj_t   *s_player        = NULL;
 static entity_t   *s_player_entity = NULL;   /* referencia para atualizar sort_y */
 static lv_obj_t   *s_npc           = NULL;   /* NPC_02 (interativo) */
-static lv_obj_t   *s_icone_am    = NULL;
+/* Ícones por servidor: [0]=A(esquerda), [1]=B(direita) */
+static lv_obj_t   *s_icone_am[2] = { NULL, NULL };
+static lv_obj_t   *s_icone_vm[2] = { NULL, NULL };
 static lv_obj_t   *s_icone_vd    = NULL;
 static lv_obj_t   *s_prompt      = NULL;
 static lv_timer_t *s_timer       = NULL;
 static bool        s_npc_facing  = false;
+static web_setor_id_t s_current_srv = WEB_SETOR_ESQUERDA;
 
-static button_state_t s_a_cache = BTN_RELEASED;
+static button_state_t s_a_cache         = BTN_RELEASED;
+static uint8_t        s_tarefa_am_srv   = 0;
+/* Contador de ticks para blink dos ícones (compartilhado). */
+static uint32_t       s_blink_ticks     = 0;
+
+static lv_obj_t      *s_srv_lost_overlay = NULL;
+static lv_timer_t    *s_srv_lost_timer   = NULL;
+static button_state_t s_b_lost_cache     = BTN_RELEASED;
 
 /* === Assets UI: piso, player sheet, frames NPC_02, icones === */
 typedef enum {
@@ -66,6 +79,13 @@ static const uint16_t EMP_ASSET_ID[A_COUNT] = {
     [A_ICONE_AM]     = ASSET_EMP_ICONE_AMARELO,
     [A_ICONE_VD]     = ASSET_EMP_ICONE_VERDE,
 };
+/* Ícone vermelho vem de flash (asset_icone_vermelho.h) — não usa slot SD. */
+
+/*
+ * Deslocamento X entre servidor A (pivot 336,95) e servidor B (pivot 447,95).
+ * Usado para posicionar os ícones do servidor B relativos ao A.
+ */
+#define SRV_B_OFFSET_X  111
 static loaded_asset_t s_assets[A_COUNT];
 
 static const room_player_box_t s_player_box = {
@@ -86,22 +106,67 @@ static void on_tarefa_vd_done(tarefa_vd_result_t result)
 
 static void on_tarefa_am_done(tarefa_am_result_t result)
 {
-    ESP_LOGI(TAG, "tarefa amarela: %s",
+    ESP_LOGI(TAG, "tarefa amarela srv%u: %s", (unsigned)s_tarefa_am_srv,
              result == TAREFA_AM_CONCLUIDA ? "concluida" : "cancelada");
-    if (result == TAREFA_AM_CONCLUIDA) {
-        gamestate_concluir_amarela();
-        if (s_icone_am) lv_obj_add_flag(s_icone_am, LV_OBJ_FLAG_HIDDEN);
-    }
+    /* gamestate_concluir_amarela ja e chamado dentro de screen_tarefa_amarela. */
 }
 
 static void on_servidor_menu_done(servidor_menu_result_t result)
 {
     if (result == SERVIDOR_MENU_BACKUP) {
-        screen_tarefa_amarela_build(on_tarefa_am_done);
+        s_tarefa_am_srv = (uint8_t)s_current_srv;
+        screen_tarefa_amarela_build(s_tarefa_am_srv, on_tarefa_am_done);
     } else if (result == SERVIDOR_MENU_WEB) {
-        screen_web_setor_build(WEB_SETOR_ESQUERDA);
+        screen_web_setor_build(s_current_srv);
     }
     /* CANCELADO: retoma exploracao sem acao */
+}
+
+static void srv_lost_tick(lv_timer_t *t)
+{
+    (void)t;
+    if (!s_srv_lost_overlay) return;
+    if (fsm_get_state() == GAME_STATE_PAUSE) return;   /* sala viva sob o pause */
+    if (ui_btn_edge(BTN_B, &s_b_lost_cache)) {
+        lv_timer_delete(s_srv_lost_timer);
+        s_srv_lost_timer = NULL;
+        lv_obj_delete(s_srv_lost_overlay);
+        s_srv_lost_overlay = NULL;
+    }
+}
+
+static void show_srv_lost(uint8_t srv_id)
+{
+    if (s_srv_lost_overlay) return;
+
+    s_srv_lost_overlay = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(s_srv_lost_overlay, 480, 320);
+    lv_obj_set_pos(s_srv_lost_overlay, 0, 0);
+    lv_obj_set_style_bg_color(s_srv_lost_overlay, lv_color_hex(0x1A0000), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_srv_lost_overlay, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_srv_lost_overlay, 0, LV_PART_MAIN);
+    lv_obj_set_style_pad_all(s_srv_lost_overlay, 0, LV_PART_MAIN);
+    lv_obj_remove_flag(s_srv_lost_overlay, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_radius(s_srv_lost_overlay, 0, LV_PART_MAIN);
+
+    lv_obj_t *lbl_titulo = lv_label_create(s_srv_lost_overlay);
+    lv_label_set_text_fmt(lbl_titulo, "[ SERVIDOR %c INUTILIZADO ]", srv_id == 0 ? 'A' : 'B');
+    lv_obj_set_style_text_color(lbl_titulo, lv_color_hex(0xFF3333), LV_PART_MAIN);
+    lv_obj_set_pos(lbl_titulo, 100, 110);
+
+    lv_obj_t *lbl_causa = lv_label_create(s_srv_lost_overlay);
+    lv_label_set_text_fmt(lbl_causa, "Causa: %s", engine_server_lost_nome(srv_id));
+    lv_obj_set_style_text_color(lbl_causa, lv_color_hex(0xFF9999), LV_PART_MAIN);
+    lv_obj_set_pos(lbl_causa, 170, 155);
+
+    lv_obj_t *lbl_hint = lv_label_create(s_srv_lost_overlay);
+    lv_label_set_text(lbl_hint, "[B] Fechar");
+    lv_obj_set_style_text_color(lbl_hint, lv_color_hex(0x666666), LV_PART_MAIN);
+    lv_obj_set_pos(lbl_hint, 205, 215);
+
+    s_b_lost_cache   = button_hal_peek(BTN_B);
+    s_srv_lost_timer = lv_timer_create(srv_lost_tick, UI_TICK_MS, NULL);
+    ESP_LOGI(TAG, "servidor %u perdido: overlay aberto", (unsigned)srv_id);
 }
 
 static void empresa_tick(lv_timer_t *t)
@@ -112,22 +177,70 @@ static void empresa_tick(lv_timer_t *t)
 
     screen_hud_tick();
 
-    /* Exibe icone quando DISPONIVEL; esconde quando CONCLUIDA. */
+    s_blink_ticks++;
+
+    /* Ícone verde: pisca devagar quando disponível, some quando concluída. */
     if (s_icone_vd) {
         const tarefa_estado_t vest = gamestate_verde_estado();
-        if (vest == TAREFA_DISPONIVEL) lv_obj_remove_flag(s_icone_vd, LV_OBJ_FLAG_HIDDEN);
-        else if (vest == TAREFA_CONCLUIDA) lv_obj_add_flag(s_icone_vd, LV_OBJ_FLAG_HIDDEN);
+        if (vest == TAREFA_CONCLUIDA) {
+            lv_obj_add_flag(s_icone_vd, LV_OBJ_FLAG_HIDDEN);
+        } else if (vest == TAREFA_DISPONIVEL) {
+            /* 600ms period: 4 ticks ON, 2 ticks OFF */
+            const bool vis = (s_blink_ticks % 6) < 4;
+            if (vis) lv_obj_remove_flag(s_icone_vd, LV_OBJ_FLAG_HIDDEN);
+            else     lv_obj_add_flag   (s_icone_vd, LV_OBJ_FLAG_HIDDEN);
+        }
     }
-    if (s_icone_am) {
-        const tarefa_estado_t amst = gamestate_amarela_estado();
-        if (amst == TAREFA_DISPONIVEL) lv_obj_remove_flag(s_icone_am, LV_OBJ_FLAG_HIDDEN);
-        else if (amst == TAREFA_CONCLUIDA) lv_obj_add_flag(s_icone_am, LV_OBJ_FLAG_HIDDEN);
+
+    /* Ícones amarelo/vermelho: independentes por servidor. */
+    for (uint8_t srv = 0; srv < 2; srv++) {
+        const bool has_am = (gamestate_amarela_estado(srv) == TAREFA_DISPONIVEL);
+        const bool has_vm = threat_get_active(srv, NULL);
+
+        lv_obj_t *obj_am = s_icone_am[srv];
+        lv_obj_t *obj_vm = s_icone_vm[srv];
+
+        if (!obj_am && !obj_vm) continue;
+
+        if (!has_am && !has_vm) {
+            /* Nenhum alerta — oculta tudo. */
+            if (obj_am) lv_obj_add_flag(obj_am, LV_OBJ_FLAG_HIDDEN);
+            if (obj_vm) lv_obj_add_flag(obj_vm, LV_OBJ_FLAG_HIDDEN);
+        } else if (has_am && !has_vm) {
+            /* Só amarelo: pisca devagar (600ms period: 4 ON / 2 OFF). */
+            const bool vis = (s_blink_ticks % 6) < 4;
+            if (obj_am) {
+                if (vis) lv_obj_remove_flag(obj_am, LV_OBJ_FLAG_HIDDEN);
+                else     lv_obj_add_flag   (obj_am, LV_OBJ_FLAG_HIDDEN);
+            }
+            if (obj_vm) lv_obj_add_flag(obj_vm, LV_OBJ_FLAG_HIDDEN);
+        } else if (!has_am && has_vm) {
+            /* Só vermelho: pisca rápido (300ms period: 2 ON / 1 OFF). */
+            const bool vis = (s_blink_ticks % 3) < 2;
+            if (obj_am) lv_obj_add_flag   (obj_am, LV_OBJ_FLAG_HIDDEN);
+            if (obj_vm) {
+                if (vis) lv_obj_remove_flag(obj_vm, LV_OBJ_FLAG_HIDDEN);
+                else     lv_obj_add_flag   (obj_vm, LV_OBJ_FLAG_HIDDEN);
+            }
+        } else {
+            /* Ambos: alterna entre amarelo e vermelho a cada 500ms (5 ticks). */
+            const bool show_am = (s_blink_ticks % 10) < 5;
+            if (obj_am) {
+                if (show_am) lv_obj_remove_flag(obj_am, LV_OBJ_FLAG_HIDDEN);
+                else         lv_obj_add_flag   (obj_am, LV_OBJ_FLAG_HIDDEN);
+            }
+            if (obj_vm) {
+                if (!show_am) lv_obj_remove_flag(obj_vm, LV_OBJ_FLAG_HIDDEN);
+                else          lv_obj_add_flag   (obj_vm, LV_OBJ_FLAG_HIDDEN);
+            }
+        }
     }
 
     if (screen_tarefa_verde_is_open()   || screen_tarefa_amarela_is_open() ||
         screen_servidor_menu_is_open() ||
         screen_web_setor_is_open(WEB_SETOR_ESQUERDA) ||
-        screen_web_setor_is_open(WEB_SETOR_DIREITA)) return;
+        screen_web_setor_is_open(WEB_SETOR_DIREITA)  ||
+        s_srv_lost_overlay != NULL) return;
 
     /* Sub-FSM NFC ativa (terminal/waiting/lock/deploy): bloqueia movimento.
      * A FSM controla esses sub-estados via queue de botões. */
@@ -165,9 +278,11 @@ static void empresa_tick(lv_timer_t *t)
 
     const collision_rect_t *g = room_gatilho_at(&s_room_col, &s_player_box, s_px, s_py);
 
-    const bool near_vd  = (g && g->kind == AREA_TAREFA_VERDE);
-    const bool near_am  = (g && g->kind == AREA_TAREFA_AMARELA);
-    const bool near_srv = (g && g->kind == AREA_SERVIDOR);
+    const bool near_vd    = (g && g->kind == AREA_TAREFA_VERDE);
+    const bool near_am    = (g && g->kind == AREA_TAREFA_AMARELA);
+    const bool near_srv_a = (g && g->kind == AREA_SERVIDOR);
+    const bool near_srv_b = (g && g->kind == AREA_SERVIDOR_B);
+    const bool near_srv   = near_srv_a || near_srv_b;
 
     fsm_set_player_at_equipment(near_vd || near_am || near_srv);
 
@@ -197,16 +312,17 @@ static void empresa_tick(lv_timer_t *t)
 
     if (ui_btn_edge(BTN_A, &s_a_cache)) {
         if (near_vd) {
-            /* Zera flag antes de abrir: impede que Y na fila abra o terminal NFC
-             * por baixo da overlay de tarefa. */
             fsm_set_player_at_equipment(false);
             screen_tarefa_verde_build(on_tarefa_vd_done);
-        } else if (near_am) {
-            fsm_set_player_at_equipment(false);
-            screen_tarefa_amarela_build(on_tarefa_am_done);
         } else if (near_srv) {
             fsm_set_player_at_equipment(false);
-            screen_servidor_menu_build(on_servidor_menu_done);
+            const uint8_t srv_id = near_srv_b ? 1u : 0u;
+            if (engine_server_is_lost(srv_id)) {
+                show_srv_lost(srv_id);
+            } else {
+                s_current_srv = near_srv_b ? WEB_SETOR_DIREITA : WEB_SETOR_ESQUERDA;
+                screen_servidor_menu_build(on_servidor_menu_done);
+            }
         }
     }
 }
@@ -334,17 +450,51 @@ void screen_empresa_build(void)
         }
     }
 
-    /* Icones de tarefa — iniciam HIDDEN; mostrados so quando a tarefa spawna
-     * (gamestate_verde_spawned / gamestate_amarela_spawned disparam no tick). */
-    s_icone_am = lv_image_create(s_ui_layer);
-    lv_image_set_src(s_icone_am, &s_assets[A_ICONE_AM].dsc);
-    lv_obj_set_pos(s_icone_am, s_assets[A_ICONE_AM].off_x, s_assets[A_ICONE_AM].off_y);
-    no_scroll(s_icone_am);
-    lv_obj_add_flag(s_icone_am, LV_OBJ_FLAG_HIDDEN);
+    /* Ícones de tarefa — iniciam HIDDEN; tick controla visibilidade e blink.
+     * off_x/off_y do amarelo A dão a posição sobre o servidor A no canvas.
+     * Servidor B fica SRV_B_OFFSET_X pixels à direita (mesmo Y). */
+    const int16_t am_ax = s_assets[A_ICONE_AM].off_x;
+    const int16_t am_ay = s_assets[A_ICONE_AM].off_y;
+
+    /* Amarelo servidor A */
+    s_icone_am[0] = lv_image_create(s_ui_layer);
+    lv_image_set_src(s_icone_am[0], &s_assets[A_ICONE_AM].dsc);
+    lv_obj_set_pos(s_icone_am[0], am_ax, am_ay);
+    lv_obj_set_style_radius(s_icone_am[0], 0, LV_PART_MAIN);
+    no_scroll(s_icone_am[0]);
+    lv_obj_add_flag(s_icone_am[0], LV_OBJ_FLAG_HIDDEN);
+
+    /* Amarelo servidor B */
+    s_icone_am[1] = lv_image_create(s_ui_layer);
+    lv_image_set_src(s_icone_am[1], &s_assets[A_ICONE_AM].dsc);
+    lv_obj_set_pos(s_icone_am[1], am_ax + SRV_B_OFFSET_X, am_ay);
+    lv_obj_set_style_radius(s_icone_am[1], 0, LV_PART_MAIN);
+    no_scroll(s_icone_am[1]);
+    lv_obj_add_flag(s_icone_am[1], LV_OBJ_FLAG_HIDDEN);
+
+    /* Vermelho vem de flash (16x16 RGB565A8) — mesma posição Y do amarelo. */
+    const lv_image_dsc_t *vm_dsc = asset_icone_vermelho_get_dsc();
+
+    /* Vermelho servidor A */
+    s_icone_vm[0] = lv_image_create(s_ui_layer);
+    lv_image_set_src(s_icone_vm[0], vm_dsc);
+    lv_obj_set_pos(s_icone_vm[0], am_ax, am_ay);
+    lv_obj_set_style_radius(s_icone_vm[0], 0, LV_PART_MAIN);
+    no_scroll(s_icone_vm[0]);
+    lv_obj_add_flag(s_icone_vm[0], LV_OBJ_FLAG_HIDDEN);
+
+    /* Vermelho servidor B */
+    s_icone_vm[1] = lv_image_create(s_ui_layer);
+    lv_image_set_src(s_icone_vm[1], vm_dsc);
+    lv_obj_set_pos(s_icone_vm[1], am_ax + SRV_B_OFFSET_X, am_ay);
+    lv_obj_set_style_radius(s_icone_vm[1], 0, LV_PART_MAIN);
+    no_scroll(s_icone_vm[1]);
+    lv_obj_add_flag(s_icone_vm[1], LV_OBJ_FLAG_HIDDEN);
 
     s_icone_vd = lv_image_create(s_ui_layer);
     lv_image_set_src(s_icone_vd, &s_assets[A_ICONE_VD].dsc);
     lv_obj_set_pos(s_icone_vd, s_assets[A_ICONE_VD].off_x, s_assets[A_ICONE_VD].off_y);
+    lv_obj_set_style_radius(s_icone_vd, 0, LV_PART_MAIN);
     no_scroll(s_icone_vd);
     lv_obj_add_flag(s_icone_vd, LV_OBJ_FLAG_HIDDEN);
 
@@ -366,6 +516,17 @@ void screen_empresa_build(void)
 
 void screen_empresa_destroy(void)
 {
+    /* Overlays de gameplay sao filhos da screen LVGL (nao do s_root): fechar
+     * aqui, senao sobrevivem a troca de tela com is_open()==true e travam o
+     * tick da proxima empresa (soft-lock invisivel). Todos idempotentes. */
+    screen_web_setor_destroy(WEB_SETOR_ESQUERDA);
+    screen_web_setor_destroy(WEB_SETOR_DIREITA);
+    screen_tarefa_amarela_destroy();
+    screen_tarefa_verde_destroy();
+    screen_servidor_menu_destroy();
+
+    if (s_srv_lost_timer)   { lv_timer_delete(s_srv_lost_timer);   s_srv_lost_timer   = NULL; }
+    if (s_srv_lost_overlay) { lv_obj_delete(s_srv_lost_overlay);   s_srv_lost_overlay = NULL; }
     if (s_timer) { lv_timer_delete(s_timer); s_timer = NULL; }
     screen_hud_destroy();
     entity_pool_clear();
@@ -376,7 +537,10 @@ void screen_empresa_destroy(void)
         lv_obj_delete(s_root);
         s_root = NULL;
         s_game_layer = s_ui_layer = NULL;
-        s_icone_am = s_icone_vd = s_prompt = NULL;
+        s_icone_am[0] = s_icone_am[1] = NULL;
+        s_icone_vm[0] = s_icone_vm[1] = NULL;
+        s_icone_vd = s_prompt = NULL;
+        s_blink_ticks = 0;
     }
     free_all_assets();
 }

@@ -6,6 +6,7 @@
 #include "lvgl.h"
 #include "joystick_hal.h"
 #include "button_hal.h"
+#include "fsm.h"
 
 static const char *TAG = "SRV_MENU";
 
@@ -50,6 +51,7 @@ static void srv_menu_tick(lv_timer_t *t)
 {
     (void)t;
     if (!s_overlay) return;
+    if (fsm_get_state() == GAME_STATE_PAUSE) return;   /* sala viva sob o pause */
 
     /* Navegacao por joystick com cooldown */
     if (s_nav_cooldown > UI_TICK_MS) {

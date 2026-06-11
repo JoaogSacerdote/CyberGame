@@ -18,17 +18,26 @@ typedef enum {
 
 /* Resultado de aplicar uma carta de defesa contra um ataque ativo. */
 typedef enum {
-    DEFESA_CORRETO = 0,   /* mitiga o ataque                          */
-    DEFESA_INUTIL,        /* sem efeito — so perde tempo              */
-    DEFESA_AGRAVA,        /* piora — acelera o timer do ataque        */
+    DEFESA_CORRETO = 0,   /* mitiga o ataque                                  */
+    DEFESA_INUTIL,        /* sem efeito — so perde tempo                      */
+    DEFESA_AGRAVA,        /* piora — acelera o timer do ataque                */
+    DEFESA_CONTIDO,       /* ransomware >=50% isolado: timer CONGELA, falta o
+                             Backup de Emergencia pra restaurar               */
 } defesa_resultado_t;
 
-/* Matriz carta x ataque. Fonte: game_logic_decisions.
+/* Matriz carta x ataque. Fonte: game_logic_decisions + regra do ransomware
+ * (usuario, 2026-06-10).
  *
  *               | DDoS   | Ransomware | Propagacao
- *  Isolamento   | inutil | inutil     | CORRETO
- *  Backup       | AGRAVA | CORRETO    | inutil
+ *  Isolamento   | inutil | CORRETO*   | CORRETO
+ *  Backup       | AGRAVA | inutil*    | inutil
  *  Balanceamento| CORRETO| AGRAVA     | inutil
+ *
+ * (*) Ransomware tem regra DINAMICA implementada em threat_mitigate():
+ *     Isolamento <50% mitiga; >=50% congela (DEFESA_CONTIDO) e passa a
+ *     exigir Backup — que so funciona com a tarefa amarela do servidor
+ *     concluida (todos os HDs bons). A matriz guarda a resposta "inicial"
+ *     correta (usada por threat_carta_correta e pelo selftest).
  */
 defesa_resultado_t defense_resolve(carta_id_t carta, ataque_tipo_t ataque);
 

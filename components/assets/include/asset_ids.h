@@ -76,4 +76,6 @@ enum {
     ASSET_EMP_LIXEIRA           = 67,
     ASSET_REC_DIALOGO_01        = 68,
     ASSET_REC_PLANTA_02         = 69,
+    ASSET_TAREFA_VM_ENV_FOGO    = 70,
+    ASSET_CHIADO                = 71,
 };

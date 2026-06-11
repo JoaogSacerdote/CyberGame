@@ -6,6 +6,7 @@ idf_component_register(SRCS "pmu.c"
                             "display_hal.c"
                             "ws2812_hal.c"
                             "buzzer_hal.c"
+                            "melody_player.c"
                             "sd_hal.c"
                        INCLUDE_DIRS "include"
                        REQUIRES calibracao
