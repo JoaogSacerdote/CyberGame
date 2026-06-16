@@ -39,7 +39,7 @@ CyberGameCore/CONSULTA/*.jpg
 # Tools cache
 tools/__pycache__/
 
-# AI / IDE tool caches (machine-specific)
+# Tool / IDE caches (machine-specific)
 .cache/
 .serena/
 .claude/
@@ -49,3 +49,10 @@ managed_components/
 
 # Stray root-level image files
 piso.png
+
+# Notas internas e vault local — nao versionar
+/CyberGameCore/
+/CLAUDE.md
+/Instrucoes_Iniciais.md
+/docs/ai-rules/
+*.bak_*
