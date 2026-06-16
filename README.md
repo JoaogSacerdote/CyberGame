@@ -131,7 +131,10 @@ de entidades com Y-sort; salas de recepção e empresa; FSM de estados.
 
 ## Autoria
 
-Projeto desenvolvido por João Guilherme e equipe.
+Projeto desenvolvido por:
 
-Responsável: João Guilherme — `joaog.souza2002@gmail.com`
-(GitHub: [@joaogsacerdote](https://github.com/joaogsacerdote))
+| Autor | E-mail | GitHub |
+|---|---|---|
+| **João Gabriel** | `joaog.souza2002@gmail.com` | [@JoaogSacerdote](https://github.com/JoaogSacerdote) |
+| **Klayveer** | `silvaklayveer@gmail.com` | [@Klayveer](https://github.com/Klayveer) |
+| **Caio** | `caiogodoy05@gmail.com` | [@caiocodes](https://github.com/caiocodes) |
