@@ -34,7 +34,7 @@
  * de calibracao.h não controlam mais os tempos de spawn (sequência agora é fixa). */
 #define VERDE_SPAWN_MS              5000u
 #define AMARELA_TOLERANCIA_MS       40000u
-#define RANSOM_END_BEFORE_MS        10000u
+#define RANSOM_END_BEFORE_MS        20000u
 #ifdef CYBERSIM
   #define TAREFA_SPAWN_GAP_MS       (20 * 1000)
 #else

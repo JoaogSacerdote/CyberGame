@@ -27,9 +27,9 @@ static const char *s_verde_senha   = NULL;
  *   3. DDoS           (srv_segundo)     — t_ddos_spawn  [gate para threat.c]
  *   4. AMARELA #2     (srv_segundo)     — t_am2_spawn
  *   5. RANSOMWARE     (srv_primeiro)    — t_ransom_spawn [gate para threat.c]
- *                                         calculado para terminar RANSOM_END_BEFORE_MS
- *                                         antes do fim do expediente, e nunca antes de
- *                                         AMARELA_TOLERANCIA_MS após amarela #1.
+ *                                         calculado para o timer expirar
+ *                                         RANSOM_END_BEFORE_MS antes do fim
+ *                                         do expediente.
  *
  * srv_primeiro e srv_segundo são sorteados no reset (0 ou 1).
  * ─────────────────────────────────────────────────────────────────────────── */
@@ -58,46 +58,30 @@ static void reset_all(void)
     s_srv_primeiro = (uint8_t)(esp_random() & 1u);
     s_srv_segundo  = 1u - s_srv_primeiro;
 
-    /* Calcula os tempos de spawn distribuídos pelo expediente INTEIRO.
-     *
-     * Cada evento fica ~20% do expediente após o anterior (step = E/5), com
-     * piso de TAREFA_SPAWN_GAP_MS — em qualquer calibração de relógio.
-     *
-     * (Antes: o intervalo [verde, alvo_ransom] era dividido em 4. Com
-     * expediente curto o alvo caía perto do verde e TODOS os eventos
-     * spawnavam praticamente juntos, deixando o resto do dia vazio.)
+    /* Distribuição (usuário, 2026-06-11): verde fixa em VERDE_SPAWN_MS (5 s);
+     * ransomware ancorado para TERMINAR (timer expirar) RANSOM_END_BEFORE_MS
+     * (20 s) antes do fim do expediente; os 3 eventos do meio dividem o
+     * intervalo [verde, ransom] em 4 passos IGUAIS.
      *
      * Verde ──step── Am1 ──step── DDoS ──step── Am2 ──step── Ransom
-     */
-    const uint32_t ransom_dur = (VERMELHO_TIMER_MS * 13u) / 10u;
+     *
+     * Fallback: se o expediente for curto demais para a âncora (calibração
+     * de relógio muito rápida), espaça pelo piso TAREFA_SPAWN_GAP_MS e o
+     * ransomware pode atravessar as 18:00 — a vitória no fim continua valendo. */
+    s_t_verde_spawn = VERDE_SPAWN_MS;
 
-    uint32_t step = EXPEDIENTE_DURACAO_MS / 5u;
-    if (step < TAREFA_SPAWN_GAP_MS) step = TAREFA_SPAWN_GAP_MS;
+    uint32_t ransom_spawn = s_t_verde_spawn + 4u * TAREFA_SPAWN_GAP_MS;
+    if (EXPEDIENTE_DURACAO_MS > RANSOM_END_BEFORE_MS + VERMELHO_TIMER_MS) {
+        const uint32_t alvo =
+            EXPEDIENTE_DURACAO_MS - RANSOM_END_BEFORE_MS - VERMELHO_TIMER_MS;
+        if (alvo > ransom_spawn) ransom_spawn = alvo;
+    }
 
-    s_t_verde_spawn  = VERDE_SPAWN_MS;
+    const uint32_t step = (ransom_spawn - s_t_verde_spawn) / 4u;
     s_t_am1_spawn    = s_t_verde_spawn + step;
     s_t_ddos_spawn   = s_t_verde_spawn + 2u * step;
     s_t_am2_spawn    = s_t_verde_spawn + 3u * step;
-    s_t_ransom_spawn = s_t_verde_spawn + 4u * step;
-
-    /* Âncora de fim: se o ransomware couber terminando RANSOM_END_BEFORE_MS
-     * antes das 18:00 sem colar no AMARELA #2, usa esse alvo. Senão mantém
-     * o espaçamento uniforme — o ataque pode atravessar as 18:00 e a
-     * vitória no fim do expediente continua valendo. */
-    if (EXPEDIENTE_DURACAO_MS > RANSOM_END_BEFORE_MS + ransom_dur) {
-        const uint32_t alvo = EXPEDIENTE_DURACAO_MS - RANSOM_END_BEFORE_MS - ransom_dur;
-        if (alvo >= s_t_am2_spawn + TAREFA_SPAWN_GAP_MS) {
-            s_t_ransom_spawn = alvo;
-        }
-    }
-
-    /* Ransomware (mesmo servidor da amarela #1) só vem depois do jogador ter
-     * tido tempo de trocar os HDs. Em expedientes curtos a tolerância é
-     * limitada ao próprio step pra não empurrar o spawn pra fora do dia. */
-    const uint32_t tol = (AMARELA_TOLERANCIA_MS < step) ? AMARELA_TOLERANCIA_MS : step;
-    if (s_t_ransom_spawn < s_t_am1_spawn + tol) {
-        s_t_ransom_spawn = s_t_am1_spawn + tol;
-    }
+    s_t_ransom_spawn = ransom_spawn;
 
     ESP_LOGI(TAG,
         "seq: srv_pri=%u srv_seg=%u | verde=%u am1=%u ddos=%u am2=%u ransom=%u (ms)",

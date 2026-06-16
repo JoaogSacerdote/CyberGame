@@ -62,29 +62,59 @@ static uint32_t   s_chaos_ms    = 0;     /* timer para fase caotica (85%+) */
 static const char *TAG = "ENGINE";
 
 static bool s_nfc_initialized = false;
+static bool s_nfc_scan_on     = false;
+
+/* Fim do cooldown pos-leitura (em ticks). Comparacao por diferenca com sinal
+ * para sobreviver ao wrap do contador de ticks. */
+static TickType_t s_nfc_cooldown_until = 0;
 
 static void nfc_poll_tick(void)
 {
     if (!s_nfc_initialized) return;
 
-    /* Carta vale sempre que ha ataque ativo na EMPRESA — com ou sem a tela
-     * do setor aberta. (Antes exigia a tela aberta: carta encostada com o
-     * jogador andando pelo escritorio era ignorada.) */
+    /* Leitor so fica LIGADO com ataque ativo + tela do setor ATACADO aberta
+     * (decisao 2026-06-11; reverte o relaxamento de 06-10 que mantinha o RF
+     * ligado desde o boot). Mitigar derruba o ataque → janela fecha → o scan
+     * desliga sozinho no tick seguinte. */
     const bool in_empresa =
         (fsm_get_state() == GAME_STATE_GAMEPLAY) &&
         (fsm_get_gameplay_sala() == GAMEPLAY_SALA_EMPRESA);
-    const bool atk_esq = in_empresa && threat_get_active(0, NULL);
-    const bool atk_dir = in_empresa && threat_get_active(1, NULL);
+    const bool win_esq = in_empresa && threat_get_active(0, NULL) &&
+                         screen_web_setor_is_open(WEB_SETOR_ESQUERDA);
+    const bool win_dir = in_empresa && threat_get_active(1, NULL) &&
+                         screen_web_setor_is_open(WEB_SETOR_DIREITA);
+    const bool should_scan = win_esq || win_dir;
 
-    if (!atk_esq && !atk_dir) {
-        /* Sem ataque mitigavel: DRENA a fila. Sem isso, carta encostada fora
-         * de hora ficava enfileirada (depth 4) e ou aplicava sozinha quando
-         * o ataque comecava, ou enchia a fila e descartava leituras novas. */
+    if (should_scan != s_nfc_scan_on) {            /* diff-gate: so na transicao */
+        if (should_scan) {
+            nfc_hal_start_scanning();              /* reseta de-dup: carta ja
+                                                    * encostada vira evento novo */
+            ESP_LOGI(TAG, "NFC: scan LIGADO (ataque + tela do setor aberta)");
+        } else {
+            nfc_hal_stop_scanning();
+            ESP_LOGI(TAG, "NFC: scan DESLIGADO");
+        }
+        s_nfc_scan_on = should_scan;
+    }
+
+    if (!should_scan) {
+        /* Janela fechada: DRENA leituras residuais (carta detectada no
+         * instante do desligamento ainda pode estar na fila). */
         nfc_card_t stale;
         while (nfc_hal_wait_card(&stale, 0)) {
-            ESP_LOGI(TAG, "NFC: carta fora de ataque — ignorada (UID %02X:%02X:%02X:%02X)",
+            ESP_LOGI(TAG, "NFC: carta fora da janela — ignorada (UID %02X:%02X:%02X:%02X)",
                      stale.uid[0], stale.uid[1], stale.uid[2], stale.uid[3]);
         }
+        return;
+    }
+
+    /* Cooldown pos-leitura: uma encostada = um efeito. Carta parada na antena
+     * pode ser relida em sequencia; sem isso, carta errada acumula AGRAVA
+     * (cada leitura corta VERMELHO_AGRAVADO_MULT_PCT do tempo restante) e
+     * destroi o setor sozinha — a janela fecha e parece que o leitor parou. */
+    if ((int32_t)(s_nfc_cooldown_until - xTaskGetTickCount()) > 0) {
+        nfc_card_t skip;
+        while (nfc_hal_wait_card(&skip, 0)) { /* descarta leituras no cooldown */ }
         return;
     }
 
@@ -102,20 +132,18 @@ static void nfc_poll_tick(void)
         return;
     }
     ESP_LOGI(TAG, "NFC: carta reconhecida: %s", carta_nome(carta));
+    s_nfc_cooldown_until = xTaskGetTickCount() + pdMS_TO_TICKS(NFC_LEITURA_COOLDOWN_MS);
 
-    /* UI do setor so e notificada se a tela estiver aberta; o modelo
-     * (threat_mitigate) e aplicado sempre. */
+    /* Janela aberta implica tela do setor aberta: UI e modelo andam juntos. */
     extern void lv_lock(void);
     extern void lv_unlock(void);
     lv_lock();
-    if (atk_esq && screen_web_setor_is_open(WEB_SETOR_ESQUERDA))
-        screen_web_setor_on_carta(WEB_SETOR_ESQUERDA, carta);
-    if (atk_dir && screen_web_setor_is_open(WEB_SETOR_DIREITA))
-        screen_web_setor_on_carta(WEB_SETOR_DIREITA,  carta);
+    if (win_esq) screen_web_setor_on_carta(WEB_SETOR_ESQUERDA, carta);
+    if (win_dir) screen_web_setor_on_carta(WEB_SETOR_DIREITA,  carta);
     lv_unlock();
 
     for (uint8_t srv = 0; srv < THREAT_SERVER_COUNT; srv++) {
-        if (!(srv == 0 ? atk_esq : atk_dir)) continue;
+        if (!(srv == 0 ? win_esq : win_dir)) continue;
         const defesa_resultado_t r = threat_mitigate(srv, carta);
         if (r == DEFESA_CORRETO) {
             s_req_mitig = true;
@@ -380,6 +408,44 @@ static void gameplay_leds_tick(uint32_t dt_ms)
         ws2812_hal_set_pixel(2, LED_SCALE(120), 0,              0);
     }
     ws2812_hal_refresh();
+}
+
+/* === Turbo de tempo (BTN_Y) ==============================================
+ * Y segurado acelera o tempo do jogo em +50% (relogio do expediente e
+ * ataques andam 1.5x). Quando uma TAREFA NOVA aparece (verde/amarela
+ * disponivel ou ataque vermelho), o turbo eh cortado e fica travado ate
+ * soltar e apertar Y de novo. */
+
+/* Bitmask das tarefas atualmente "na mesa" — bit novo = tarefa apareceu. */
+static uint8_t turbo_tarefas_mask(void)
+{
+    uint8_t m = 0;
+    if (gamestate_verde_estado() == TAREFA_DISPONIVEL)   m |= 1u << 0;
+    if (gamestate_amarela_estado(0) == TAREFA_DISPONIVEL) m |= 1u << 1;
+    if (gamestate_amarela_estado(1) == TAREFA_DISPONIVEL) m |= 1u << 2;
+    if (threat_get_active(0, NULL))                       m |= 1u << 3;
+    if (threat_get_active(1, NULL))                       m |= 1u << 4;
+    return m;
+}
+
+static uint32_t turbo_tempo_dt(uint32_t dt_ms)
+{
+    static bool    s_travado   = false;
+    static uint8_t s_mask_prev = 0;
+
+    const bool y = (button_hal_peek(BTN_Y) == BTN_PRESSED);
+    if (!y) s_travado = false;                      /* soltar rearma o turbo */
+
+    const uint8_t mask = turbo_tarefas_mask();
+    if ((mask & (uint8_t)~s_mask_prev) != 0) {      /* tarefa nova corta */
+        s_travado = true;
+    }
+    s_mask_prev = mask;
+
+    if (!y || s_travado || fsm_get_state() != GAME_STATE_GAMEPLAY) {
+        return dt_ms;
+    }
+    return dt_ms + dt_ms / 2;                       /* +50% */
 }
 
 /* Tick do modelo durante GAMEPLAY: relogio + ataques + vitoria/derrota. */
@@ -683,7 +749,7 @@ static void engine_task(void *pv)
             };
             fsm_handle_event(&tick_evt);
             update_debug_combo(dt_ms);
-            gameplay_model_tick(dt_ms);   /* relogio + ataques + vitoria/derrota */
+            gameplay_model_tick(turbo_tempo_dt(dt_ms));   /* relogio + ataques (Y = +50%) */
             gameplay_leds_tick(dt_ms);    /* LEDs de tarefa/perigo */
             nfc_poll_tick();              /* NFC — mitiga DDoS via carta fisica */
             music_tick();                 /* melodia de fundo via buzzer */
@@ -781,10 +847,9 @@ esp_err_t engine_start(void)
         return ESP_OK;
     }
 
-    if (s_nfc_initialized) {
-        nfc_hal_start_scanning();
-        ESP_LOGI(TAG, "NFC scanning iniciado");
-    }
+    /* Scan NFC NAO liga aqui: nfc_poll_tick liga/desliga conforme a janela
+     * (ataque ativo + tela do setor atacado aberta) — ver entrada de
+     * CHANGELOG 2026-06-11. Apos nfc_hal_init o scan ja nasce desligado. */
 
     const BaseType_t rd = xTaskCreate(button_reader_task, "btn_reader",
                                        2560, NULL, 5, NULL);

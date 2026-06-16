@@ -257,14 +257,17 @@ static void empresa_tick(lv_timer_t *t)
 
     room_anim_update_dir(&s_anim, jx, jy);
 
-    /* +50% de velocidade durante ataque vermelho ativo — cria urgencia. */
-    const int speed_pct = fsm_get_attack_active() ? 150 : 100;
+    /* +50% de velocidade durante ataque vermelho ativo — cria urgencia.
+     * BTN_X segurado: +30% (multiplica com o boost de ataque). Arredonda
+     * (+50) para o boost valer tambem nos passos pequenos de 1-2 px. */
+    int speed_pct = fsm_get_attack_active() ? 150 : 100;
+    if (button_hal_peek(BTN_X) == BTN_PRESSED) speed_pct = speed_pct * 130 / 100;
     if (dx != 0) {
-        const int nx = s_px + dx * sx_mag * speed_pct / 100;
+        const int nx = s_px + dx * ((sx_mag * speed_pct + 50) / 100);
         if (!room_collides_at(&s_room_col, &s_player_box, nx, s_py)) s_px = nx;
     }
     if (dy != 0) {
-        const int ny = s_py + dy * sy_mag * speed_pct / 100;
+        const int ny = s_py + dy * ((sy_mag * speed_pct + 50) / 100);
         if (!room_collides_at(&s_room_col, &s_player_box, s_px, ny)) s_py = ny;
     }
 

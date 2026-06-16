@@ -197,6 +197,33 @@ static esp_err_t pn532_set_max_retries(uint8_t mx_passive_activation)
                ? ESP_OK : ESP_FAIL;
 }
 
+/* RFConfiguration item 0x0A (Analog settings 106 kbps type A) — os 11
+ * registradores CIU do front-end de RF. Tudo em default de fabrica EXCETO
+ * CIU_RFCfg: 0x59→0x69 sobe o ganho do RECEPTOR de 38 dB para 43 dB, o
+ * maximo estavel (0x79 = 48 dB amplifica ruido e gera deteccao falsa).
+ * A potencia de TRANSMISSAO ja eh maxima por default (CWGsP=0x3F, CWGsN=0xF
+ * sao o teto dos drivers da antena) — a 3.3 V nao ha mais TX a ganhar. */
+static esp_err_t pn532_set_rf_analog_max_gain(void)
+{
+    const uint8_t params[] = {
+        0x0A,   /* item: analog settings 106 kbps type A */
+        0x69,   /* CIU_RFCfg: RxGain=43 dB (default 0x59 = 38 dB) */
+        0xF4,   /* CIU_GsNOn        (default) */
+        0x3F,   /* CIU_CWGsP        (default, ja maximo) */
+        0x11,   /* CIU_ModGsP       (default) */
+        0x4D,   /* CIU_DemodWhenRfOn  (default) */
+        0x85,   /* CIU_RxThreshold    (default) */
+        0x61,   /* CIU_DemodWhenRfOff (default) */
+        0x6F,   /* CIU_GsNOff       (default) */
+        0x26,   /* CIU_ModWidth     (default) */
+        0x62,   /* CIU_MifNFC       (default) */
+        0x87,   /* CIU_TxBitPhase   (default) */
+    };
+    uint8_t resp[1];
+    return (pn532_command(PN532_CMD_RFCONFIG, params, sizeof(params), resp, sizeof(resp)) >= 0)
+               ? ESP_OK : ESP_FAIL;
+}
+
 /* Retorna 1 se cartao detectado, 0 se nao, <0 em erro. */
 static int pn532_poll_iso14443a(nfc_card_t *card)
 {
@@ -282,6 +309,14 @@ static esp_err_t nfc_chip_bringup(void)
      * default (lento na primeira leitura) — mas o boot nao pode quebrar por isso. */
     if (pn532_set_max_retries(0x05) != ESP_OK) {
         ESP_LOGW(TAG, "Falha ao configurar MxRtyPassiveActivation — primeira leitura sera lenta. Continuando.");
+    }
+
+    /* Best-effort: sem isso o PN532 fica no ganho default (38 dB) — le, so
+     * que com alcance menor. O boot nao pode quebrar por isso. */
+    if (pn532_set_rf_analog_max_gain() != ESP_OK) {
+        ESP_LOGW(TAG, "Falha ao configurar ganho RF maximo — seguindo com ganho default.");
+    } else {
+        ESP_LOGI(TAG, "RF analog: RxGain 43 dB (maximo estavel) configurado");
     }
 
     const BaseType_t ok = xTaskCreate(nfc_task, "nfc_hal",

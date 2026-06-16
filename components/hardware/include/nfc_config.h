@@ -25,7 +25,7 @@ typedef struct {
 } nfc_card_entry_t;
 
 /* Numero total de tags cadastradas (>= CARTA_MAX_COUNT pois ha duplicatas). */
-#define NFC_CARTAS_COUNT  9
+#define NFC_CARTAS_COUNT  12
 
 static const nfc_card_entry_t NFC_CARTAS[NFC_CARTAS_COUNT] = {
     /* --- Isolamento de Rede (contra Propagacao Lateral) --- */
@@ -35,6 +35,8 @@ static const nfc_card_entry_t NFC_CARTAS[NFC_CARTAS_COUNT] = {
       .carta = CARTA_ISOLAMENTO,    .nome = "Isolamento de Rede" },
     { .uid = { 0x04, 0x31, 0x2D, 0x46, 0xBC, 0x2A, 0x81 }, .uid_len = 7,
       .carta = CARTA_ISOLAMENTO,    .nome = "Isolamento de Rede" },
+    { .uid = { 0x81, 0x78, 0x58, 0x3E },                   .uid_len = 4,
+      .carta = CARTA_ISOLAMENTO,    .nome = "Isolamento de Rede" },
 
     /* --- Backup de Emergencia (contra Ransomware) --- */
     { .uid = { 0x04, 0x39, 0x2D, 0x46 },                   .uid_len = 4,
@@ -43,6 +45,8 @@ static const nfc_card_entry_t NFC_CARTAS[NFC_CARTAS_COUNT] = {
       .carta = CARTA_BACKUP,        .nome = "Backup de Emergencia" },
     { .uid = { 0x04, 0x37, 0x2D, 0x46, 0xBC, 0x2A, 0x81 }, .uid_len = 7,
       .carta = CARTA_BACKUP,        .nome = "Backup de Emergencia" },
+    { .uid = { 0x4E, 0x60, 0x6F, 0x36 },                   .uid_len = 4,
+      .carta = CARTA_BACKUP,        .nome = "Backup de Emergencia" },
 
     /* --- Balanceamento de Rede (contra DDoS) --- */
     { .uid = { 0x04, 0x42, 0x2D, 0x46 },                   .uid_len = 4,
@@ -50,5 +54,7 @@ static const nfc_card_entry_t NFC_CARTAS[NFC_CARTAS_COUNT] = {
     { .uid = { 0x04, 0x3A, 0x2D, 0x46, 0xBC, 0x2A, 0x81 }, .uid_len = 7,
       .carta = CARTA_BALANCEAMENTO, .nome = "Balanceamento de Rede" },
     { .uid = { 0x04, 0x2F, 0x2D, 0x46, 0xBC, 0x2A, 0x81 }, .uid_len = 7,
+      .carta = CARTA_BALANCEAMENTO, .nome = "Balanceamento de Rede" },
+    { .uid = { 0x26, 0x4E, 0x59, 0x3E },                   .uid_len = 4,
       .carta = CARTA_BALANCEAMENTO, .nome = "Balanceamento de Rede" },
 };
