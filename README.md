@@ -136,5 +136,5 @@ Projeto desenvolvido por:
 | Autor | E-mail | GitHub |
 |---|---|---|
 | **João Gabriel** | `joaog.souza2002@gmail.com` | [@JoaogSacerdote](https://github.com/JoaogSacerdote) |
-| **Klayveer** | `silvaklayveer@gmail.com` | [@Klayveer](https://github.com/Klayveer) |
-| **Caio** | `caiogodoy05@gmail.com` | [@caiocodes](https://github.com/caiocodes) |
+| **Klayveer Silva** | `silvaklayveer@gmail.com` | [@Klayveer](https://github.com/Klayveer) |
+| **Caio Godoy** | `caiogodoy05@gmail.com` | [@caiocodes](https://github.com/caiocodes) |
